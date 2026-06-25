@@ -1,6 +1,6 @@
 # SETTLEMENT-RULES.md — 정산 규정
 
-> 상태: Draft v0.5 (정산 주기 정정 — 혼합형(주+월) 폐기, 월정산 단일로 통합, [DECISIONS.md](DECISIONS.md) D-029) · 최종 수정일: 2026-06-24 · 단계: 설계(Design)
+> 상태: Draft v0.7 (D-062 — 상용 ERP 수준 Gap Analysis: §4/§10에 세무서식·이의신청 연결 Open Decision 연계 추가, 정산 로직 자체는 변경 없음) · 최종 수정일: 2026-06-25 · 단계: 설계(Design)
 > 전제 문서: [COMPENSATION-RULES.md](COMPENSATION-RULES.md), [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md), [DATABASE.md](DATABASE.md)
 >
 > ⚠️ 본 문서는 실제 자금 지급/세금 처리를 다루므로, 세금 관련 항목 외 수치는 사업팀/세무사 확정이 필요하다.
@@ -27,7 +27,8 @@
 
 - 한국 세법상 사업소득(인적용역 등)에 해당하는 후원수당 지급 시 **사업소득세 3%+지방소득세 0.3% = 합계 3.3%를 원천징수**하는 것이 일반적이다 (확정 — 법령 기준값, 단 회원의 사업자 등록 여부 등에 따라 처리 방식이 달라질 수 있어 세무사 확인 필요).
 - 사업자등록을 한 회원(세금계산서/계산서 발행 대상)과 그렇지 않은 회원(원천징수 대상 개인)의 처리 분기가 필요한지 여부 — 미확정.
-- 연말 소득 신고를 위한 지급조서/소득공제 증빙 발급 의무 — 법적 의무 (확정, [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md) 참조), 시스템 구현 방식은 미확정.
+- 연말 소득 신고를 위한 지급조서/소득공제 증빙 발급 의무 — 법적 의무 (확정, [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md) 참조), 시스템 구현 방식은 미확정. **표준서식(국세청 양식 호환) 및 발급 주기는 [DECISIONS.md](DECISIONS.md) O-152로 정식화(2026-06-25 Gap Analysis).**
+- **(신규, 2026-06-25 Gap Analysis)** 정산/수당 산정 결과 자체에 대한 회원 이의신청이 재계산·보정엔트리 승인 절차로 이어지는 연결 구조 — 미확정 ([DECISIONS.md](DECISIONS.md) O-153).
 
 ## 5. 최소 지급액 (미확정)
 
@@ -63,6 +64,8 @@
 6. 지급 실행 및 `settlement_batches`/`settlement_items` 확정
 7. 지급 내역서/소득 증빙 발급
 
+> **ERP Core Workflow Engine과의 관계(D-046, 2026-06-25)**: 위 5번 "운영자 승인"은 Workflow Engine(범용 승인 엔진, [PRD.md](PRD.md) §5.30)으로 이전하지 않는다 — 정산은 금전적 영향이 가장 큰 절차이므로 전용 구조를 유지한다(사용자 명시적 지시, [PRD.md](PRD.md) §5.30.3). 본 절의 프로세스·승인 권한은 변경되지 않는다.
+
 - **탈퇴(WITHDRAWN/FORCED_WITHDRAWN) 회원 제외(확정, [DECISIONS.md](DECISIONS.md) D-021)**: ②단계의 `commission_records` 집계 자체가 탈퇴 회원을 수령자로 포함하지 않으므로([COMPENSATION-RULES.md](COMPENSATION-RULES.md) §5), 탈퇴 시점 이후에는 신규 `settlement_items`가 생성되지 않는다. **탈퇴 이전에 이미 확정된 `settlement_items`는 수정하지 않고 그대로 유지**한다(과거 정산 이력 보존).
 - **조직 이동의 승인≠적용 분리(확정, [DECISIONS.md](DECISIONS.md) D-022)**: 정산 대상 산정도 계산일 기준 `members.sponsor_id`의 현재값만 사용한다. 조직 이동이 승인되었더라도 적용일(effective_date)에 도달하기 전까지는 정산 계산에 어떤 영향도 주지 않는다 — `commission_records` 자체가 이미 적용 완료된 구조 기준으로만 생성되므로, 정산 단계에서 추가로 확인할 것은 없다.
 
@@ -72,5 +75,6 @@
 - 사업자 회원 vs 개인 회원 세무 처리 분기 여부
 - 최소 지급액 및 이월 정책
 - 지급 수단/PG 연동 시점
+- **(신규, D-062 Gap Analysis)** 지급조서/원천징수영수증 표준서식 및 발급 주기 (O-152), 정산/수당 이의신청의 재계산 연결 구조 (O-153) — 상세는 [GAP-ANALYSIS.md](GAP-ANALYSIS.md)
 
 > ~~정산 주기(월/주/혼합) 최종 확정~~ — **확정됨 (D-016, 혼합: 후원수당=주정산/직급·리더십수당=월정산) → D-029로 정정(2026-06-24): 월정산 단일.** ~~주정산 마감 요일~~ — **N/A로 해소(D-029, 주정산 폐기)**. ~~35% 법적 한도 검증을 주 단위로 가(假)검증하고 월 단위로 최종 확정하는 2단계 검증 방식 도입 여부~~ — **N/A로 해소(D-029, 단일 월정산이므로 2단계 검증 자체가 불필요)**.

@@ -1,6 +1,6 @@
 # DECISIONS.md — 의사결정 기록
 
-> 상태: Living document · 최종 수정일: 2026-06-24 (D-031/D-032 추가 — §5.11 마케팅 플랜 재정의 최종 보고서)
+> 상태: Living document · 최종 수정일: 2026-06-26 (D-046~D-059 추가 — ERP Core Platform 완성 Phase 2, §5.14 종합 보고서; D-060 추가 — 상품 이미지/미디어 관리 보강; D-061 추가 — ERP UX Standard 신설; D-062 추가 — 상용 ERP 수준 Gap Analysis, [GAP-ANALYSIS.md](GAP-ANALYSIS.md) 신설; D-063 추가 — 개발 착수 준비 문서 세트 9종 신설 + Open Decision 정리, §2.1; D-064 추가 — 개발 착수 전 최종 안정화, 표준화 카탈로그 5종 + 개발 Blocker 통합 목록 §2.2; D-065 추가 — Design Freeze 선언, §2.3 Open Decision BLOCKER/POST v1/FUTURE 재분류; D-066 추가 — Development Kickoff 준비, DEVELOPMENT-KICKOFF.md/IMPLEMENTATION-GUIDE.md 신설)
 > 형식: 각 결정은 날짜, 결정 내용, 배경/근거, (해당 시) 대안과 기각 이유를 포함한다. 미확정 사항은 하단 "Open Decisions"에서 모아 추적한다.
 
 ## 1. 확정된 결정 (Decided)
@@ -328,6 +328,287 @@
 - **근거**: 사용자(프로젝트 오너)의 "모든 금액과 비율은 관리자 설정값으로 관리, 하드코딩 금지" 지시. 값 자체(3/3/3/4/5%, 400만원, 25%, 100만원, 200만원, 30일, 5만원)는 이미 D-018/D-024/D-028로 확정되어 있었으므로, 본 결정은 그 값을 담을 **스키마**를 확정하는 것이다.
 - **관련 문서**: [DATABASE.md](DATABASE.md) §3.13, [DECISIONS.md](DECISIONS.md) §5.10.5/§5.10.6(6번 항목 — "다음 설계 라운드 최우선"으로 권고했던 항목)
 
+### D-033. 패키지 엔진을 일반화한다 — "400만원 패키지 1종" 전제 폐기, 무제한 패키지 + 패키지별 정책 구조로 재설계 (사용자 요청 "쇼핑몰 및 패키지 엔진 구조 재설계" 라운드, D-024/D-028/D-032 일부 대체)
+
+- **날짜**: 2026-06-25
+- **결정**: FNS의 최종 목표가 "FNS 전용 시스템"이 아니라 **다른 직접판매(MLM) 회사도 사용할 수 있는 ERP 플랫폼**이므로, 패키지 관련 설계에 남아있던 단일 패키지·고정 금액 전제를 폐기하고 다음과 같이 일반화한다.
+  1. **무제한 패키지**: 패키지는 1종으로 제한되지 않으며, 관리자가 개수 제한 없이 등록할 수 있다(예: 스타터/비즈니스/리더/VIP/프로모션/신제품 런칭/창립기념 패키지 등 — 명칭·구성은 전적으로 관리자 설정).
+  2. **패키지 마스터(`packages`)와 패키지별 정책(`package_commission_policies`)을 분리**한다 — 패키지의 이름/가격/판매기간/활성여부/국가별 판매범위는 카탈로그(`packages`, `products`와 1:1)가, 그 패키지가 후원수당 엔진에서 어떻게 취급되는지(추천수당 비율/금액, 페어보너스 금액/기간, 유니레벨 포함 여부, 유지구매 인정 여부, 자격 부여 여부)는 정책(`package_commission_policies`, 패키지·국가·시점별 버전 관리)이 담당한다([DATABASE.md](DATABASE.md) §3.24.1).
+  3. **패키지를 추가/변경해도 수당 엔진 코드는 수정하지 않는다** — 모든 패키지가 동일한 일반화된 산정 로직(해당 패키지의 정책 값을 읽어 계산)을 공유한다. 점검 결과는 §5.12.6 "MLM 엔진 점검" 참조.
+  4. **FNS 현재 운영 패키지(1종)의 실제 수치(400만원/25%/100만원/200만원/30일)는 변경되지 않는다** — D-024로 확정된 사업 수치이며, 이번 일반화로 이 값들은 "전역 고정값"이 아니라 "그 패키지의 정책 행에 저장된 값"으로 재배치될 뿐이다. D-024의 "확정값" 선언은 **패키지 정책의 예시 기본값(illustrative default)** 으로 재분류한다.
+  5. **자격(§3.5.5, D-028)도 일반화**된다 — "본인이 먼저 400만원 패키지를 구매해야 한다"는 "본인이 먼저 자격 인정 패키지(`grants_qualification=true`)를 구매해야 한다"로 바뀐다. 페어보너스는 **동일 패키지 내에서만** 성립한다(서로 다른 패키지 구매자끼리는 페어를 이루지 않음 — 가격·정책이 다를 수 있기 때문).
+  6. `marketing_plan_versions.plan_definition.package`(D-032에서 정의)는 **본 결정으로 제거**한다 — 국가 단위 단일 객체로는 "어떤 패키지의 정책인지" 표현할 수 없기 때문이다([DATABASE.md](DATABASE.md) §3.13).
+- **근거**: 사용자(프로젝트 오너) 확정 지시 — "현재 설계는 FNS 400만원 패키지 기준으로 작성된 부분이 있다. 하지만 최종 목표는 향후 다른 MLM 회사도 사용할 수 있는 ERP 플랫폼이다." 단일 패키지·하드코딩 구조는 이 목표와 직접 충돌한다.
+- **이미 반영된 문서**: [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §3.5.4/§3.5.5/§4(수당종류 표)/§4.1(§4.1.0~§4.1.3 신설)/§6/§8가 이 결정을 먼저 반영했다(작업 중 별도 세션에서 커밋됨 — 본 항목은 그 변경의 의사결정 기록을 사후 정리한 것이다). [DATABASE.md](DATABASE.md) §2/§3.13/§3.24.1/§8, [PRD.md](PRD.md) §5.1.4/§8도 함께 갱신했다.
+- **신규 Open Decisions**: O-088(패키지 간 자격 인정 범위), O-089(패키지 간 페어 허용 여부) — [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §3.5.5/§4.1.3, [DATABASE.md](DATABASE.md) §3.24.1.
+
+### D-034. 쇼핑몰/회원몰 구조를 재정의한다 — 일반 쇼핑몰=통합 카탈로그, 회원몰=유지구매·정기배송·자동결제 센터 (D-031 정정)
+
+- **날짜**: 2026-06-25
+- **결정**: D-031은 "회원몰"을 회원의 구매 채널로, "일반 쇼핑몰"을 별개의 고객 대상 채널(Phase 2)로 정의했다. 사용자가 실제 운영 기준으로 재검토를 요청해 다음과 같이 정정한다.
+  1. **일반 쇼핑몰은 하나의 통합 카탈로그**다 — 건강기능식품/화장품/생활용품/프로모션 상품/패키지 상품/신규 런칭 상품/한정 판매 상품 등 모든 상품이 이 카탈로그 하나에 존재한다. **패키지는 별도 쇼핑몰이 아니라 일반 쇼핑몰 안의 상품 종류 중 하나다**(D-033의 패키지 엔진과 직접 연결).
+  2. **회원몰은 상품 판매 채널이 아니다** — 유지구매센터·정기배송센터·자동결제센터, 3개 하위 센터로 재정의한다. 회원의 실제 구매는 일반 쇼핑몰(로그인 상태)에서 일어나며, 회원몰은 그 결과(자격 진행률/구독 상태/결제 수단)를 관리하는 대시보드다.
+  3. **MVP 범위 재평가**: 카탈로그·장바구니·주문·결제 엔진은 회원의 유지구매·패키지 구매에 필수이므로 MVP다. 비회원(End Customer)의 접근 허용 여부만 Phase 2 미확정으로 남는다(O-017, 변경 없음).
+  4. **누락 페이지 점검**: 상품목록/상품상세/장바구니/주문서/결제/주문완료/배송조회/반품/교환/환불/FAQ/브랜드소개/회사소개가 기존 설계에 명시적으로 정의되어 있지 않았음을 확인하고 MVP 범위에 추가한다 — 공지사항/1:1문의/이용약관/개인정보처리방침은 기존 Document Center/CS Center로 이미 커버됨([PRD.md](PRD.md) §5.1.3.5).
+- **근거**: 사용자(프로젝트 오너) 확정 지시 — "일반 쇼핑몰에는 모든 상품이 존재해야 한다... 400만원 패키지는 별도 쇼핑몰이 아니다... 회원몰은 상품 판매 중심이 아니다... 유지구매센터×정기배송센터×자동결제센터 개념으로 재정의."
+- **관련 문서**: [PRD.md](PRD.md) §5.1.3(전면 재작성)/§5.1.3.1~§5.1.3.5, §2(Phase 2 목록 갱신), §8(Open Questions 갱신)
+
+### D-035. Multi-Tenant 구조를 준비한다 (구조 설계, 활성화는 보류 — Center/전자서명/Rule Designer와 동일 패턴, D-012)
+
+- **날짜**: 2026-06-25
+- **결정**: 향후 FNS 외 다른 직접판매 회사(예: 회사A/회사B/회사C)가 동일 ERP를 사용할 가능성에 대비해 구조를 점검한다.
+  1. `tenant_id`를 `country_code`와 **독립된 별도 차원**으로 도입한다 — 한 테넌트(회사)가 여러 국가에서 운영할 수 있고, 둘을 하나로 합치지 않는다. `tenants` 마스터 테이블을 신설한다([DATABASE.md](DATABASE.md) §3.31).
+  2. **권장 아키텍처**: 테넌트별 별도 DB/스키마가 아니라 **공유 스키마 + `tenant_id` 컬럼 + Supabase RLS**를 권장한다 — 이미 Supabase(D-002)를 인증/DB로 채택했고 RLS 적용 범위가 O-020으로 추적되고 있어 자연스럽게 합류한다.
+  3. **활성화는 보류한다** — 지금 당장 모든 테이블에 `tenant_id` 마이그레이션을 강제하지 않는다. FNS는 암묵적으로 단일 테넌트로 동작한다. 다만 구현 착수 시점에 회사별로 달라지는 테이블(§3.31 목록)에 `tenant_id`를 함께 만들어 두는 것을 권고한다 — 나중에 추가하는 것보다 비용이 낮기 때문이다.
+  4. 테넌트 온보딩 플로우, 테넌트별 과금 모델, Platform Admin 역할 등 실제 다회사 운영에 필요한 기능은 **이번 라운드에서 설계하지 않는다** — 활성화 결정 이후 별도 라운드.
+- **근거**: 사용자(프로젝트 오너) 요청 — "향후 FNS, 회사A, 회사B, 회사C가 동일 ERP를 사용한다고 가정. 회사별 패키지 구조/수당 구조를 다르게 설정 가능해야 한다." Center/전자서명/Rule Designer(D-012)와 동일하게, 금전적 영향이 큰 구조 변경이므로 메커니즘만 설계하고 활성화 여부는 사업팀에 남긴다.
+- **관련 문서**: [DATABASE.md](DATABASE.md) §3.31(신규), §8(Open Decisions)
+
+### D-036. Lifestyle Program을 쇼핑몰 마케팅·회원 동기부여 기능으로 확장한다 — 쇼핑몰 메인/회원몰 메인 노출, CMS 배너 관리, 전용 상세페이지 신설
+
+- **날짜**: 2026-06-25
+- **결정**: "+알파" 보너스(Lifestyle Bonus, §4.2)를 마이오피스 적립 현황 화면 한정 노출에서, 쇼핑몰 전반의 마케팅·동기부여 콘텐츠로 확장한다.
+  1. **명칭 분리**: 회원/쇼핑몰 화면에 노출될 때는 **"Lifestyle Program"** 으로 표시한다. 관리자/엔진 내부 용어는 "+알파" 보너스를 그대로 유지한다 — "내 조직"/"조직수당"과 동일한 명칭 분리 패턴(D-009).
+  2. **노출 위치 확장**: 마이오피스(§5.1.2, 변경 없음)에 더해 **쇼핑몰 메인**(메인 슬라이드/프로모션/이벤트 배너, 비회원에게도 노출)과 **회원몰 메인**(프로그램 배너 + 포인트 현황/진행률 — 로그인 회원 개인화 데이터)에 노출한다.
+  3. **범용 CMS 배너 시스템 신설**: 배너명/썸네일/PC이미지/모바일이미지/노출위치/노출시작일/노출종료일/링크URL/정렬순서/활성여부를 관리자가 설정한다(`banners`, [DATABASE.md](DATABASE.md) §3.32). Lifestyle Program 전용이 아니라 쇼핑몰 전반의 프로모션/이벤트 배너에도 재사용 가능한 범용 구조로 설계한다 — 패키지 엔진(D-033)과 동일한 일반화 원칙.
+  4. **Lifestyle Program 상세페이지 신설**: 프로그램 소개/이미지 갤러리/포인트 정책/누적 현황/참여 조건/첨부파일/FAQ로 구성한다(`lifestyle_programs`, [DATABASE.md](DATABASE.md) §3.32). 포인트 정책 섹션은 `plan_definition.lifestyle_bonus`(D-032)를 그대로 표시해 하드코딩하지 않으며, 누적 현황 섹션은 회원별 적립 원장(§3.25)을 그대로 조회한다 — 두 섹션 모두 기존 데이터를 새 화면에 노출하는 것이며 새 데이터 소스를 만들지 않는다.
+  5. 적립 원장(`lifestyle_bonus_accumulations`, §3.25)과 산정 규칙(§4.2)은 **변경하지 않는다** — 이번 결정은 노출/마케팅 레이어 추가이며 수당 계산 자체에는 영향이 없다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "Lifestyle Program을 단순 포인트 적립 기능이 아니라 쇼핑몰 마케팅 기능, 회원 동기부여 기능으로 설계한다." 마이오피스 한정 노출로는 비회원 대상 마케팅 효과가 없고, 일반 적립 수치 표시만으로는 회원 동기부여 효과가 제한적이라는 문제의식.
+- **관련 문서**: [PRD.md](PRD.md) §5.1.5(신규)/§5.1.2(교차참조)/§8, [DATABASE.md](DATABASE.md) §3.32(신규)/§2/§8, [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.2(명칭 분리 안내), [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §3(용어 추가)
+
+### D-037. FNS를 ERP 플랫폼으로 재정의한다 — MLM은 13개 모듈 중 하나 (사용자 요청 "ERP 플랫폼 완성도 보강" 라운드, 95%→99% 목표)
+
+- **날짜**: 2026-06-25
+- **결정**: FNS의 정체성을 "MLM 시스템에 ERP 기능이 일부 있는 것"에서 "**ERP 플랫폼이며 MLM은 그 모듈 중 하나**"로 재정의한다. ERP는 쇼핑몰/회원관리/주문관리/결제관리/배송관리/재고관리/CRM/CMS/마케팅/MLM/정산/통계/설정 13개 모듈로 구성된다([PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §1.1).
+  1. 각 모듈은 **논리적 도메인 경계**다 — Railway 5개 물리 서비스(D-010) 구조를 대체하지 않는다.
+  2. **모듈 간 독립성 + API/설정 연결 원칙**을 ERP 전체의 확정 설계 원칙으로 격상한다 — 한 모듈이 다른 모듈의 내부 테이블을 직접 참조하지 않고 식별자와 정책 설정으로만 연결한다(D-033/D-036에서 이미 쓰인 패턴의 일반화).
+  3. 기존 문서의 섹션 번호는 재배치하지 않는다 — 본 결정은 새 색인을 추가하는 것이며, 각 모듈의 상세 스펙은 계속 기존/신규 섹션 위치에 남는다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "ERP 플랫폼은 MLM이 하나의 모듈일 뿐이다." 이미 D-033(패키지 무제한 일반화)·D-035(Multi-Tenant 준비)·D-036(Lifestyle Program 일반화)에서 "FNS 전용이 아닌 범용 플랫폼" 방향으로 누적되어 온 결정들을 하나의 구조적 원칙으로 통합.
+- **관련 문서**: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §1/§1.1(신규)/§2, [ARCHITECTURE.md](ARCHITECTURE.md) §1(모듈-서비스 관계 안내)
+
+### D-038. CMS를 9개 하위 모듈로 대폭 확장한다 — 콘텐츠/공지/FAQ/팝업/배너/페이지/약관/이메일·SMS·Push/다국어 CMS
+
+- **날짜**: 2026-06-25
+- **결정**: 기존 배너 관리(D-036) 단독 구조를 9개 하위 CMS로 재정리하고, 신규 모듈(콘텐츠/공지/FAQ/팝업/페이지/다국어)을 추가한다.
+  1. **콘텐츠/공지/페이지 CMS는 하나의 메커니즘**(`cms_pages`, [DATABASE.md](DATABASE.md) §3.33)을 공유한다 — `page_type`으로 회사소개/CEO인사말/연혁/비전(콘텐츠), 공지사항/이벤트/뉴스(공지), 관리자 자유생성 페이지(`CUSTOM`, 페이지 CMS)를 구분한다. 기존 Document Center의 "공지사항"은 파일 기반 문서가 아니라 리치 콘텐츠이므로 `cms_pages`로 재분류한다.
+  2. **FAQ CMS를 독립 모듈로 분리**한다 — Lifestyle Program 라운드의 O-091("FAQ를 Document Center와 통합할지")을 "둘 다 아닌 제3의 독립 모듈"로 해소한다. FAQ는 일반 공개(GENERAL)와 Marketing Program 종속(MARKETING_PROGRAM) scope를 모두 지원한다.
+  3. **팝업 CMS 신설** — 메인/회원/국가별 3종 노출 위치.
+  4. **배너 CMS 확장** — 카테고리 배너 추가(5종), "Lifestyle Program 배너"를 "Marketing Program 배너"로 일반화(D-039와 연동).
+  5. **약관 CMS/이메일·SMS·Push CMS는 신규 구축하지 않는다** — 기존 Document Center(§3.18)/Notification Center(§3.20)를 ERP 모듈 분류상 CMS 산하로 재배치할 뿐이며, 마케팅 수신동의만 `consent_history.consent_type`에 신규 추가한다.
+  6. **다국어 CMS**: 모든 CMS 콘텐츠에 번역 오버레이 테이블(`cms_translations`)을 적용한다 — 기본 언어는 원본 행, 추가 언어는 오버레이, 폴백은 기본 언어.
+- **근거**: 사용자(프로젝트 오너) 요청 — "ERP에서는 CMS가 훨씬 큰 개념이다." 기존 배너 관리만으로는 ERP 플랫폼의 CMS 요구를 충족하지 못한다는 문제의식.
+- **관련 문서**: [PRD.md](PRD.md) §5.19(신규), [DATABASE.md](DATABASE.md) §3.33(신규)
+
+### D-039. Lifestyle Program을 Marketing Program Engine으로 일반화한다 — 무제한 프로그램 카테고리 + 프로그램 생성 CMS (D-036 일부 대체)
+
+- **날짜**: 2026-06-25
+- **결정**: "Lifestyle Program"(D-036)이 사용 가능한 마케팅 프로그램 중 하나일 뿐임을 확인하고, **Marketing Program Engine**으로 일반화한다.
+  1. 프로그램 종류는 하드코딩된 enum이 아니라 **자유 카테고리 값**(`marketing_programs.category`)으로 관리한다 — Lifestyle/Promotion/Campaign/Event/Seminar/Travel/Golf/Education/VIP/Mission/Coupon 등은 예시일 뿐, 시스템이 강제하는 목록은 없다.
+  2. 기존 "+알파" 보너스(여행/자동차/자기계발)는 `category=Lifestyle`, `links_to_compensation=true`인 3개 프로그램 인스턴스로 재배치된다 — 적립률/누적기간 등 실제 산정 규칙(D-032 `plan_definition.lifestyle_bonus`)은 변경되지 않는다.
+  3. **`links_to_compensation` 플래그로 법적 성격을 구분**한다 — MLM 보상과 연결된 프로그램(35% 한도 고려 대상일 수 있음)과 순수 마케팅/참여 프로그램(보상 무관)을 같은 엔진으로 관리하되 혼동하지 않는다.
+  4. **Marketing Program CMS**(프로그램 생성, [DATABASE.md](DATABASE.md) §3.34)는 프로그램명/코드/카테고리/국가/언어/썸네일/대표이미지/상세이미지/동영상/첨부PDF/소개글/상세설명/참여방법/유의사항/FAQ/노출기간/정렬순서/활성여부를 관리자가 설정한다. FAQ는 §3.33의 FAQ CMS(scope=MARKETING_PROGRAM)로 연결한다.
+  5. `lifestyle_programs`(D-036, [DATABASE.md](DATABASE.md) §3.32)는 폐기하지 않고 보존하되(append-only), 신규 구현은 `marketing_programs`를 따른다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "Lifestyle Program은 하나의 프로그램일 뿐이다. ERP에서는 Marketing Program Engine으로 일반화하는 것이 적합한지 검토한다." 패키지 엔진(D-033)과 동일한 일반화 논리.
+- **관련 문서**: [PRD.md](PRD.md) §5.20(신규), [DATABASE.md](DATABASE.md) §3.34(신규)/§3.32(보존+안내)
+
+### D-040. 쇼핑몰 기능을 보강하고 Marketing Program ↔ 쇼핑몰 연결 흐름을 설계한다
+
+- **날짜**: 2026-06-25
+- **결정**:
+  1. 기존 §5.1.3.5(D-034) 표준 이커머스 페이지 점검에 더해, **마케팅/탐색/구매전환 기능**(메인팝업/메인배너/카테고리배너/이벤트관/기획전/브랜드관/베스트·인기·추천·신상품/타임세일/리뷰/상품문의/최근본상품/위시리스트/쿠폰/검색어순위)을 점검한다 — CMS 연동으로 해결되는 것과 신규 데이터 모델이 필요한 것을 구분한다([PRD.md](PRD.md) §5.21, [DATABASE.md](DATABASE.md) §3.35).
+  2. **연결 흐름 확정**: 쇼핑몰 메인 → 프로그램 배너 → 프로그램 상세 → 관련 상품(추천상품/패키지/정기배송상품) → 장바구니 → 결제 → (정기배송 등록) → 포인트 적립. 관련 상품 연결은 `marketing_program_products`(N:N)로 모델링한다.
+  3. **상품 카탈로그(`products`) 스키마 확장이 다수 기능의 선행조건**임을 확인한다 — 브랜드/카테고리/태그/할인가/판매수량 집계 없이는 베스트/인기/추천/신상품/타임세일/브랜드관을 구현할 수 없다. 본 라운드에서는 이 사실을 기록하고, 실제 스키마 확정은 후속 라운드로 넘긴다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "현재 쇼핑몰 기능을 다시 점검한다... 현재 프로그램과 쇼핑몰 연결이 부족하다."
+- **관련 문서**: [PRD.md](PRD.md) §5.21/§5.22(신규), [DATABASE.md](DATABASE.md) §3.35(신규)
+
+### D-041. 포인트 시스템을 적립 중심에서 전체 생애주기 관리로 확장한다
+
+- **날짜**: 2026-06-25
+- **결정**: 적립(Earn)/차감(Deduct)/사용신청(Use Request)/관리자 승인/사용완료/취소/복원/만료/사용이력의 전체 생애주기를 관리하는 범용 포인트 시스템(`point_accounts`/`point_transactions`/`point_policies`, [DATABASE.md](DATABASE.md) §3.36)을 도입한다.
+  1. 기존 `lifestyle_bonus_accumulations`(§3.25)는 **적립 산정 엔진**으로 유지하고, 누적 기간 종료로 금액이 확정되면 본 포인트 시스템에 `EARN` 이벤트를 생성해 넘긴다 — 산정과 사용 생애주기 관리의 책임을 분리한다.
+  2. **법적 성격 구분 유지**: `point_transactions.counts_toward_compliance_limit` 플래그로 "+알파" 보너스 전환 포인트(MLM 보상, 35% 한도 고려 대상)와 일반 쇼핑몰 구매 적립금(단순 리워드)을 같은 원장에서도 구분한다 — 패키지 정책의 `counts_toward_unilevel_line_revenue`(D-033)와 동일한 일반화 원칙.
+  3. 포인트 적립률/만료기간/사용신청 승인 필요 여부는 `point_policies`(국가·테넌트별 버전관리)로 관리한다 — 하드코딩 금지.
+- **근거**: 사용자(프로젝트 오너) 요청 — "현재는 포인트 적립 중심이다. ERP에서는 전체 라이프사이클을 관리해야 한다."
+- **관련 문서**: [PRD.md](PRD.md) §5.23(신규), [DATABASE.md](DATABASE.md) §3.36(신규)
+
+### D-042. 프로그램을 단순 조회에서 신청 가능한 구조로 확장한다
+
+- **날짜**: 2026-06-25
+- **결정**: 신청(Applied)/승인대기(Pending)/승인(Approved)/반려(Rejected)/참여중(In Progress)/완료(Completed) 상태를 갖는 신청 워크플로우(`marketing_program_applications`, [DATABASE.md](DATABASE.md) §3.34.1)를 도입한다. 프로그램별로 신청이 필요한지(`requires_application`)는 설정값이다 — 모든 프로그램이 신청을 요구하지 않는다. 승인 권한은 관리자에게만 있다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "프로그램을 단순 조회가 아니라 신청 가능한 구조로 확장한다... 관리자가 승인 가능하도록 설계한다."
+- **관련 문서**: [PRD.md](PRD.md) §5.24(신규), [DATABASE.md](DATABASE.md) §3.34.1(신규)
+
+### D-043. 관리자 통계를 프로그램·쇼핑몰·회원·국가·기간 차원으로 강화한다
+
+- **날짜**: 2026-06-25
+- **결정**: 프로그램별(조회수/클릭수/신청수/승인수/완료수/포인트지급/포인트사용/참여율), 쇼핑몰(상품조회수/장바구니전환율/구매전환율), 회원(가입수/활성회원수/유지구매율) 통계를 국가별·기간별로 분해하고 기간 간 비교가 가능하도록 설계한다. 조회수/클릭수의 원시 데이터는 `content_view_events`/`content_click_events`([DATABASE.md](DATABASE.md) §3.35)에 기록한다 — `referral_link_clicks`(D-025)와 동일한 "원시 이벤트+파생 집계" 패턴. 실시간 쿼리 vs 스냅샷 캐시(D-027 `compliance_ratio_snapshots`와 동일 패턴) 중 어느 것을 쓸지는 **미확정**(회원 규모 확정 후 재검토).
+- **근거**: 사용자(프로젝트 오너) 요청 — "관리자 통계 강화... 비교 통계 가능하도록 설계한다."
+- **관련 문서**: [PRD.md](PRD.md) §5.25(신규), [DATABASE.md](DATABASE.md) §3.35(이벤트 테이블)
+
+### D-044. Multi-Tenant 회사별 설정을 구체화한다 — "설정만으로 새 MLM 회사 생성" (D-035 확장)
+
+- **날짜**: 2026-06-25
+- **결정**: D-035가 준비한 `tenant_id`/RLS 구조에 더해, 테넌트(회사)별로 실제 달라지는 설정 항목을 `tenant_settings`([DATABASE.md](DATABASE.md) §3.31.1)로 구체화한다 — 회사명/로고/도메인/컬러/언어/통화/국가/약관/쇼핑몰설정/CMS설정/MLM설정/정산설정. **D-035의 "구조 준비, 활성화는 보류" 원칙은 변경하지 않는다** — 본 결정은 활성화될 경우의 설정 항목을 구체화한 것이며, 지금 다회사 운영을 시작하는 것이 아니다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "회사별 설정을 추가한다... 설정만으로 새로운 MLM 회사를 생성할 수 있도록 설계한다."
+- **관련 문서**: [PRD.md](PRD.md) §5.26(신규), [DATABASE.md](DATABASE.md) §3.31.1(신규)
+
+### D-045. 관리자 설정 일원화를 점검하고 신규 발견된 하드코딩 위험을 해소한다
+
+- **날짜**: 2026-06-25
+- **결정**: "모든 정책은 관리자 설정에서 변경 가능해야 한다"는 원칙([PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §2)에 따라 MLM/쇼핑몰/CMS/Marketing Program/포인트/쿠폰/정기배송/배너/팝업/다국어 9개 영역을 점검했다([PRD.md](PRD.md) §5.27). MLM(`plan_definition`/`package_commission_policies`, D-032/D-033)·법적한도(`compliance_thresholds`, D-027)·CMS·Marketing Program·다국어는 **이미 충족**을 확인했다. **신규로 2건의 하드코딩 위험을 발견**했다 — ① 쇼핑몰 정기배송 결제 재시도 정책(정책 테이블 없음, §3.30에 추가 필요), ② 포인트 적립률/만료기간(`point_policies` 신설로 해소, D-041과 함께 처리). 쿠폰 정책은 구조 자체가 미확정이라 점검 대상에서 보류한다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "모든 정책은 관리자 설정에서 변경 가능해야 한다... 하드코딩 금지." 이는 §12 "최종 점검"의 일부이기도 하다(§5.13 참조).
+- **관련 문서**: [PRD.md](PRD.md) §5.27(신규), [DATABASE.md](DATABASE.md) §3.36(`point_policies`)
+
+### D-046. ERP Core를 최상위 공통 엔진 계층으로 신설한다 (사용자 요청 "ERP Core Platform 완성" 라운드, Phase 1 95%→Phase 2 98%→99% 목표)
+
+- **날짜**: 2026-06-25
+- **결정**: D-037의 ERP 모듈 구조를 **2계층**으로 재구성한다 — ① 모든 업무 모듈이 공통으로 사용하는 **ERP Core**(Authentication/Authorization/Workflow Engine/API Center/Scheduler Center/Notification Center/Audit Center/File Manager/Dashboard Builder/Report Builder/Form Builder/System Settings, 12개 엔진), ② 실제 업무를 다루는 **업무 모듈**(쇼핑몰/MLM/CMS/마케팅/CRM/정산 등 12개, D-037에서 "설정" 모듈은 System Settings로 흡수).
+  1. **의존 방향은 항상 "업무 모듈 → ERP Core"다** — ERP Core 엔진은 업무 모듈의 테이블/의미를 알지 못한다(예: Workflow Engine은 "환불"이 무엇인지 모르고 단계/승인자만 처리).
+  2. **기존 전용 구조는 강제 이전하지 않는다** — 조직 이동(D-020)·회원 생애주기 변경(D-006)·프로그램 신청(D-042)·포인트 사용신청(D-041)·정산 승인(SETTLEMENT-RULES §9)은 이미 "요청→승인" 패턴을 선구현한 사례로 인정하되, 데이터 모델과 법적 제약(조직 이동의 9개 사유코드·3개 역할 제한 등)은 그대로 유지한다. ERP Core는 **신규 워크플로우**부터 적용한다.
+  3. **중복 구현 금지** — Audit Center의 다운로드는 Report Builder를 재사용, CRM Center의 관심상품/회원활동은 기존 `product_wishlists`/`member_activity_logs`를 재사용.
+- **근거**: 사용자(프로젝트 오너) 요청 — "ERP Core는 모든 모듈의 공통 엔진이다... 각 모듈은 ERP Core를 통해 동작한다. 직접 구현을 중복하지 않는다." 기존 MLM/쇼핑몰/정산 로직은 변경하지 않는다는 명시적 제약 하에 진행.
+- **관련 문서**: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §1.1(재구성)
+
+### D-047. Workflow Engine을 도입한다 — 신규 승인 프로세스용 범용 엔진 (기존 전용 승인 구조는 유지)
+
+- **날짜**: 2026-06-25
+- **결정**: 환불/반품/교환/전자결재 등 아직 전용 구조가 없는 승인 수요를 위해 관리자가 직접 워크플로우를 생성할 수 있는 엔진(`workflow_definitions`/`workflow_steps`/`workflow_instances`/`workflow_step_actions`)을 도입한다. 설정 항목: Workflow명/단계/담당자/승인자/자동승인 여부/알림/조건. **기존 5개 전용 승인 구조(조직이동/회원변경/프로그램신청/포인트사용신청/정산승인)는 본 엔진으로 이전하지 않는다** — 법적/구조적 이유로 전용 테이블을 유지해야 하기 때문이다([DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) 신규 원칙).
+- **근거**: 사용자(프로젝트 오너) 요청 — "현재 승인 기능이 각 모듈마다 따로 존재한다. 이를 Workflow Engine으로 일반화한다." 다만 기존 MLM/회원 구조를 변경하지 않는다는 제약이 우선하므로, 일반화는 **신규 수요부터** 적용한다.
+- **관련 문서**: [PRD.md](PRD.md) §5.30, [DATABASE.md](DATABASE.md) §3.37
+
+### D-048. API Center를 도입한다 — 외부 API 연동 일원화
+
+- **날짜**: 2026-06-25
+- **결정**: 공제조합/PG/택배/3PL/SMS/Email/카카오/Firebase Push/OpenAI/ERP연동/Webhook 등 모든 외부 API 연동을 `external_api_connections`(API명/상태/인증키/Endpoint/사용여부)로 등록·관리하고, `external_api_call_logs`로 호출/실패/재시도 이력을 기록한다. **인증키는 평문 저장을 금지**하며 암호화 저장소 참조만 보관한다([DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) 확장). Multi-Tenant 연동을 위해 `tenant_id`로 스코프하며, `tenant_settings`(D-044)의 SMTP/SMS/PG/3PL은 본 테이블을 참조하는 방식으로 일원화한다(O-103 해소).
+- **근거**: 사용자(프로젝트 오너) 요청 — "ERP에서는 모든 외부 API를 하나의 관리센터에서 관리한다." 기존 각 모듈의 외부 연동 **호출 로직**은 변경하지 않는다.
+- **관련 문서**: [PRD.md](PRD.md) §5.31, [DATABASE.md](DATABASE.md) §3.38
+
+### D-049. File Manager를 도입한다 — 통합 파일 관리 (기존 `*_ref` 컬럼은 변경 없음)
+
+- **날짜**: 2026-06-25
+- **결정**: 상품/회원/법인/배너/팝업/Marketing Program/첨부파일/정산자료/원천징수/계약서를 위한 중앙 파일 레지스트리(`files`/`file_versions`/`file_folders`/`file_access_permissions`)를 도입한다 — 폴더/태그/검색/버전/다운로드/미리보기/권한 기능 제공. **기존 `*_ref` 컬럼(`documents.file_ref` 등)은 강제 마이그레이션하지 않는다** — 신규 통합 등록처를 제공할 뿐이며, 마이그레이션은 구현 단계의 선택 사항으로 남긴다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "통합 파일관리 기능을 추가한다."
+- **관련 문서**: [PRD.md](PRD.md) §5.32, [DATABASE.md](DATABASE.md) §3.39
+
+### D-050. Scheduler Center를 도입한다 — 기존 scheduler의 관리 UI (실행 로직은 변경 없음)
+
+- **날짜**: 2026-06-25
+- **결정**: 정산/정기배송/포인트만료/공제조합보고/Email/SMS/Push/Cache/Backup/Report 등 기존 cron Job(실행주기/다음실행/최근실행/성공/실패/재실행/로그)을 관리자가 조회·수동 재실행할 수 있게 한다(`scheduled_job_definitions`/`scheduled_job_run_logs`). **기존 Job의 실행 로직(ARCHITECTURE.md §2.3/§2.4)은 변경하지 않는다** — 가시성·수동 제어만 추가한다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "현재 Scheduler는 존재하지만 관리화면이 없다."
+- **관련 문서**: [PRD.md](PRD.md) §5.33, [DATABASE.md](DATABASE.md) §3.40
+
+### D-051. Notification Center를 ERP Core로 재배치하고 보강한다 (D-038 일부 재배치)
+
+- **날짜**: 2026-06-25
+- **결정**: Notification Center(D-038에서 CMS 산하로 분류)를 **ERP Core 엔진으로 재분류**한다 — 모든 업무 모듈이 알림을 보내야 하므로 CMS 특정 기능이 아니다(템플릿 콘텐츠 작성은 CMS적 성격도 있어 §5.19.6과 이중 참조, 충돌 아님). 예약발송/조건발송/국가별 발송/회원유형별 발송/대상그룹 발송/자동발송/재발송/실패관리/발송로그/템플릿 버전관리를 `notification_send_rules`(신규)와 `notification_templates`/`notification_logs`(§3.20) 컬럼 확장으로 추가한다. **실제 발송 로직(worker)은 변경하지 않는다.**
+- **근거**: 사용자(프로젝트 오너) 요청 — "현재 Notification Center를 확장한다."
+- **관련 문서**: [PRD.md](PRD.md) §5.34, [DATABASE.md](DATABASE.md) §3.41
+
+### D-052. Audit Center를 도입한다 — 기존 `audit_logs`의 관리 UI
+
+- **날짜**: 2026-06-25
+- **결정**: 기존 `audit_logs`(§3.8)에 검색/필터(기간/사용자/모듈/IP/행위/변경내용)·다운로드·감사보고 기능을 제공하는 관리 화면을 추가한다. 다운로드/감사보고는 **Report Builder를 재사용**하며 별도 export 로직을 만들지 않는다. 신규 테이블은 최소화하고, IP 컬럼 존재 여부만 점검해 필요 시 추가한다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "Audit Log는 존재한다. 하지만 관리자가 조회 가능한 Audit Center를 추가한다."
+- **관련 문서**: [PRD.md](PRD.md) §5.35, [DATABASE.md](DATABASE.md) §3.42
+
+### D-053. Dashboard Builder를 도입한다 — 관리자 자유 구성형 대시보드
+
+- **날짜**: 2026-06-25
+- **결정**: 회원/매출/주문/배송/정산/수당/포인트/재고/국가/Marketing Program 등을 데이터 소스로 하는 차트/테이블/KPI 위젯을 관리자가 Drag & Drop으로 배치하는 엔진(`dashboard_definitions`/`dashboard_widgets`)을 도입한다. 기존 §5.18(35% 모니터링)·§5.25(관리자 통계)의 **고정형 대시보드는 대체하지 않는다.**
+- **근거**: 사용자(프로젝트 오너) 요청 — "관리자가 원하는 Dashboard를 직접 만들 수 있도록 한다."
+- **관련 문서**: [PRD.md](PRD.md) §5.36, [DATABASE.md](DATABASE.md) §3.43
+
+### D-054. Report Builder를 도입한다 — 관리자 직접 보고서 생성
+
+- **날짜**: 2026-06-25
+- **결정**: 회원/주문/매출/배송/정산/수당/포인트/재고/CRM/Marketing Program을 조건검색·필터·정렬해 Excel/PDF/CSV로 출력하고, 예약 생성·예약 메일 발송이 가능한 엔진(`report_definitions`/`report_generation_logs`)을 도입한다. Audit Center(D-052)의 다운로드/감사보고, 공제조합 보고센터(§3.16)의 보고서 생성이 본 엔진을 재사용한다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "ERP에서는 관리자가 보고서를 직접 만들 수 있어야 한다."
+- **관련 문서**: [PRD.md](PRD.md) §5.37, [DATABASE.md](DATABASE.md) §3.44
+
+### D-055. Form Builder를 도입한다 — 관리자 직접 신청서 생성 (회원가입 핵심 플로우는 변경 없음)
+
+- **날짜**: 2026-06-25
+- **결정**: 문의/체험단/Marketing Program/교육/이벤트/승인요청 등을 위한 신청서를 Text/Textarea/Select/Checkbox/Radio/File/Image/Date 필드와 Validation으로 관리자가 직접 구성하는 엔진(`form_definitions`/`form_submissions`)을 도입한다. **기존 회원가입 핵심 플로우(회원유형별 본인확인, §5.6.1)는 변경하지 않는다** — Form Builder는 보조 항목·별도 신청서용이다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "관리자가 신청서를 직접 만들 수 있도록 한다."
+- **관련 문서**: [PRD.md](PRD.md) §5.38, [DATABASE.md](DATABASE.md) §3.45
+
+### D-056. System Settings를 도입한다 — 분산 설정 허브 + 보안/운영 정책
+
+- **날짜**: 2026-06-25
+- **결정**: 회사정보/SMTP/SMS/Push/PG/3PL/API는 신규 테이블 없이 API Center(D-048)/Notification Center(D-051)/`tenant_settings`(D-044)의 **진입점만 통합 제공**한다(중복 방지). 로그 정책/백업 정책/2차인증/IP 제한/비밀번호 정책/세션 정책/파일업로드 정책은 `system_security_policies`(신규)로 관리한다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "ERP 전체 설정을 추가한다." 기존에 분산된 설정(D-027/D-032/D-033/D-044/D-045)을 중복 없이 통합.
+- **관련 문서**: [PRD.md](PRD.md) §5.39, [DATABASE.md](DATABASE.md) §3.46
+
+### D-057. CRM Center로 확장한다 — CS Center를 대체하지 않고 보완
+
+- **날짜**: 2026-06-25
+- **결정**: 회원상담/상담예약/전화기록/메모/상담이력/상담상태/Follow-up을 위한 `crm_consultations`/`crm_consultation_reservations`/`crm_member_notes`(신규)를 도입한다. **관심상품/회원활동은 신규 테이블을 만들지 않고** 기존 `product_wishlists`(D-040)/`member_activity_logs`(§3.22)를 재사용한다(D-046 원칙 3). CS Center의 `tickets`(§3.19)는 변경하지 않는다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "Customer Service보다 더 큰 CRM 구조를 설계한다."
+- **관련 문서**: [PRD.md](PRD.md) §5.40, [DATABASE.md](DATABASE.md) §3.47
+
+### D-058. 쇼핑몰 기능을 Phase 2로 보강한다 (D-040 보강, 기존 핵심 흐름은 변경 없음)
+
+- **날짜**: 2026-06-25
+- **결정**: D-040(O-098)에서 식별한 `products` 스키마 확장 필요성을 구체화한다 — 브랜드/제조사(컬럼 추가), 상품옵션/옵션조합, 연관상품/추천상품, 재입고알림, 배송비/무료배송 정책(신규 테이블). 상품문의/리뷰/쿠폰(D-040)은 변경하지 않는다. 프로모션/기획전/이벤트관은 신규 엔티티 없이 Marketing Program(D-039, category=Promotion/Campaign/Event)으로 구현한다. **기존 주문/결제/패키지/정기배송 로직은 변경하지 않는다.**
+- **근거**: 사용자(프로젝트 오너) 요청 — "현재 쇼핑몰 기능을 다시 점검한다." 사용자 명시 제약(쇼핑몰 구조 유지) 준수.
+- **관련 문서**: [PRD.md](PRD.md) §5.41, [DATABASE.md](DATABASE.md) §3.48
+
+### D-059. Multi-Tenant 설정을 Phase 2로 보강한다 (D-044 보강)
+
+- **날짜**: 2026-06-25
+- **결정**: `tenant_settings`(D-044)에 파비콘/Timezone/관리자 이메일(신규 컬럼)을 추가한다. SMTP/SMS/PG/3PL은 D-048의 API Center 연동(`external_api_connections`)을 참조하는 방식으로 통합한다(O-103 해소 — `tenant_settings`가 자격증명을 직접 갖지 않음). 도메인/브랜드컬러/기본언어/통화/국가/Logo는 D-044에 이미 존재해 변경하지 않는다. **D-035/D-044의 "구조 준비, 활성화는 보류" 원칙은 유지한다.**
+- **근거**: 사용자(프로젝트 오너) 요청 — "Tenant별 설정을 확장한다." Multi-Tenant SaaS 구조 유지라는 명시 제약 준수.
+- **관련 문서**: [PRD.md](PRD.md) §5.42, [DATABASE.md](DATABASE.md) §3.49
+
+### D-060. 상품 이미지/미디어 관리를 보강한다 (D-040/D-058 보강, 신규 `product_images` 테이블)
+
+- **날짜**: 2026-06-25
+- **결정**: `products`(§3.3, 현재 "제품명/가격/활성여부"만 정의된 최소 스키마)에 대표 썸네일(`thumbnail_image_ref`)·동영상 URL(`video_url`)·PDF 첨부(`attachment_refs`, `marketing_programs`(D-039) 패턴 재사용)를 컬럼으로 추가한다. 정렬순서·Alt Text·PC/모바일 구분이 필요한 상품목록/상세/제품소개/성분표/사용방법/인증서 이미지는 `marketing_programs.detail_image_refs` 같은 배열 컬럼으로 표현할 수 없으므로, 행 단위의 신규 `product_images` 테이블(`image_type`/`device_type`/`alt_text`/`sort_order`/`is_active`)로 설계한다. 파일 용량/형식 제한은 전용 정책을 신설하지 않고 `system_security_policies.file_upload_policy`(D-056, §3.46)의 적용 범위를 상품 이미지 업로드까지 확장한다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "상품 이미지 관리 보강." 기존 `marketing_programs`/`banners`의 이미지 컬럼 구조는 변경하지 않고, 상품 전용 메타데이터(정렬/Alt Text/기기 구분)가 필요한 부분만 새 테이블로 분리한다.
+- **관련 문서**: [PRD.md](PRD.md) §5.43, [DATABASE.md](DATABASE.md) §3.50
+
+### D-061. ERP UX Standard를 신설한다 — 공통 Confirm/Warning Dialog·Toast·Button·Loading·Bulk Action·Undo 정책을 ERP 전체에 적용
+
+- **날짜**: 2026-06-25
+- **결정**: 관리자/회원/쇼핑몰/CMS/ERP Core 전 화면이 공유하는 공통 UX 표준을 신설한다 — Confirm Dialog(저장/수정/삭제/승인/반려/상태변경/활성화·비활성화/정산승인/포인트승인/상품등록·수정/이미지·파일삭제/업로드/다운로드 등 주요 행동 전 확인), Warning Dialog(삭제/탈퇴/비활성화 등 위험 행동), Success/Warning/Error/Info Toast, Button 6상태(Default/Hover/Disabled/Loading/Success/Error)와 중복 클릭 방지, Unsaved Changes Guard, Bulk Action UX, Undo, Activity Log/Notification Center 연계, 공통 Dialog/Toast 종류, 공통 Component Library(ConfirmDialog/WarningDialog/SuccessToast/ErrorToast/InfoToast/LoadingOverlay/LoadingButton/ActionButton/ConfirmActionButton/BulkActionDialog/UnsavedChangesGuard/ImageUploader/FileUploader/ImagePreview/ProgressBar)를 포함한다. **이 표준은 프론트엔드(web) 행동 전후의 확인/피드백 레이어이며, MLM/정산/쇼핑몰/CMS/Workflow의 기존 로직·승인 권한·순서는 변경하지 않는다.** Undo는 소프트 삭제(`is_active`) 가능한 일반 CRUD에만 적용하고, append-only 원장(`commission_records`/`settlement_items` 등)에는 적용하지 않는다 — 그 정정은 기존 보정(역분개) 엔트리 방식을 그대로 따른다([DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) §1.2).
+- **근거**: 사용자(프로젝트 오너) 요청 — "Confirm Modal만 추가하는 것이 아니라 ERP 전체에서 사용하는 공통 UX(Standard)를 설계한다." 화면마다 다른 UX를 만들지 않는다는 원칙을 명시적으로 확정해 향후 화면별 임의 변형을 방지한다.
+- **관련 문서**: [PRD.md](PRD.md) §5.44, [ARCHITECTURE.md](ARCHITECTURE.md) §2.1.1, [DATABASE.md](DATABASE.md) §3.51, [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) §1.1/§1.2, [TASK-SPEC.md](TASK-SPEC.md) §6
+
+### D-062. 상용 ERP 수준 Gap Analysis를 수행한다 — 신규 기능을 직접 추가하지 않고 점검 결과를 Open Decision으로 등록
+
+- **날짜**: 2026-06-25
+- **결정**: "Multi-Tenant MLM ERP Platform"이라는 목표 대비, 현재 설계(PROJECT-CONTEXT/PRD/ARCHITECTURE/DATABASE/COMPENSATION-RULES/SETTLEMENT-RULES/LEGAL-CHECKLIST/TASK-SPEC/DO-NOT-TOUCH 전체)를 상용 ERP/이커머스 관리자(SAP/Dynamics/NetSuite/Odoo/ERPNext/Salesforce 운영기능/Shopify/Magento/Cafe24/NHN Commerce/Shopline 등)가 일반적으로 제공하는 기능 카테고리 기준으로 5개 영역(① 회원관리/CRM/Multi-Tenant ② 쇼핑몰/상품/주문/배송/재고 ③ CMS/Marketing/Notification/BI ④ ERP Core 운영(Workflow/API Center/Scheduler/File Manager/System Settings/Audit) + 개발 산출물(ERD/API Spec/Wireframe 등) 점검 ⑤ MLM/정산/법무 운영기능 + 성능/확장성 + UX)으로 나눠 점검했다. **이번 라운드는 기능을 직접 설계·추가하지 않는다** — 발견된 49건의 갭은 모두 [DECISIONS.md](DECISIONS.md) Open Decision(O-121~O-169)으로 등록하고, 상세 분석은 신규 문서 [GAP-ANALYSIS.md](GAP-ANALYSIS.md)에 기록한다. 개별 갭의 실제 설계(스키마 추가, 신규 섹션 작성 등)는 이번 라운드처럼 향후 사용자가 우선순위를 정해 별도 라운드로 진행한다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "FNS 전용 시스템이 아니라 다양한 직접판매 기업이 사용할 수 있는 상용 Multi-Tenant MLM ERP Platform 수준의 설계를 완성한다." MLM 보상플랜/정산 로직, Workflow/ERP Core 기존 구조는 변경하지 않는다는 제약을 준수했다.
+- **관련 문서**: [GAP-ANALYSIS.md](GAP-ANALYSIS.md)(신규), PRD.md §8, ARCHITECTURE.md §10, DATABASE.md §7, LEGAL-CHECKLIST.md §6/§13, SETTLEMENT-RULES.md §4/§10
+
+### D-063. 개발 착수 준비 문서 세트(Documentation Phase)를 신설한다 — 기능 설계가 아니라 개발자가 바로 착수할 수 있는 산출물 보강
+
+- **날짜**: 2026-06-25
+- **결정**: GAP-ANALYSIS.md(D-062) §3에서 "전혀 없음/부분적"으로 평가된 개발 산출물 9종을 신규 문서로 작성한다 — [SITEMAP.md](SITEMAP.md)(전체 메뉴 1~3Depth), [ROLE-MATRIX.md](ROLE-MATRIX.md)(역할×액션×모듈 권한 매트릭스), [ERD.md](ERD.md)(DATABASE.md §3 시각화, Mermaid), [API-SPEC.md](API-SPEC.md)(REST 컨벤션+모듈별 엔드포인트), [WIREFRAME.md](WIREFRAME.md)(화면 아키타입), [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md)/[UI-GUIDELINE.md](UI-GUIDELINE.md)(컴포넌트 라이브러리+시각 토큰), [CODING-STANDARD.md](CODING-STANDARD.md), [TEST-PLAN.md](TEST-PLAN.md), [DEPLOYMENT.md](DEPLOYMENT.md). 추가로 [MASTER-INDEX.md](MASTER-INDEX.md)(전체 문서 색인)를 신설하고 README.md를 진입 문서로 개선한다. **모든 신규 문서는 기존 확정 결정(MLM/정산/Workflow/ERP Core/쇼핑몰 핵심 구조, D-001~D-062)을 그대로 인용·시각화할 뿐 변경하지 않는다** — 미확정 항목(예: ORM 선택 O-022, 컴포넌트 라이브러리 O-169)은 "권장안, 확정 아님"으로 명시했다. 이번 라운드에서 발견된 개발준비도 관점의 신규 갭 6건(O-170~O-175)과 Open Decision 정리(해소 1건 O-062, 병합 3건 O-009→O-010/O-113 일부→O-098/O-121→O-028, 전체 우선순위 분류)도 함께 반영한다(§2.1).
+- **근거**: 사용자(프로젝트 오너) 요청 — "기능 설계보다 개발 준비 단계로 전환한다... 개발자가 바로 개발을 시작할 수 있도록 문서 체계를 완성하는 것이 목적이다." 신규 기능 추가가 아니므로 GAP-ANALYSIS.md(D-062)가 식별한 산출물 공백을 채우는 데에만 집중했다.
+- **관련 문서**: 위 9개 신규 문서 + [MASTER-INDEX.md](MASTER-INDEX.md), [GAP-ANALYSIS.md](GAP-ANALYSIS.md) §3, [DECISIONS.md](DECISIONS.md) §2.1
+
+### D-064. 개발 착수 전 최종 안정화(Pre-Development Stabilization) — 표준화 카탈로그 5종 신설, 개발 Blocker 통합, 문서 중복 점검
+
+- **날짜**: 2026-06-26
+- **결정**: "개발자가 바로 코딩을 시작해도 흔들리지 않는 설계"를 목표로 다음을 수행한다. (1) **표준화 카탈로그 5종 신설** — [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md)(BR-001~BR-044, Source Locator), [EVENT-CATALOG.md](EVENT-CATALOG.md)(38개 도메인 이벤트), [ERROR-CODE.md](ERROR-CODE.md)(18개 도메인 prefix, ~58개 예시 코드), [STATE-MACHINE.md](STATE-MACHINE.md)(10개 도메인 상태 다이어그램), [DATA-DICTIONARY.md](DATA-DICTIONARY.md)(핵심 테이블 컬럼 메타데이터) — 모두 **새 정책을 만들지 않고 기존 문서를 색인/재구성**한다. (2) **개발 Blocker를 단일 목록으로 통합**한다([DECISIONS.md](DECISIONS.md) §2.2) — 기존에 GAP-ANALYSIS.md §8/MASTER-INDEX.md §5에 각각 흩어져 있던 "코드 작성 전 필수 결정 항목"을 17건(O-022/O-028/O-042/O-066/O-127/O-128/O-129/O-136/O-137/O-144/O-148/O-153/O-158/O-159/O-164/O-169/O-170)으로 통합하고 3개 Tier(착수 전 필수/모듈별 필수/Multi-Tenant 활성화 시 필수)로 분류했다. (3) **API-SPEC.md/TEST-PLAN.md를 보강**한다 — API-SPEC.md에 버전 deprecation(O-172)·Idempotency(O-054) 연계 명시, TEST-PLAN.md에 ERP Core 의존성 역전 방지·Multi-Tenant 격리 테스트(§2.8/§2.9) 추가. (4) **문서 중복을 점검**한 결과, 사용자가 예시로 든 4개 주제(패키지 자격/worker만 계산/append-only/조직이동)를 포함해 검토했으나 **심각한 중복 산문 재설명은 발견되지 않았다** — 기존 인용들은 이미 짧은 1줄 + 원본 링크 형태였다. DO-NOT-TOUCH.md에 BUSINESS-RULE-CATALOG.md를 가리키는 안내를 1건 추가했다(구조적 해결).
+- **근거**: 사용자(프로젝트 오너) 요청 — "개발자가 바로 코딩을 시작해도 흔들리지 않는 설계를 만드는 것이 목적이다." 신규 기능 추가가 아니며, MLM/정산/쇼핑몰/Workflow/ERP Core/Database/Architecture 구조는 변경하지 않았다.
+- **관련 문서**: 위 5개 신규 카탈로그, [DECISIONS.md](DECISIONS.md) §2.2, [API-SPEC.md](API-SPEC.md), [TEST-PLAN.md](TEST-PLAN.md), [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) §1, [GAP-ANALYSIS.md](GAP-ANALYSIS.md), [MASTER-INDEX.md](MASTER-INDEX.md)
+
+### D-065. Design Freeze를 선언한다 — 설계 단계를 공식 종료하고 이후 변경은 Bug/Change Request/New Feature 3가지 방식으로만 관리한다
+
+- **날짜**: 2026-06-26
+- **결정**: FNS의 설계(Design) 단계를 공식 종료(Freeze)한다. (1) [DESIGN-FREEZE.md](DESIGN-FREEZE.md)(신규)에 Freeze 대상 문서 31종, 변경 금지/허용 항목, Bug·Change Request·New Feature 처리 원칙, 개발 단계 전환 절차를 확정한다. (2) [RELEASE-ROADMAP.md](RELEASE-ROADMAP.md)(신규)에 v1.0/v1.1/v2.0 범위를 현재 설계 문서 기준으로 정의한다. (3) Open Decision 162건(활성)을 **삭제·번호변경 없이** BLOCKER(15)/POST v1(129)/FUTURE(18) 3그룹으로 재분류한다(§2.3). **새로운 정책·Business Rule·Open Decision을 만들지 않았고, MLM/정산/Workflow/ERP Core/Database/쇼핑몰 구조를 변경하지 않았다.** Design Freeze 이후 모든 설계 변경은 Bug(기존 설계와 동작이 다름)/Change Request(기존 설계 자체의 변경)/New Feature(v1.0 범위 밖 신규 기능) 3가지 트랙으로만 처리하며, 설계 문서를 직접 계속 고쳐나가는 방식은 종료한다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "프로젝트는 설계 단계를 공식 종료한다... 개발은 Codex를 중심으로 진행한다." D-046~D-064에 걸쳐 기능 설계·개발 산출물·표준화 카탈로그·Blocker 정리가 충분히 누적되어 Freeze 조건이 충족되었다고 판단.
+- **관련 문서**: [DESIGN-FREEZE.md](DESIGN-FREEZE.md), [RELEASE-ROADMAP.md](RELEASE-ROADMAP.md), [DECISIONS.md](DECISIONS.md) §2.3, [MASTER-INDEX.md](MASTER-INDEX.md), README.md
+
+### D-066. Development Kickoff 준비를 완료한다 — Codex가 바로 개발에 착수할 수 있도록 시작 기준과 문서 읽기 순서를 확정한다
+
+- **날짜**: 2026-06-26
+- **결정**: Design Freeze(D-065) 이후 개발 착수를 위한 마지막 준비를 완료한다. (1) [DEVELOPMENT-KICKOFF.md](DEVELOPMENT-KICKOFF.md)(신규)에 프로젝트 현재 상태, 개발 시작 기준(Design Freeze 버전/Git Tag 권장값/문서 기준/Source of Truth/개발 원칙), Phase 1~5 구현 순서(Repository·Monorepo·Framework·Database·ERP Core → Member·Shop·Order·Inventory·Payment → CMS·CRM·Marketing·Notification·Workflow → MLM·Settlement·Compliance → QA·Beta·Release)를 정의한다. (2) [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md)(신규)에 구현 착수 전 문서 읽기 순서(핵심 16단계 + 역할별 보강)를 정의하고, 이를 "읽는 순서"의 단일 출처로 삼아 [MASTER-INDEX.md](MASTER-INDEX.md) §4의 기존 중복 목록을 대체한다. **새로운 기능·정책·Business Rule·Open Decision을 만들지 않았고, MLM/ERP Core/Database/쇼핑몰 구조를 변경하지 않았다.** 실제 Repository/Monorepo/Next.js/NestJS/package.json/마이그레이션/Supabase/Railway/Redis/BullMQ 생성과 코드 작성은 수행하지 않았다 — 이는 Codex가 담당한다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "Codex가 바로 개발에 착수할 수 있도록 최종 개발 준비 문서를 완성한다... 이번 작업이 끝나면 Claude의 설계 역할은 종료된다." 이후 Claude는 Business Rule/법률 검토/Change Request/문서 관리/Release Note만 담당하고, 실제 구현은 Codex가 담당한다.
+- **관련 문서**: [DEVELOPMENT-KICKOFF.md](DEVELOPMENT-KICKOFF.md), [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md), [MASTER-INDEX.md](MASTER-INDEX.md), README.md
+
 ## 2. Open Decisions (미확정 — 사업팀/법무 확정 필요)
 
 | ID | 항목 | 관련 문서 | 비고 |
@@ -338,8 +619,8 @@
 | O-005 | 클로백(환수) 정책 | COMPENSATION-RULES.md | |
 | ~~O-007~~ | ~~직급 승급조건 4요소의 구체적 임계값, AND/OR 결합 방식, 직급 유지조건~~ | PROMOTION-RULES.md | **N/A로 해소(D-030)** — 직급 체계 자체 폐기 |
 | ~~O-008~~ | ~~강급 시 유예기간 적용 여부~~ | PROMOTION-RULES.md | **N/A로 해소(D-030)** — 직급 체계 자체 폐기 |
-| O-009 | 월정산 cut-off의 정확한 시각/타임존 | SETTLEMENT-RULES.md | 주기 자체는 월정산 단일로 확정됨(D-029, D-016 정정) — 세부 시각만 남음. 주정산 마감 요일 항목은 D-029로 N/A 해소 |
-| O-010 | 정산 대상 기간 cut-off 시각 | SETTLEMENT-RULES.md | |
+| ~~O-009~~ | ~~월정산 cut-off의 정확한 시각/타임존~~ | SETTLEMENT-RULES.md | **O-010으로 병합(2026-06-25 정리)** — 동일 쟁점(정산 마감 시각/타임존)의 중복 항목. 주기 자체는 월정산 단일로 확정됨(D-029, D-016 정정), 주정산 마감 요일 항목은 D-029로 N/A 해소 |
+| O-010 | 정산 대상 기간 cut-off의 정확한 시각 및 타임존 (O-009 병합) | SETTLEMENT-RULES.md | |
 | O-011 | 사업자 회원 vs 개인 회원 세무 처리 분기 | SETTLEMENT-RULES.md | 세무사 확인 필요 |
 | O-012 | 최소 지급액 및 이월 정책 | SETTLEMENT-RULES.md | |
 | O-013 | 지급 수단/PG 연동 시점 | SETTLEMENT-RULES.md | |
@@ -364,7 +645,7 @@
 | O-025 | 모니터링/로깅 도구 선정 | ARCHITECTURE.md | |
 | O-026 | 회원 명의 변경 허용 여부 및 허용 사유(상속/사업양도 등) | PRD.md, LEGAL-CHECKLIST.md | 법률 자문 필요 |
 | O-027 | 강제탈퇴 사유 코드 체계 및 이의제기(소명) 절차 | PRD.md, LEGAL-CHECKLIST.md | |
-| O-028 | 재가입 시 식별자/이력 승계 정책 (`previous_member_id` 연결 여부) | DATABASE.md | |
+| O-028 | 재가입 시 식별자/이력 승계 정책(`previous_member_id` 연결 여부) — **이메일/휴대폰 중복가입 허용 여부 및 충돌 처리(O-121 병합)도 동일 쟁점으로 포함** | DATABASE.md §3.1/§3.9 | 2026-06-25 O-121 병합 |
 | O-029 | 휴면 판정 기준(비활동 기간) 및 수당 자격 영향 | PRD.md | |
 | O-030 | 민감 변경 자동 승인 허용 범위 (전부 수동 vs 일부 자동화) | PRD.md, ARCHITECTURE.md | |
 | O-032 | 계좌 변경 적용 보류기간 정책 (사기 방지) | DATABASE.md, LEGAL-CHECKLIST.md | |
@@ -397,7 +678,7 @@
 | O-059 | **제품 판매수익(25%, 구 "패키지 추천보너스")·페어보너스(Pair당 200만원)의 법적 분류 — 후원수당 vs 제품 판매이익** | COMPENSATION-RULES.md §4.1/§6 | 35% 한도 적용 여부 직결, 법률 자문 최우선 (O-024와 동급). D-024로 수령자가 "구매자의 추천인"으로 바뀌어 후원수당 쪽으로 분류 가능성 높아짐 — 임시 기본값은 한도 산정에 포함. **영향 범위(2026-06-24 재확인)**: 35% 한도 산정 base(§6) ← O-004(초과시 처리방식)가 직접 종속, `commission_records`/`package_sales_profits`/`package_pair_bonuses` 포함·제외 스위치(DATABASE.md §3.24), 가입 전 사전고지 문구(LEGAL-CHECKLIST.md §3), 공제조합 보고 시 매출액 대비 후원수당 비율의 정확성. **시나리오별 계산식 분석은 D-027 "O-059 영향분석" 참조** — 페어 성립률 40%에서 패키지 매출만으로도 35% 도달(시나리오 A 기준). **D-028 추가 시사점**: 명칭·본인구매 자격조건이 "판매이익" 해석에도 무게를 더해, 분류 판단이 더 미묘해짐 |
 | ~~O-060~~ | ~~제품 세트 가격(400만원)/마진율(25%)/페어 기준기간(30일) 확정값 여부~~ | COMPENSATION-RULES.md §4.1 | **해소(D-024)** — 사용자가 최종 정책으로 확정값임을 명시 |
 | O-061 | "+알파" 보너스 활성화 조건, 지급 방식(현금/실물), 소멸·이월 정책 | COMPENSATION-RULES.md §4.2, DATABASE.md §3.25 | |
-| O-062 | PV 추상화 계층이 실제로 필요한지 재검토 (원본 문서는 매출액을 직접 사용) | COMPENSATION-RULES.md §2 | 단순화 후보 |
+| ~~O-062~~ | ~~PV 추상화 계층이 실제로 필요한지 재검토~~ | COMPENSATION-RULES.md §2 | **해소(D-030, 2026-06-25 정리)** — PV 추상화 계층 자체가 폐기되어(`pv_ledger` 삭제, O-084 해소) "재검토 필요"라는 질문이 소멸함 |
 | O-063 | "내 조직"/§5.1.2 화면에서 라인별 도달 깊이·적용 비율 노출 여부 및 화면 통합 방식 | PRD.md §5.1.1/§5.1.2 | |
 | ~~O-072~~ | ~~페어보너스 큐 재정렬 규칙~~ | COMPENSATION-RULES.md §4.1.3 | **해소(D-026)** — 만료된 대기 후보는 재사용·이월·재매칭 금지 |
 | O-073 | 추천 링크 `memberid` 부분이 내부 PK(UUID) 노출인지 별도 난수/슬러그(`referral_code`)인지 | COMPENSATION-RULES.md §3.6.1, DATABASE.md §3.28 | D-025 신규. **2026-06-24 비교분석 추가**: A(PK노출)/B(랜덤코드)/C(닉네임slug) 3안 비교 — **권고: B(랜덤 추천코드)**, 최종 확정은 사업팀 확인 필요 |
@@ -415,12 +696,188 @@
 | O-085 | "제품 판매수익" 명칭 최종 확정 — 한국 MLM 업계 용어(추천수당/판매수당/소개수당/패키지추천수당 등) 비교 결과 | COMPENSATION-RULES.md §4/§4.1 | 2026-06-24 신규, 비교표는 §5.10.6 참조 — 권고: 현재 명칭 유지(1순위), 대안: "패키지 판매수당" |
 | O-086 | 정기배송 자동결제 실패 시 처리(재시도 횟수/간격, 연속 실패 시 자동 해지 여부, 회원 알림 방식) | PRD.md §5.1.3.1, DATABASE.md §3.30 | D-031 신규 |
 | O-087 | 자동결제 PG사 선정 및 `payment_methods.pg_token` 연동(토큰화) 방식, 정기배송 배송 주기 선택 옵션 범위 | DATABASE.md §3.30 | D-031 신규 |
+| O-088 | 패키지 간 자격 인정 범위 — 한 자격 인정 패키지 구매로 얻은 §3.5.5 자격이 다른 모든 자격 인정 패키지 구매자에 대한 보너스 수령에 동일하게 적용되는지, 패키지별로 자격 범위를 좁혀야 하는지 | COMPENSATION-RULES.md §3.5.5, DATABASE.md §3.24.1 | D-033 신규. 현재 가정: 패키지 종류 무관(회원 단위 EXISTS 플래그) |
+| O-089 | 패키지 간 페어 허용 여부 — 서로 다른 패키지 구매자끼리 페어를 이룰 수 있는지(현재 기본값: 동일 패키지 내에서만 페어), 필요 시 "패키지 그룹" 개념 도입 여부 | COMPENSATION-RULES.md §4.1.3, DATABASE.md §3.24.1 | D-033 신규 |
+| O-090 | Multi-Tenant 활성화 시점 및 범위(전체 회사 SaaS화 vs FNS 단독 운영 유지), `tenant_id` 컬럼을 구현 착수 시점에 선제 추가할지 여부 | DATABASE.md §3.31 | D-035 신규 |
+| O-091 | Lifestyle Program FAQ를 Document Center 콘텐츠와 통합할지, `lifestyle_programs`에 별도 `faq_refs`를 신설할지 | PRD.md §5.1.5.3, DATABASE.md §3.32 | D-036 신규 |
+| O-092 | `lifestyle_programs.bonus_type`(여행/자동차/자기계발 고정 3종)을 패키지(D-033)처럼 무제한 커스텀 프로그램으로 일반화할지 | DATABASE.md §3.32 | D-036 신규. 권고: 원본 문서 기준 고정 3종이므로 현재는 보류 |
+| O-093 | 배너 클릭 통계 추적 필요 여부(추천 링크 클릭 추적, D-025와 동일 패턴 적용 여부) | PRD.md §5.1.5.2, DATABASE.md §3.32 | D-036 신규 |
+| O-094 | 노출 위치(placement)별 동시 노출 가능 배너 수, 슬라이드 자동전환 정책, 노출기간 경계의 정확한 타임존 처리 | PRD.md §5.1.5.2, DATABASE.md §3.32 | D-036 신규 |
+| O-095 | 페이지 CMS(`cms_pages` CUSTOM) URL 라우팅 방식, 콘텐츠 에디터(WYSIWYG/마크다운) 선정, `cms_translations` 폴백 캐싱 전략 | PRD.md §5.19.1, DATABASE.md §3.33 | D-038 신규 |
+| O-096 | 팝업 노출빈도(매방문/하루1회/평생1회) 옵션 범위 및 저장 방식(쿠키 vs 회원데이터) | PRD.md §5.19.3, DATABASE.md §3.33 | D-038 신규 |
+| O-097 | Marketing Program 카테고리를 사전정의 목록으로 제한할지 자유 텍스트로 둘지, `links_to_compensation=true` 카테고리를 원본 3종 이상으로 확장 허용할지 | PRD.md §5.20.1, DATABASE.md §3.34 | D-039 신규 |
+| O-098 | 제품 카탈로그(`products`) 스키마 확장 범위(브랜드/카테고리/태그/할인가/판매수량 집계) — 베스트·인기·추천·신상품·타임세일·브랜드관 구현의 선행조건. **브랜드/제조사를 컬럼 vs 별도 마스터 테이블로 둘지(O-113 병합)도 이 범위에 포함** | PRD.md §5.21, DATABASE.md §3.35 | D-040 신규, 2026-06-25 O-113 일부 병합 |
+| O-099 | 리뷰/상품문의/최근본상품/위시리스트의 비회원 처리(서버 vs 클라이언트 저장), 쿠폰을 독립 엔티티로 둘지 Marketing Program 카테고리로 흡수할지 | PRD.md §5.21, DATABASE.md §3.35 | D-040 신규 |
+| O-100 | 포인트 사용신청 승인이 모든 `source_type`에 공통 필요한지 일부 자동승인 허용할지, `point_transactions.amount` 부호 표현 방식 | PRD.md §5.23, DATABASE.md §3.36 | D-041 신규 |
+| O-101 | 프로그램 신청 정원(capacity) 관리 필요 여부, 신청 마감일과 노출종료일의 관계 | PRD.md §5.24, DATABASE.md §3.34.1 | D-042 신규 |
+| O-102 | 통계 집계 방식(실시간 쿼리 vs 스냅샷 캐시) 전환 시점, 관리자 대시보드 차트 구성 | PRD.md §5.25, DATABASE.md §3.35 | D-043 신규. 회원/거래 규모 확정 후 재검토 |
+| O-103 | `tenant_settings`의 `shop_config_ref`/`cms_config_ref`/`mlm_config_ref`/`settlement_config_ref`가 기존 정책 테이블의 `tenant_id` 컬럼과 중복되는지 | PRD.md §5.26, DATABASE.md §3.31.1 | D-044 신규, 활성화 설계 시 재검토 |
+| O-104 | 쇼핑몰 정기배송 결제 재시도 정책 테이블 설계(O-086 연장), 쿠폰 정책 구조 자체의 확정(O-099와 연계) | PRD.md §5.27, DATABASE.md §3.30/§3.35 | D-045 신규 |
+| O-105 | 기존 5개 전용 승인 구조(조직이동/회원변경/프로그램신청/포인트사용/정산승인)를 Workflow Engine으로 통합할지, `workflow_steps.auto_approval_condition`의 표현 문법 | PRD.md §5.30.3, DATABASE.md §3.37 | D-047 신규 |
+| O-106 | `external_api_connections.auth_key_ref` 암호화 저장소 선정(Vault vs KMS), `category` 사전정의 목록 제한 여부 | PRD.md §5.31, DATABASE.md §3.38 | D-048 신규 |
+| O-107 | File Manager로의 기존 `*_ref` 컬럼 마이그레이션 범위/시점 | PRD.md §5.32, DATABASE.md §3.39 | D-049 신규 |
+| O-108 | Scheduler Center에서 cron 표현식 자체를 관리자가 수정 가능하게 할지 | PRD.md §5.33, DATABASE.md §3.40 | D-050 신규 |
+| O-109 | `notification_send_rules`의 조건발송/대상그룹 표현 문법(고정 세그먼트 vs 동적 쿼리) | PRD.md §5.34, DATABASE.md §3.41 | D-051 신규 |
+| O-110 | `audit_logs`에 IP 주소 컬럼이 이미 존재하는지 확인, 없으면 추가 | PRD.md §5.35, DATABASE.md §3.42 | D-052 신규 |
+| O-111 | Dashboard Builder 위젯이 소비할 업무 모듈별 집계 API 계약 정의 | PRD.md §5.36, DATABASE.md §3.43 | D-053 신규 |
+| O-112 | CRM Center를 CS Center(§3.19)와 하나의 화면으로 통합할지 | PRD.md §5.40, DATABASE.md §3.47 | D-057 신규 |
+| O-113 | 회원할인 기준(회원유형 vs 그룹지정) — **브랜드/제조사 컬럼vs테이블 여부는 O-098로 병합(2026-06-25 정리)** | PRD.md §5.41, DATABASE.md §3.48 | D-058 신규 |
+| O-114 | `tenant_settings` → `external_api_connections` 참조의 정확한 FK 구조 및 활성화 시점 | PRD.md §5.42, DATABASE.md §3.49 | D-059 신규 |
+| O-115 | 상품 동영상의 자체 업로드(파일) 지원 여부 — URL 입력만 지원할지, `marketing_programs.video_ref`처럼 자체 업로드도 지원할지, 외부 URL 허용 도메인 화이트리스트 필요 여부 | PRD.md §5.43, DATABASE.md §3.50 | D-060 신규 |
+| O-116 | 상품 이미지/PDF 종류별(인증서/성분표 등) 업로드 개수 제한, `system_security_policies.file_upload_policy`(D-056) 적용 범위를 상품 이미지까지 확장하는 것에 대한 확인 및 이미지 종류별 별도 용량·형식 기준 필요 여부 | PRD.md §5.43, DATABASE.md §3.50, §3.46 | D-060 신규 |
+| O-117 | Undo(되돌리기) 복구 가능 시간(윈도우) 및 소프트 삭제→영구 삭제 전환 시점 | PRD.md §5.44.7, DATABASE.md §3.51 | D-061 신규 |
+| O-118 | Bulk Action 결과 추적용 별도 요약 테이블(`bulk_action_logs`) 신설 여부, 대규모 일괄작업의 동기/비동기(Job) 처리 전환 임계값 | PRD.md §5.44.6, ARCHITECTURE.md §2.1.1, DATABASE.md §3.51 | D-061 신규 |
+| O-119 | 상품 이미지 순서 변경 시 자동저장 vs 저장확인(Confirm) 중 어느 방식을 기본값으로 할지 | PRD.md §5.44.10 | D-061 신규 |
+| O-120 | Activity Log 외에 Notification Center까지 연동해야 하는 작업의 구체적 기준(전체 작업 vs 일부 중요 작업만) | PRD.md §5.44.8 | D-061 신규 |
+| ~~O-121~~ | ~~회원가입 시 이메일/휴대폰 중복 허용 여부 및 탈퇴 후 재가입 시 식별정보 충돌 처리 정책~~ | DATABASE.md §3.1/§3.9 | **O-028로 병합(2026-06-25 정리)** — 재가입 식별자 정책과 동일 쟁점 |
+| O-122 | 직급(Rank) 폐기(D-030) 이후 회원 세그먼트/태그 분류체계 신설 여부, 신설 시 알림 대상그룹(O-109)·회원할인 그룹(§5.41)과 테이블 공유 여부 | PRD.md §5.34/§5.40/§5.41 | D-062 신규(Gap Analysis) |
+| O-123 | 회원 개인정보 열람·이동·삭제(self-service) 요청을 `member_change_requests`의 전용 change_type으로 처리할지 여부 | LEGAL-CHECKLIST.md §7, DATABASE.md §3.9 | D-062 신규(Gap Analysis) |
+| O-124 | 관리자 콘솔 SSO(SAML/OIDC) 지원 여부 | PRD.md §5.39, DATABASE.md §3.46 | D-062 신규(Gap Analysis) |
+| O-125 | 관리자 권한의 임시 위임(대리 승인) 메커니즘 도입 여부 | PRD.md §5.6.4 | D-062 신규(Gap Analysis) |
+| O-126 | 회원/상품 마스터데이터 대량 Import/Export 기능 도입 여부 | PRD.md §5.28/§5.32 | D-062 신규(Gap Analysis) |
+| O-127 | 주문 생성 시 재고 예약(hold)·결제완료 시 확정 차감·실패 시 자동 해제 절차 도입 여부 및 창고 우선순위 규칙 | PRD.md §5.5, DATABASE.md §3.10 | D-062 신규(Gap Analysis) |
+| O-128 | 상품 카테고리를 트리(다단계 분류) 구조로 둘지 단일 레벨로 둘지, 다중 카테고리 소속 허용 여부 | PRD.md §5.1.3.1/§5.21, DATABASE.md §3.3 | D-062 신규(Gap Analysis), O-098 세분화 |
+| O-129 | 반품/교환을 별도 상태머신으로 분리할지, 각 단계의 정확한 상태값(접수→검수→환불 등) 확정 | PRD.md §5.5/§5.1.3.5, DATABASE.md §3.10 | D-062 신규(Gap Analysis) |
+| O-130 | 재고 0 상품의 백오더(선주문) 허용 여부 및 허용 시 배송예정일 안내 방식 | PRD.md §5.21, DATABASE.md §3.48 | D-062 신규(Gap Analysis) |
+| O-131 | 보상플랜과 무관한 일반 번들/세트 상품을 패키지 엔진과 별도로 모델링할지 여부 | PRD.md §5.1.4, DATABASE.md §3.24.1 | D-062 신규(Gap Analysis) |
+| O-132 | 쿠폰과 별개로 장바구니 조건 기반 자동 할인 규칙(수량/금액/카테고리 조합) 도입 여부 | PRD.md §5.21, DATABASE.md §3.35 | D-062 신규(Gap Analysis), O-099 연계 |
+| O-133 | 한 주문이 여러 배송 건(송장)으로 분할되는 구조(주문:배송=1:N)를 명시적으로 설계할지 | PRD.md §5.5, DATABASE.md §3.10 | D-062 신규(Gap Analysis) |
+| O-134 | SKU별 안전재고 임계치 설정 및 미달 시 관리자 알림 기능 도입 여부 | DATABASE.md §3.10 | D-062 신규(Gap Analysis) |
+| O-135 | 주문 전체가 아닌 개별 품목(order_item) 단위 부분 취소/부분 환불 허용 여부 | DATABASE.md §3.3 | D-062 신규(Gap Analysis) |
+| O-136 | `cms_pages`/`marketing_programs`에 SEO 메타필드(메타타이틀/디스크립션/OG태그) 추가 여부 및 다국어 번역 대상 포함 여부 | PRD.md §5.19.1/§5.20.2, DATABASE.md §3.33/§3.34 | D-062 신규(Gap Analysis) |
+| O-137 | `cms_pages`에 콘텐츠 상태(DRAFT/IN_REVIEW/SCHEDULED/PUBLISHED) 컬럼 추가 여부 및 검토 단계를 Workflow Engine(D-047)에 위임할지 | PRD.md §5.19.1/§5.30, DATABASE.md §3.33/§3.37 | D-062 신규(Gap Analysis) |
+| O-138 | 배너/팝업에 A/B 테스트(트래픽 분할 노출·성과비교) 기능 도입 여부 | PRD.md §5.19.3/§5.19.4, DATABASE.md §3.32/§3.33 | D-062 신규(Gap Analysis) |
+| O-139 | Notification Center에 다단계 드립 캠페인(시퀀스) 구조 도입 여부 | PRD.md §5.34, DATABASE.md §3.41 | D-062 신규(Gap Analysis), O-109 연계 |
+| O-140 | `cms_translations`에 번역상태(미번역/번역중/검토중/발행됨) 컬럼 추가 여부 | PRD.md §5.19.7, DATABASE.md §3.33 | D-062 신규(Gap Analysis) |
+| O-141 | 범용 Form Builder 제출데이터를 CRM/Notification으로 연계할지, 연계 메커니즘(Webhook vs Workflow Engine 트리거) | PRD.md §5.38, DATABASE.md §3.45/§3.47 | D-062 신규(Gap Analysis) |
+| O-142 | Dashboard Builder와 Report Builder가 동일한 데이터소스 카탈로그를 공유할지 | PRD.md §5.36/§5.37, DATABASE.md §3.43/§3.44 | D-062 신규(Gap Analysis), O-111 연계 |
+| O-143 | 팝업 CMS에도 배너 동시노출수 제한(O-094)과 동일한 정책을 적용할지 | PRD.md §5.19.3 | D-062 신규(Gap Analysis) |
+| O-144 | Supabase 자동백업/PITR 외에 RTO/RPO 목표값과 리전 장애 대응 DR 절차를 정의할지 | ARCHITECTURE.md §2.6/§10 | D-062 신규(Gap Analysis), O-037 연계 |
+| O-145 | API Center가 아웃바운드 Webhook 구독/발송(이벤트 콜백)도 다룰지, 다룬다면 데이터 모델 분리 방식 | PRD.md §5.31, DATABASE.md §3.38 | D-062 신규(Gap Analysis) |
+| O-146 | API Center에 외부연동별 호출 쿼터/Rate Limit 추적·경고 기능 추가 여부 | PRD.md §5.31/§5.39 | D-062 신규(Gap Analysis) |
+| O-147 | Workflow Engine 각 단계에 처리기한(SLA)·기한초과 에스컬레이션(대체 승인자) 기능 추가 여부 | PRD.md §5.30, DATABASE.md §3.37 | D-062 신규(Gap Analysis) |
+| O-148 | Railway 환경(dev/staging/prod) 분리 개수·명명 및 Supabase 프로젝트 분리 여부 | ARCHITECTURE.md §10 | D-062 신규(Gap Analysis) — 기존 ARCHITECTURE.md §10 비공식 항목을 정식 등록 |
+| O-149 | `audit_logs` 변경 전/후 JSON의 PII 마스킹/암호화 여부 및 `log_retention_days` 만료 후 삭제 vs 아카이브 | DATABASE.md §3.8/§3.42 | D-062 신규(Gap Analysis) |
+| O-150 | Scheduler Center 화면에 동시실행/분산락 상태 가시화 기능 추가 여부 | PRD.md §5.33, ARCHITECTURE.md §9.1 | D-062 신규(Gap Analysis) |
+| O-151 | 회원용 수당 산정 내역서(PDF/Excel) 다운로드 기능 도입 여부 | PRD.md §5.1.1/§5.37 | D-062 신규(Gap Analysis) |
+| O-152 | 지급조서/원천징수영수증의 표준서식(국세청 양식 호환) 및 발급 주기(수시/연1회) 확정 | SETTLEMENT-RULES.md §4 | D-062 신규(Gap Analysis) |
+| O-153 | 정산/수당 산정 결과에 대한 이의신청이 재계산·보정엔트리 승인 절차로 이어지는 연결 구조 정의 | PRD.md §5.11, DATABASE.md §3.19 | D-062 신규(Gap Analysis) |
+| O-154 | 전자상거래법상 사업자정보·거래조건 표시 의무 체크리스트 보강(고객몰 운영 시) | LEGAL-CHECKLIST.md §6 | D-062 신규(Gap Analysis) |
+| O-155 | 선결제 거래의 결제대금예치(에스크로)·구매안전서비스 가입 의무 검토(고객몰 운영 시) | LEGAL-CHECKLIST.md §6 | D-062 신규(Gap Analysis) |
+| O-156 | 신규/변경 패키지 가입 전 고지자료 자동 갱신 절차 | COMPENSATION-RULES.md §4.1, LEGAL-CHECKLIST.md §3 | D-062 신규(Gap Analysis) |
+| O-157 | 공제조합 제출완료 보고서의 정정·재제출 절차 정의 | PRD.md §5.7 | D-062 신규(Gap Analysis) |
+| O-158 | 대용량 상품 이미지/동영상의 CDN 배포·리사이징/트랜스코딩 전략 확정 | ARCHITECTURE.md §9, DATABASE.md §3.50 | D-062 신규(Gap Analysis) |
+| O-159 | Multi-Tenant 활성화 시 테넌트별 Job 격리·리소스 쿼터(노이즈 네이버 방지) 정책 | ARCHITECTURE.md §9.2, DATABASE.md §3.31 | D-062 신규(Gap Analysis), O-090 연계 |
+| O-160 | 로그 테이블의 장기보존·콜드스토리지 아카이빙 정책(파티셔닝 O-055와 별개) | DATABASE.md §7 | D-062 신규(Gap Analysis) |
+| O-161 | Redis 장애 시 BullMQ Job 손실 감지 및 Dead Letter Queue 재처리 정책 | ARCHITECTURE.md §2.5/§9 | D-062 신규(Gap Analysis) |
+| O-162 | 다국어(TH/JP 등) 전문검색을 위한 언어별 형태소분석 인덱싱 전략 | ARCHITECTURE.md §8/§9 | D-062 신규(Gap Analysis) |
+| O-163 | closure table(`member_ancestors`) 갱신 시 대규모 조직이동의 쓰기비용 처리방식(배치 vs 동기) | DATABASE.md §7 | D-062 신규(Gap Analysis) |
+| O-164 | 대량 리스트 화면의 페이지네이션 방식(offset vs cursor) 및 그리드 가상화 적용 기준 | PRD.md §5.44 | D-062 신규(Gap Analysis) |
+| O-165 | ERP 전체 공통 검색/필터 UX 패턴(고급검색·필터 프리셋·다중조건 조합) 표준화 | PRD.md §5.44 | D-062 신규(Gap Analysis) |
+| O-166 | 관리자 테이블 컬럼 커스터마이즈(표시/순서/고정) 공통 컴포넌트 도입 여부 | PRD.md §5.44 | D-062 신규(Gap Analysis) |
+| O-167 | ERP UX Standard의 WCAG 접근성 준수 수준 및 키보드/ARIA 기준 | PRD.md §5.44 | D-062 신규(Gap Analysis) |
+| O-168 | 다중 파일 동시 업로드 시 개별 파일별 진행률/실패 표시 패턴 | PRD.md §5.44.11 | D-062 신규(Gap Analysis) |
+| O-169 | Design System을 자체 구축할지 기존 컴포넌트 라이브러리(예: shadcn/ui 등)를 채택할지 | PRD.md §5.44 | D-062 신규(Gap Analysis) |
+| O-170 | Multi-Tenant 활성화 시 ① 신규 테넌트 온보딩 초기 데이터 셋업 절차 ② 테넌트별 사용량 모니터링 대시보드 ③ 테넌트 데이터 격리 자동 검증(테스트) 체계를 별도로 설계할지 | DECISIONS.md D-035 §4, DATABASE.md §3.31 | D-063 신규(개발준비도 점검) |
+| O-171 | 역할 템플릿 복제 기능 및 역할 권한 변경 전용 이력 조회 화면(Audit Center 재사용 여부 포함) 도입 여부 | DATABASE.md §3.15, PRD.md §5.6.4/§5.35 | D-063 신규(개발준비도 점검) |
+| O-172 | REST API 버전 관리 방식(URL/헤더) 및 deprecation 공지 절차(사전고지 기간, 구버전 sunset 정책) 확정 필요 | ARCHITECTURE.md §3 | D-063 신규(개발준비도 점검) |
+| O-173 | 서비스 상태 페이지(공개 또는 내부) 및 장애 공지(Incident Communication) 메커니즘 도입 여부 | ARCHITECTURE.md §6 | D-063 신규(개발준비도 점검) |
+| O-174 | CMS 다국어 운영에 용어집(Glossary)/번역 메모리 관리 기능을 도입할지 | DATABASE.md §3.33, PRD.md §5.19.7 | D-063 신규(개발준비도 점검) |
+| O-175 | Report Builder(§5.37) 예약 생성 기능을 활용해 경영진/Compliance Admin 대상 정기 컴플라이언스 요약 리포트를 표준 산출물로 별도 정의할지 | PRD.md §5.7/§5.37, ARCHITECTURE.md §8.1 | D-063 신규(개발준비도 점검) |
+
+### 2.1 Open Decision 우선순위 분류 및 정리 (2026-06-25 정리, D-063)
+
+Open Decision이 O-169(이후 본 라운드에서 O-175까지 추가)로 늘어나면서, 표 자체에 우선순위 컬럼을 추가하는 대신(165개+ 행을 한 번에 재작성하면 기존 행 누락·오기 위험이 크므로, 표 본문은 그대로 보존하고) **별도 분류 섹션**으로 우선순위를 부여한다. 기준 — **High**: 개발착수를 막거나 법적/금전적 리스크가 큼, **Medium**: 특정 모듈의 설계 depth에 영향을 주지만 당장 블로킹은 아님, **Low**: 운영 편의/후순위 가능. 정리 과정에서 발견한 해소/병합 항목은 위 §2 표에 직접 취소선으로 반영했다(O-062 해소, O-009→O-010/O-113 일부→O-098/O-121→O-028 병합). 전수 산술 일치 검증(번호 공백 포함)은 수행하지 않았다 — 분류 목적의 실용적 정리다.
+
+**High (37건)** — 법적/금전적 리스크 또는 데이터 무결성·개발착수 블로커:
+O-003, O-004, O-005, O-010, O-011, O-014, O-015, O-016, O-023, O-026, O-027, **O-028**(재가입+중복가입 식별 정합성, O-121 병합 — 모든 후속 모듈이 회원 마스터데이터에 의존하므로 상향), O-032, O-034, O-039, O-043, O-044, O-045, O-059, O-064, O-076, O-077, O-078, O-079, O-081, O-082, O-123, O-127, O-129, O-135, O-152, O-153, O-154, O-155, O-156, O-157, O-170
+
+**Medium (111건)** — 모듈 설계 depth, 블로킹 아님:
+O-002, O-012, O-013, O-017, O-018, O-019, O-020, O-021, O-022, O-025, O-029, O-030, O-033, O-035, O-036, O-037, O-038, O-040, O-041, O-042, O-046, O-047, O-048, O-049, O-050, O-051, O-052, O-054, O-055, O-056, O-057, O-058, O-061, O-063, O-065, O-066, O-067, O-068, O-069, O-070, O-071, O-073, O-074, O-075, O-080, O-085, O-086, O-087, O-088, O-089, O-090, O-091, O-092, O-093, O-094, O-095, O-096, O-097, O-098(O-113 브랜드/제조사 부분 병합 포함), O-099, O-100, O-101, O-102, O-103, O-104, O-105, O-106, O-107, O-108, O-109, O-110, O-111, O-112, O-114, O-115, O-116, O-122, O-124, O-125, O-126, O-128, O-130, O-131, O-132, O-133, O-134, O-136, O-137, O-138, O-139, O-140, O-141, O-142, O-143, O-144, O-145, O-146, O-147, O-148, O-149, O-150, O-151, O-158, O-159, O-160, O-161, O-162, O-163, O-171, O-172, O-173
+
+**Low (14건)** — 운영 편의/후순위:
+O-053(CN, D-023으로 우선순위 하향 유지), O-113(회원할인 기준만 — 브랜드/제조사 부분은 O-098로 이동), O-117, O-118, O-119, O-120, O-164, O-165, O-166, O-167, O-168, O-169, O-174, O-175
+
+### 2.2 개발 Blocker 목록 (2026-06-26 정리, D-064 — 단일 출처)
+
+§2.1의 High/Medium/Low는 "사업적 영향도" 기준이고, 본 절은 **"코드 작성을 시작하기 전에 반드시 결정해야 하는가"** 기준으로 별도 선별한 부분집합이다. 이전까지 [GAP-ANALYSIS.md](GAP-ANALYSIS.md) §8과 [MASTER-INDEX.md](MASTER-INDEX.md) §5가 각자 비슷하지만 다른 Blocker 후보를 나열해 왔다 — 본 절을 **단일 출처**로 통합하고, 두 문서는 이제 본 절을 인용만 한다.
+
+**Tier 1 — 코드 작성 착수 전 필수 (어느 모듈을 먼저 만들든 영향)**
+
+| O-번호 | 항목 | 막히는 이유 |
+|---|---|---|
+| O-022 | ORM/마이그레이션 도구 선정 | 모든 DB 마이그레이션 파일의 형식이 이 선택에 종속 |
+| O-028 | 회원 식별 정합성(이메일/휴대폰 중복, 재가입 식별자) | `members` 테이블 제약조건이 이후 모든 모듈의 FK 기반 |
+| O-127 | 재고 예약(Hold)/창고 우선순위 | 주문·결제 흐름의 트랜잭션 경계에 영향 |
+| O-128 | 상품 카테고리 구조(트리 vs 단일) | `products` 관련 테이블 스키마 확정의 전제 |
+| O-144 | RTO/RPO·DR 목표 | 백업/마이그레이션 전략(DEPLOYMENT.md)이 이 값에 종속 |
+| O-148 | 환경(dev/staging/prod) 구조 | CI/CD 파이프라인·Supabase 프로젝트 분리 방식의 전제 |
+| O-164 | 페이지네이션 방식(offset vs cursor) | API 계약(API-SPEC.md)과 프론트엔드 그리드 구현이 이 값에 종속 |
+| O-169 | UI 컴포넌트 라이브러리(권장: shadcn/ui) | 프론트엔드(web) 모든 화면 구현의 전제 |
+
+**Tier 2 — 해당 모듈 구현 착수 전 필수 (다른 모듈과 병행 개발 가능)**
+
+| O-번호 | 항목 | 해당 모듈 |
+|---|---|---|
+| O-042 | 기능별 관리자 권한 매핑 | 권한/RBAC — ROLE-MATRIX.md 다수 셀이 이 결정 대기 |
+| O-066 | Compliance Admin/지정 조직관리 관리자 권한범위 | 권한/RBAC, 조직관리 |
+| O-129 | 반품/교환 상태머신 세분화 | 쇼핑몰/물류 |
+| O-136 | CMS SEO 메타필드 추가 여부 | CMS — 스키마 변경이라 늦게 결정하면 마이그레이션 비용 증가 |
+| O-137 | CMS 콘텐츠 상태(DRAFT/REVIEW 등) | CMS, Workflow Engine 연동 여부 포함 |
+| O-153 | 정산/수당 이의신청→재계산 연결 구조 | 정산, CS Center |
+| O-158 | 상품 이미지/동영상 CDN 전략 | 상품관리, 인프라 |
+
+**Tier 3 — Multi-Tenant 활성화 시점에 필수 (구조는 이미 준비됨, D-035 — 지금 당장은 블로커 아님)**
+
+| O-번호 | 항목 |
+|---|---|
+| O-159 | Multi-Tenant Job 격리·리소스 쿼터 |
+| O-170 | Multi-Tenant 온보딩/사용량모니터링/격리검증 |
+
+> 위 17건 외 나머지 Open Decision(§2.1의 나머지 High/Medium/Low)은 "구현 착수를 막지는 않는다" — 해당 모듈을 만드는 시점에 함께 결정해도 전체 일관성에 영향을 주지 않는다.
+
+### 2.3 Open Decision 재분류 — BLOCKER / POST v1 / FUTURE (2026-06-26 정리, D-065 — Design Freeze)
+
+**Design Freeze 선언에 따라, Open Decision 162건(활성 항목 전체 — §2 표 171행 중 이미 해소·병합되어 취소선 처리된 9건은 제외) 전체를 [RELEASE-ROADMAP.md](RELEASE-ROADMAP.md)의 v1.0/v1.1/v2.0 범위 기준으로 3개 그룹으로 재분류한다. 항목을 삭제하거나 번호를 바꾸지 않는다 — §2의 원본 표는 그대로 유지되며, 본 절은 그 위에 덧붙이는 분류 레이어다.**
+
+분류 기준:
+- **BLOCKER**: 코드를 작성하기 전에 결정하지 않으면 v1.0 해당 모듈 자체를 시작할 수 없는 항목. (= §2.2 Tier 1 + Tier 2, 15건)
+- **POST v1**: v1.0 모듈 안에 있고 출시 전에는 확정해야 하지만, 이미 임시 기본값/현재 동작이 있어 그 결정을 기다리지 않고도 구현에 착수할 수 있는 항목. (별도 명시가 없는 나머지 대다수)
+- **FUTURE**: [RELEASE-ROADMAP.md](RELEASE-ROADMAP.md) v1.1/v2.0 범위(Multi-Tenant 활성화/Global 확장/모바일앱/선택적 고급기능)에 속하거나, 도입 자체가 권고일 뿐 아직 여부조차 결정되지 않은 항목.
+
+**BLOCKER (15건 — §2.2 Tier 1+2와 동일)**
+O-022, O-028, O-042, O-066, O-127, O-128, O-129, O-136, O-137, O-144, O-148, O-153, O-158, O-164, O-169
+
+**FUTURE (18건)**
+
+| O-번호 | 항목 | FUTURE 사유 |
+|---|---|---|
+| O-017 | 고객몰(B2C) 포함 여부 | v1.0은 회원 중심 운영, B2C 확장은 Marketplace/Global 단계(v2.0) 검토 사항 |
+| O-018 | 해외 확장/다국가·다통화 지원 | RELEASE-ROADMAP v2.0 "Global" |
+| O-019 | 모바일 앱 필요 여부/시점 | RELEASE-ROADMAP v2.0 "Mobile App" |
+| O-039 | TH/JP/US 실제 운영 시작 순서·시점 | KR 단독 출시(v1.0) 이후의 Global 확장 일정 |
+| O-044 | 공제조합 외 4개국 동등 규제기관 | TH/JP/US 실제 출시 시점에만 긴급 |
+| O-045 | 국가별 세금/프로모션/정산 실제 내용(KR 외 4개국) | 동일 — Global 확장 시점 항목 |
+| O-047 | Center 구조 도입 여부 | 메커니즘은 설계됨, 도입은 선택적 구조 확장(v1.1 이후 검토) |
+| O-050 | Notification KakaoTalk 대체채널(TH/JP/US/CN) | Global 채널 확장 |
+| O-052 | Rule Designer 도입 여부 | 권고 단계의 선택적 BI/관리자 도구 — v1.1 "BI/Dashboard 확장"과 결 일치 |
+| O-053 | CN PIPL 대응 | D-023으로 이미 Reserved 전환, CN 활성화 검토 시점에만 재상향 |
+| O-056 | Redis 캐시/큐 분리, read replica 도입 시점 | "유니콘 스케일" 대비 확장성 항목(§9.2), v1.0 트래픽 규모에선 불필요 |
+| O-057 | 제품 국가별 가용성/가격 분기 | 다국가 판매 시점에만 필요 |
+| O-090 | Multi-Tenant 활성화 시점/범위 | RELEASE-ROADMAP v2.0 "Multi-Tenant 활성화" |
+| O-103 | `tenant_settings` 중복 여부 재검토 | "활성화 설계 시 재검토"로 이미 명시됨 |
+| O-114 | `tenant_settings`→`external_api_connections` FK, 활성화 시점 | Multi-Tenant 활성화 종속 |
+| O-159 | Multi-Tenant Job 격리·리소스 쿼터 | §2.2 Tier 3, Multi-Tenant 활성화 시점 |
+| O-162 | 다국어(TH/JP) 전문검색 인덱싱 | KR 단독 운영 시 불필요 |
+| O-170 | Multi-Tenant 온보딩/모니터링/격리검증 | §2.2 Tier 3, Multi-Tenant 활성화 시점 |
+
+**POST v1 (나머지 129건)** — 활성 162건 중 위 BLOCKER(15)·FUTURE(18)에 포함되지 않은 모든 항목. v1.0 범위 안의 모듈에 속하며, 이미 임시 기본값(예: O-059/O-004의 "임시 기본값은 한도 산정에 포함")이나 현재 동작이 있어 구현 착수를 막지 않는다 — 해당 모듈 구현 또는 v1.0 출시 전 어느 시점에 확정하면 된다. 구체적으로는 [DECISIONS.md](DECISIONS.md) §2 표의 활성 항목 중 BLOCKER/FUTURE 표에 등장하지 않는 모든 O-번호다(예: O-002~O-005, O-010~O-016, O-020, O-023, O-025~O-027, O-029~O-038, O-040, O-041, O-043, O-046, O-048, O-049, O-051, O-054, O-055, O-058, O-059, O-061, O-063~O-065, O-067~O-071, O-073~O-082, O-085~O-089, O-091~O-102, O-104~O-113, O-115~O-126, O-130~O-135, O-138~O-143, O-145~O-147, O-149~O-152, O-154~O-157, O-160, O-161, O-163, O-165~O-168, O-171~O-175 등 — 전수 목록은 §2 표를 직접 대조).
 
 ## 3. 우선순위 권고
 
 설계 단계를 마무리하기 위해 다음 순서로 결정하는 것을 권고한다:
 
-**Phase 1(KR) 설계는 D-001~D-032로 이어지고 있다 (§5.7/§5.9/§5.10/§5.11 참조).** O-024(추천인 변경 법률위험)는 D-020으로, **CN 관련 리스크(O-053)는 D-023(Reserved 전환)으로 우선순위가 낮아졌고, O-060(패키지 수치 확정 여부)은 D-024로, O-072(페어보너스 큐 재정렬)는 D-026으로, O-009의 "주정산 마감요일" 부분은 D-029로, O-007/O-008/O-083/O-084(직급/PV 관련)는 D-030으로 해소**되었다. 2026-06-24 마케팅 플랜 검증/리스크 최소화/자격 정정/정합성 전면 점검 라운드에서 O-076~O-085가 신규 식별되었고, D-027(35% 모니터링 엔진)·D-028(자격 분리·명칭 정정)·D-029(정산 주기 정정)·D-030(직급/PV 폐기 실행)이 추가되었다. 같은 날 후속 "마케팅 플랜 재정의" 라운드에서 **D-031(잔여 정합성 정리·쇼핑몰 구조 신설)·D-032(`plan_definition` 관리자 설정화 스키마 확정)**이 추가되고 O-086/O-087이 신규 식별되었다(§5.11).
+**Phase 1(KR) 설계는 D-001~D-066으로 이어지고 Design Freeze(D-065)로 공식 종료되었으며, D-066으로 개발 착수 준비까지 완료되었다 (§5.7/§5.9/§5.10/§5.11/§5.12/§5.13/§5.14 참조, [DESIGN-FREEZE.md](DESIGN-FREEZE.md)/[DEVELOPMENT-KICKOFF.md](DEVELOPMENT-KICKOFF.md) 참조).** O-024(추천인 변경 법률위험)는 D-020으로, **CN 관련 리스크(O-053)는 D-023(Reserved 전환)으로 우선순위가 낮아졌고, O-060(패키지 수치 확정 여부)은 D-024로, O-072(페어보너스 큐 재정렬)는 D-026으로, O-009의 "주정산 마감요일" 부분은 D-029로, O-007/O-008/O-083/O-084(직급/PV 관련)는 D-030으로 해소**되었다. 2026-06-24 마케팅 플랜 검증/리스크 최소화/자격 정정/정합성 전면 점검 라운드에서 O-076~O-085가 신규 식별되었고, D-027(35% 모니터링 엔진)·D-028(자격 분리·명칭 정정)·D-029(정산 주기 정정)·D-030(직급/PV 폐기 실행)이 추가되었다. 같은 날 후속 "마케팅 플랜 재정의" 라운드에서 **D-031(잔여 정합성 정리·쇼핑몰 구조 신설)·D-032(`plan_definition` 관리자 설정화 스키마 확정)**이 추가되고 O-086/O-087이 신규 식별되었다(§5.11). 이어서 "쇼핑몰 및 패키지 엔진 구조 재설계" 라운드에서 **D-033(패키지 엔진 일반화 — 무제한 패키지+정책)·D-034(쇼핑몰/회원몰 재정의)·D-035(Multi-Tenant 구조 준비)**가 추가되고 O-088~O-090이 신규 식별되었다(§5.12). 후속 "Lifestyle Program 쇼핑몰 노출 구조" 라운드에서 **D-036**이 추가되고 O-091~O-094가 신규 식별되었다. 이어서 "ERP 플랫폼 완성도 보강(Phase 1, 95%→99%)" 라운드에서 **D-037(ERP 모듈 구조)~D-045(관리자 설정 일원화 점검)** 9개가 추가되고 O-095~O-104가 신규 식별되었다(§5.13). 후속 "ERP Core Platform 완성(Phase 2)" 라운드에서 **D-046(ERP Core 신설)~D-059(Multi-Tenant 보강 Phase 2)** 14개가 추가되고 O-105~O-114가 신규 식별되었다(§5.14). 이어서 "상품 이미지 관리 보강" 라운드에서 **D-060**이 추가되고 O-115/O-116이 신규 식별되었다. 후속 "ERP UX Standard" 라운드에서 **D-061**이 추가되고 O-117~O-120이 신규 식별되었다. 이어서 "상용 ERP 수준 Gap Analysis" 라운드에서 **D-062**가 추가되고 5개 영역(회원/CRM/Multi-Tenant, 쇼핑몰/주문/배송/재고, CMS/Marketing/Notification/BI, ERP Core 운영+개발산출물, MLM/정산/법무 운영+성능/UX) 점검 결과 O-121~O-169(49건)가 신규 식별되었다 — 상세는 [GAP-ANALYSIS.md](GAP-ANALYSIS.md) 참조. 후속 "개발 착수 준비(Documentation Phase)" 라운드에서 **D-063**이 추가되어 SITEMAP/ROLE-MATRIX/ERD/API-SPEC/WIREFRAME/DESIGN-SYSTEM/UI-GUIDELINE/CODING-STANDARD/TEST-PLAN/DEPLOYMENT/MASTER-INDEX 11개 신규 문서가 생성되고, O-170~O-175(6건)가 신규 식별되었으며 Open Decision 전체에 대한 해소(O-062)·병합(O-009→O-010, O-113 일부→O-098, O-121→O-028)·우선순위 분류(§2.1)가 적용되었다. 이어서 "개발 착수 전 최종 안정화(Pre-Development Stabilization)" 라운드에서 **D-064**가 추가되어 BUSINESS-RULE-CATALOG/EVENT-CATALOG/ERROR-CODE/STATE-MACHINE/DATA-DICTIONARY 5개 표준화 카탈로그가 생성되고, 개발 Blocker 17건이 단일 목록(§2.2)으로 통합되었으며, API-SPEC.md/TEST-PLAN.md가 보강되었다 — 신규 기능/Open Decision은 추가되지 않았다(점검 결과 심각한 문서 중복 없음 확인).
 
 ### 3.1 마케팅 플랜/보상엔진 — 개발착수 전 필수 우선순위 (2026-06-24 재정렬)
 
@@ -817,3 +1274,274 @@ FNS 마케팅 플랜은 **4개 축**으로 구성된다 ([COMPENSATION-RULES.md]
 | `marketing_plan_versions.plan_definition`이 D-018~D-028 확정 수치를 반영하지 않아 하드코딩 위험 | [DATABASE.md](DATABASE.md) §3.13 | **해소(D-032)** |
 
 > 위 6건 모두 "FNS 고유 구조가 잘못되었다"는 충돌이 아니라, **D-030 폐기 작업 및 그 이전 라운드들의 부수적 정리 누락**이었다 — 즉 사용자가 우려한 "일반 MLM 구조가 섞여 들어감"이라는 패턴이 아니라, 빠르게 반복된 정정 라운드(D-024→D-028→D-029→D-030)에서 발생한 **문서 간 동기화 지연**이다. 마케팅 플랜의 실체 규칙 자체에서는 일반 MLM 템플릿 잔재가 추가로 발견되지 않았다.
+
+### 5.12 쇼핑몰 및 패키지 엔진 구조 재설계 보고서 (2026-06-25, D-033/D-034/D-035)
+
+> 배경: §5.11에서 "FNS 고유 구조"를 정의했으나, 그중 패키지 구조는 여전히 "400만원 패키지 1종"이라는 FNS 한정 전제로 작성되어 있었다. 사용자가 FNS의 최종 목표를 "다른 MLM 회사도 사용할 수 있는 ERP 플랫폼"으로 명확히 하면서, 단일 패키지·하드코딩 구조를 일반화할 것을 요청했다. 본 절은 요청된 8개 산출물을 정리한다. 코드는 생성하지 않았다.
+
+#### 5.12.1 산출물 1 — 쇼핑몰 구조 수정안
+
+D-031(1차)에서 "회원몰=구매채널, 일반쇼핑몰=Phase 2"로 정의했던 것을 **D-034로 정정**했다. 최종 구조:
+
+```
+일반 쇼핑몰 (통합 카탈로그, MVP)
+  ├─ 건강기능식품 / 화장품 / 생활용품 / 프로모션 상품
+  ├─ 패키지 상품 (product_type, §5.12.3 참조 — 별도 쇼핑몰 아님)
+  └─ 신규 런칭 상품 / 한정 판매 상품
+
+회원몰 (Partner Portal 내 대시보드 — 상품 판매 채널 아님)
+  ├─ 유지구매센터 (§3.5.2 자격 진행률)
+  ├─ 정기배송센터 (등록/변경/해지/재개)
+  └─ 자동결제센터 (결제수단/결제이력)
+```
+
+상세는 [PRD.md](PRD.md) §5.1.3.1/§5.1.3.2 참조.
+
+#### 5.12.2 산출물 2 — 회원몰 구조 수정안
+
+회원몰 = **유지구매센터 × 정기배송센터 × 자동결제센터**(사용자 정의 그대로 채택). 상품 진열·장바구니·결제 기능은 일반 쇼핑몰에만 존재하며, 회원몰의 어떤 화면도 상품을 진열하지 않는다 — 정기배송 등록조차 일반 쇼핑몰의 상품 상세 화면에서 시작하고, 회원몰은 그 결과만 관리한다([PRD.md](PRD.md) §5.1.3.2/§5.1.3.3).
+
+#### 5.12.3 산출물 3 — 패키지 엔진 구조
+
+| 구성 | 역할 |
+|---|---|
+| `products` | 일반 상품과 패키지 상품이 함께 속하는 단일 카탈로그 |
+| `packages` | 패키지 카탈로그 확장(1:1, `products` 참조) — 판매기간/활성여부/국가범위 |
+| `package_commission_policies` | 패키지·국가·시점별 후원수당 정책(버전 관리) |
+
+개수 제한 없음(D-033). FNS 현재 패키지(1종)는 이 구조의 **첫 번째 인스턴스**일 뿐이며, 실제 수치(400만원/25%/100만원/200만원/30일)는 변경되지 않는다 — [DATABASE.md](DATABASE.md) §3.24.1, [PRD.md](PRD.md) §5.1.4.
+
+#### 5.12.4 산출물 4 — 패키지 정책 엔진 구조
+
+패키지마다 독립적으로 설정 가능한 정책 항목(사용자 예시 "패키지 A/B/C/D"의 추천수당·페어 가능 여부 조합을 그대로 지원):
+
+| 정책 항목 | 컬럼 | 비활성화 시 동작 |
+|---|---|---|
+| 추천수당 사용 여부 | `referral_bonus_enabled` | 어떤 구매자가 사도 제품 판매수익 미발생 |
+| 페어 사용 여부 | `pair_bonus_enabled` | 페어 조건이 충족돼도 페어보너스 미발생 |
+| 유니레벨 포함 여부 | `counts_toward_unilevel_line_revenue` | 패키지 매출이 업라인 라인 매출에 미반영(기본값) |
+| 유지구매 인정 여부 | `counts_toward_maintenance_purchase` | 패키지 구매액이 그 달 §3.5.2 자격 누적액에 미반영 |
+| 자격 부여 여부 | `grants_qualification` | 이 패키지 구매가 §3.5.5 자격을 만들어주지 않음 |
+
+사용자 예시(패키지 A=추천수당+페어 가능, 패키지 C=둘 다 없음)를 그대로 표현할 수 있다 — [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.1.0의 예시 표 참조.
+
+#### 5.12.5 산출물 5 — 관리자 설정 항목 (요청 §6 항목별 대응)
+
+| 사용자 요청 항목 | 대응 컬럼/테이블 |
+|---|---|
+| 패키지명 / 판매가 | `products.name`/`price` (패키지도 상품이므로 중복 컬럼 없음) |
+| 추천수당 비율 / 추천수당 금액 | `package_commission_policies.referral_bonus_rate`/`referral_bonus_amount` |
+| 페어 사용 여부 / 페어 금액 / 페어 기간 | `pair_bonus_enabled`/`pair_bonus_amount`/`pair_bonus_window_days` |
+| 유니레벨 포함 여부 | `counts_toward_unilevel_line_revenue` |
+| 유지구매 인정 여부 | `counts_toward_maintenance_purchase` |
+| 활성 여부 / 판매기간 | `packages.is_active`/`sales_start_at`/`sales_end_at` |
+| 국가별 사용 여부 | `packages.country_codes` |
+
+요청에는 없었지만 자격 구조(D-028) 일반화를 위해 **추가한 항목**: 자격 부여 여부(`grants_qualification`).
+
+#### 5.12.6 MLM 엔진 점검 결과
+
+기존 후원수당 엔진 서술(§3.3, §3.5)이 "400만원 패키지"를 직접 언급하던 부분은 §4.1(제품 판매수익/페어보너스)에 한정되어 있었고, 유니레벨(라인) 엔진 자체는 처음부터 패키지와 독립적으로 설계되어 있어 일반화 영향이 없었다. 점검 결과:
+
+- **영향 있음**: §4.1.2(제품 판매수익)/§4.1.3(페어보너스) 산정 로직, §3.5.5(자격 검증), §3.5.4(패키지 매출의 유니레벨 포함 여부) — 모두 이번 라운드로 일반화 완료([COMPENSATION-RULES.md](COMPENSATION-RULES.md)).
+- **영향 없음**: §3.3(라인 도달 깊이별 단일비율), §5(정산 주기), §6(35% 한도 검증 로직 자체) — 패키지 종류 수와 무관하게 동작.
+- **결론**: 패키지를 추가/변경해도(예: 패키지 D 신설) 수당 엔진 코드는 수정할 필요가 없다 — 새 `packages`/`package_commission_policies` 행만 추가하면 기존 산정 로직이 그대로 적용된다(D-033 확정 원칙).
+
+#### 5.12.7 산출물 6 — Multi-Tenant 대응 구조
+
+`tenant_id`를 `country_code`와 독립된 차원으로 도입(`tenants` 마스터, 공유 스키마+RLS 권장). **구조만 준비하고 활성화는 보류**한다(D-035) — Center/전자서명/Rule Designer(D-012)와 동일한 패턴. 적용 대상 테이블 목록과 권장 아키텍처는 [DATABASE.md](DATABASE.md) §3.31 참조.
+
+#### 5.12.8 산출물 7 — 누락된 쇼핑몰 페이지 목록
+
+| 페이지 | 상태 |
+|---|---|
+| 상품목록/상품상세, 장바구니/주문서/결제/주문완료, 배송조회, 반품/교환/환불 신청, FAQ, 브랜드소개/회사소개 | **신규 발견 — MVP 추가** |
+| 공지사항, 1:1문의, 이용약관, 개인정보처리방침 | 기존 Document Center/CS Center로 이미 커버됨 |
+
+상세는 [PRD.md](PRD.md) §5.1.3.5 참조.
+
+#### 5.12.9 산출물 8 — 문서 수정 대상 목록
+
+| 문서 | 수정 내용 |
+|---|---|
+| [COMPENSATION-RULES.md](COMPENSATION-RULES.md) | §3.5.4/§3.5.5/§4(표)/§4.1(§4.1.0~§4.1.3 신설)/§6/§8 — 패키지 엔진 일반화 반영 (별도 세션에서 선행 커밋, 본 라운드에서 명명 규칙을 [DATABASE.md](DATABASE.md)/[PRD.md](PRD.md)와 통일) |
+| [DATABASE.md](DATABASE.md) | §2(엔티티 개요), §3.13(`plan_definition.package` 제거), §3.24.1(신규 — `packages`/`package_commission_policies`), §3.31(신규 — Multi-Tenant), §8(Open Decisions) |
+| [PRD.md](PRD.md) | §5.1(MVP 표), §5.1.3(전면 재작성), §5.1.4(신규 — 패키지 엔진), §2(Phase 2 목록), §8(Open Questions) |
+| [DECISIONS.md](DECISIONS.md) | 본 문서 — D-033/D-034/D-035, O-088~O-090, §5.12(본 절) |
+| [CHANGELOG.md](CHANGELOG.md) | 신규 버전 항목 |
+
+**경미한 안내만 추가한 문서**: [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md) §3(제품판매수익 법적분류 항목에 "패키지별 재평가 필요" 1줄 추가 — 기존 분석 결론 자체는 변경 없음), [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §3 용어표(패키지/회원몰·일반쇼핑몰 정의를 D-033/D-034에 맞춰 정정).
+
+**수정 불필요로 확인된 문서**: [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md)(정산 주기는 패키지 종류와 무관), [ARCHITECTURE.md](ARCHITECTURE.md)(Job 처리 흐름은 패키지 개수와 무관하게 동일), [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md)(영향 없음).
+
+#### 5.12.10 동시 작업 정합성 안내
+
+본 라운드 작업 중, 별도 세션이 이미 [COMPENSATION-RULES.md](COMPENSATION-RULES.md)에 동일한 D-033(패키지 엔진 일반화)을 커밋한 상태(`packages`/`package_commission_policies` 명명, `counts_toward_unilevel_line_revenue`/`grants_qualification` 필드명, O-088/O-089)였음을 git 히스토리에서 확인했다. 본 절을 포함한 나머지 문서([DATABASE.md](DATABASE.md)/[PRD.md](PRD.md)/[DECISIONS.md](DECISIONS.md))는 그 명명 규칙을 그대로 채택해 일관성을 맞췄다 — 두 작업이 서로 다른 설계를 제시한 것은 아니며, 동일한 결론에 독립적으로 도달한 것으로 확인된다.
+
+### 5.13 ERP 플랫폼 완성도 보강 보고서 (2026-06-25, D-037~D-045, 설계 완성도 95%→99% 목표)
+
+> 배경: 사용자가 "새 MLM 마케팅을 만드는 것이 아니라, 현재 문서를 ERP 플랫폼 관점에서 전체 점검해 부족한 부분을 보강"할 것을 요청했다. 10개 산출물과 최종 점검(§12) 결과를 정리한다. 코드는 생성하지 않았다.
+
+#### 5.13.1 산출물 1 — ERP 구조 개선안
+
+[PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §1.1에 13개 모듈 트리를 신설했다(D-037). 핵심 원칙: ① MLM은 ERP의 한 모듈(다른 모듈은 MLM 없이도 독립 동작 가능, 역방향은 아님 — MLM이 쇼핑몰의 주문/결제에 의존) ② 모듈 간 연결은 식별자+정책 설정으로만(직접 테이블 참조 금지) ③ 기존 섹션 번호는 재배치하지 않음(색인만 추가).
+
+#### 5.13.2 산출물 2 — CMS 구조 개선안
+
+9개 하위 CMS로 재정리(D-038, [PRD.md](PRD.md) §5.19) — 콘텐츠/공지/페이지는 `cms_pages` 하나로 통합, FAQ는 독립 모듈로 분리(O-091 해소), 팝업 신설, 배너 5종으로 확장, 약관/알림은 기존 모듈 재배치, 다국어는 전체 공통 번역 오버레이(`cms_translations`).
+
+#### 5.13.3 산출물 3 — Marketing Program Engine 개선안
+
+Lifestyle Program(D-036)을 무제한 카테고리 엔진으로 일반화(D-039) — `category` 자유값, `links_to_compensation`으로 MLM 보상 연결 여부 구분, 패키지 엔진(D-033)과 동일한 일반화 패턴.
+
+#### 5.13.4 산출물 4 — 쇼핑몰 기능 보강안
+
+D-040, [PRD.md](PRD.md) §5.21. CMS 연동으로 해결되는 기능(팝업/배너/이벤트관/기획전)과 신규 데이터 모델이 필요한 기능(리뷰/문의/위시리스트/쿠폰/검색로그)을 구분했다. 베스트/인기/추천/신상품/타임세일/브랜드관은 `products` 스키마 확장이 선행조건임을 확인(O-098).
+
+#### 5.13.5 산출물 5 — 포인트 시스템 보강안
+
+D-041, [PRD.md](PRD.md) §5.23. 적립(Earn)→차감/사용신청→승인/반려→사용완료→취소→복원/만료의 전체 생애주기. `lifestyle_bonus_accumulations`(§3.25, 적립 산정)와 `point_transactions`(사용 생애주기)의 책임을 분리하고, `counts_toward_compliance_limit`로 MLM 보상성 포인트와 일반 리워드를 구분(법적 정확성 유지).
+
+#### 5.13.6 산출물 6 — 관리자 통계 보강안
+
+D-043, [PRD.md](PRD.md) §5.25. 프로그램별/쇼핑몰/회원 지표를 국가·기간 차원으로 분해, 기간 비교 지원. 원시 이벤트(`content_view_events`/`content_click_events`) + 파생 집계 패턴(D-025와 동일). 집계 방식(실시간 vs 스냅샷)은 회원 규모 확정 후 결정(O-102).
+
+#### 5.13.7 산출물 7 — Multi-Tenant 보강안
+
+D-044, [PRD.md](PRD.md) §5.26. D-035의 구조 준비에 `tenant_settings`(회사명/로고/도메인/컬러/언어/통화/국가/약관/쇼핑몰·CMS·MLM·정산 설정)를 추가해 "설정만으로 새 MLM 회사 생성" 목표에 구체적 형태를 부여했다. **활성화는 여전히 보류**(D-035 원칙 유지).
+
+#### 5.13.8 산출물 8 — 관리자 설정 보강안
+
+D-045, [PRD.md](PRD.md) §5.27. 9개 정책 영역(MLM/쇼핑몰/CMS/Marketing Program/포인트/쿠폰/정기배송/배너/팝업/다국어)을 점검해 6개 영역은 기존 구조로 이미 충족됨을 확인하고, **2건의 하드코딩 위험을 신규 발견**(쇼핑몰 결제재시도 정책, 포인트 적립률/만료기간) — 후자는 `point_policies`(D-041)로 즉시 해소, 전자는 Open Decision(O-104)으로 추적. 쿠폰은 구조 자체가 미확정이라 점검 보류.
+
+#### 5.13.9 산출물 9 — 누락 기능 목록 (종합)
+
+| 영역 | 누락 항목 |
+|---|---|
+| 쇼핑몰 | 메인팝업/메인배너/카테고리배너(CMS 연동), 이벤트관/기획전(Marketing Program 연동), 브랜드관/베스트/인기/추천/신상품/타임세일(제품스키마 확장 필요), 리뷰/상품문의/최근본상품/위시리스트/쿠폰/검색어순위(신규 엔티티) |
+| CMS | 콘텐츠/공지/FAQ/팝업/페이지 CMS 전체, 다국어 번역 오버레이 |
+| 마케팅 | 무제한 프로그램 카테고리, 프로그램-상품 연결, 프로그램 신청/승인 워크플로우 |
+| 포인트 | 사용신청/승인/취소/복원/만료/이력 — 적립 이후 전체 생애주기 |
+| 통계 | 프로그램별/쇼핑몰/회원 통계, 국가·기간 비교 |
+| Multi-Tenant | 회사별 설정 항목(12종) |
+| 관리자 설정 | 포인트 정책, 쇼핑몰 결제재시도 정책(하드코딩 위험 2건) |
+
+#### 5.13.10 산출물 10 — 수정 대상 문서 목록
+
+| 문서 | 수정 내용 |
+|---|---|
+| [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) | §1/§1.1(신규)/§2 — ERP 모듈 구조, Multi-Tenant SaaS 목표 명시 |
+| [PRD.md](PRD.md) | §5.19~§5.27(8개 신규 섹션), §8(Open Questions 대량 추가), 헤더 |
+| [DATABASE.md](DATABASE.md) | §3.33~§3.36(4개 신규 섹션), §3.31.1(확장), §2/§8/헤더 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | §1(모듈-서비스 관계), §2.2(api 모듈표 5행 추가), §2.3(Job 10→12종, 정기배송/포인트만료 보강) |
+| [COMPENSATION-RULES.md](COMPENSATION-RULES.md) | 제목(ERP MLM 모듈 안내), §4.2(Marketing Program Engine 일반화 교차참조) |
+| [DECISIONS.md](DECISIONS.md) | 본 문서 — D-037~D-045, O-095~O-104, §5.13(본 절) |
+| [CHANGELOG.md](CHANGELOG.md) | 신규 버전 항목 |
+
+**수정 불필요로 확인된 문서**: [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md)(정산 모듈은 ERP 재정의와 무관하게 동일 구조 유지), [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md)(법적 분류 논의 대상 자체는 변경 없음), [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md)(append-only/서비스분리 원칙 영향 없음), [PROMOTION-RULES.md](PROMOTION-RULES.md)(이미 폐기됨, 영향 없음), [TASK-SPEC.md](TASK-SPEC.md)(작업지시서 형식 자체는 무관).
+
+#### 5.13.11 최종 점검 (§12 — 문서충돌/중복/누락/구조부정합)
+
+| 점검 항목 | 결과 |
+|---|---|
+| 문서 충돌 | **발견되지 않음** — D-038/D-039가 D-036/D-031의 내용을 append-only로 일반화했을 뿐 상충하는 서술은 없음 |
+| 중복 기능 | **1건 발견·해소** — "공지사항"이 `documents`(파일형)와 `cms_pages`(리치콘텐츠) 양쪽에 속할 수 있었던 모호함을 `cms_pages`로 일원화(§5.13.2) |
+| 누락 기능 | §5.13.9 참조(다수 발견·반영 완료) |
+| ERP 구조와 맞지 않는 부분 | 기존 PRD.md §5 섹션 번호가 ERP 모듈 순서와 일치하지 않음(예: CMS가 §5.10/§5.19로 분산) — **재번호화하지 않고 §1.1 색인으로 해결**(교차참조 깨짐 방지 우선) |
+| Multi-Tenant와 충돌되는 부분 | **없음** — 신규 테이블(`marketing_programs`/`point_transactions`/`cms_pages` 등) 모두 D-035의 `tenant_id` 적용 대상 목록에 자연스럽게 편입 가능한 구조로 설계됨(별도 보정 불필요) |
+| 쇼핑몰과 MLM 연결 부족 | §5.22(연결 흐름)로 해소 — 패키지/정기배송 상품이 Marketing Program의 "관련 상품"으로 자연스럽게 노출되는 경로 확정 |
+| CMS와 ERP 연결 부족 | Marketing Program이 FAQ CMS(scope 지정)·배너 CMS(노출)·다국어 CMS(번역)를 모두 소비하는 구조로 연결 확정(§5.20) |
+
+**종합 평가**: 사용자가 제시한 95% 출발점 대비, 본 라운드에서 구조적 공백(CMS 빈약, 단일 프로그램 전제, 포인트 미완성, 통계 부재, Multi-Tenant 설정 미구체화, 쇼핑몰-마케팅 연결 부재)을 모두 메웠다. 남은 1%는 본 라운드에서 식별한 Open Decision(O-095~O-104)의 세부 수치·UX 확정과, 구현 단계에서만 드러날 수 있는 잔여 사항으로 판단한다.
+
+### 5.14 ERP Core Platform 완성 보고서 (2026-06-25, D-046~D-059, Phase 2 — 98%→99% 목표)
+
+> 배경: §5.13(Phase 1)이 업무 모듈(CMS/Marketing Program/포인트/통계/Multi-Tenant) 차원의 공백을 메웠다. 사용자가 이어서 "ERP Core가 존재하지 않는다"는 더 근본적인 공백을 지적했다 — 모든 업무 모듈이 개별 구현해 온(또는 누락해 온) 인증/승인/외부연동/파일관리/스케줄관리/대시보드/보고서/양식/감사/설정 기능을 공통 엔진으로 통합하는 라운드다. **새 MLM 기능 추가가 아니며, 기존 MLM/쇼핑몰/정산 로직은 변경하지 않았다.** 15개 산출물과 최종 점검(§17)을 정리한다. 코드는 생성하지 않았다.
+
+#### 5.14.1 산출물 1 — ERP Core Platform 설계
+
+D-046, [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §1.1. ERP를 2계층(ERP Core 엔진 + 업무 모듈)으로 재구성. 의존 방향은 항상 "업무 모듈→ERP Core", 기존 전용 구조(조직이동/회원변경/프로그램신청/포인트사용/정산승인)는 강제 이전하지 않음, 중복 구현 금지(Audit Center↔Report Builder, CRM↔기존 위시리스트/활동이력 재사용).
+
+#### 5.14.2 산출물 2 — Workflow Engine 설계
+
+D-047, [PRD.md](PRD.md) §5.30. 관리자가 단계/담당자/승인자/자동승인/알림/조건을 설정해 워크플로우를 직접 생성. **기존 5개 전용 승인 구조는 의도적으로 통합하지 않음**(법적 제약이 있는 조직이동 등을 일반화하면 위험) — 신규 워크플로우(환불/반품/교환/전자결재)부터 적용.
+
+#### 5.14.3 산출물 3 — API Center 설계
+
+D-048, [PRD.md](PRD.md) §5.31. 모든 외부 API(공제조합/PG/택배/3PL/SMS/Email/카카오/Push/AI/Webhook)를 `external_api_connections`로 일원화. 인증키 평문저장 금지를 [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md)에 명시적으로 확장. Multi-Tenant `tenant_settings`의 SMTP/SMS/PG/3PL 중복 문제(O-103)를 본 테이블 참조로 해소.
+
+#### 5.14.4 산출물 4 — File Manager 설계
+
+D-049, [PRD.md](PRD.md) §5.32. 폴더/태그/검색/버전/다운로드/미리보기/권한을 갖춘 중앙 파일 레지스트리. 기존 `*_ref` 컬럼은 강제 마이그레이션하지 않음(점진적 선택 사항).
+
+#### 5.14.5 산출물 5 — Scheduler Center 설계
+
+D-050, [PRD.md](PRD.md) §5.33. 기존 12종 Job([ARCHITECTURE.md](ARCHITECTURE.md) §2.3)에 대한 관리 UI(실행주기/다음실행/최근실행/성공/실패/재실행/로그) — 실행 로직 자체는 변경 없음.
+
+#### 5.14.6 산출물 6 — Dashboard Builder 설계
+
+D-053, [PRD.md](PRD.md) §5.36. 회원/매출/주문/배송/정산/수당/포인트/재고/국가/Marketing Program 데이터를 차트/테이블/KPI 위젯으로 Drag & Drop 배치. 기존 고정형 대시보드(§5.18/§5.25)는 대체하지 않음.
+
+#### 5.14.7 산출물 7 — Report Builder 설계
+
+D-054, [PRD.md](PRD.md) §5.37. Excel/PDF/CSV 출력, 조건검색/필터/정렬, 예약생성/예약메일발송. Audit Center·공제조합 보고센터가 재사용.
+
+#### 5.14.8 산출물 8 — Form Builder 설계
+
+D-055, [PRD.md](PRD.md) §5.38. 8종 필드(Text/Textarea/Select/Checkbox/Radio/File/Image/Date) + Validation으로 관리자가 신청서 직접 생성. 회원가입 핵심 플로우는 변경 없음(보조 항목·별도 신청서 용도로 한정).
+
+#### 5.14.9 산출물 9 — Audit Center 설계
+
+D-052, [PRD.md](PRD.md) §5.35. 기존 `audit_logs` 검색/필터 UI. 다운로드/감사보고는 Report Builder 재사용(중복 구현 금지 원칙의 실제 적용 사례).
+
+#### 5.14.10 산출물 10 — CRM Center 설계
+
+D-057, [PRD.md](PRD.md) §5.40. 회원상담/상담예약/전화기록/메모/Follow-up(신규 3테이블). 관심상품·회원활동은 기존 테이블 재사용. CS Center(§5.11)는 대체하지 않고 보완.
+
+#### 5.14.11 산출물 11 — 쇼핑몰 보강안 (Phase 2)
+
+D-058, [PRD.md](PRD.md) §5.41. 브랜드/제조사/상품옵션/연관상품/재입고알림/배송비정책(신규) — D-040(O-098)이 식별한 `products` 스키마 확장 필요성의 구체화. 프로모션/기획전/이벤트관은 Marketing Program으로 흡수(신규 엔티티 없음). 기존 주문/결제/패키지/정기배송은 변경 없음.
+
+#### 5.14.12 산출물 12 — Multi-Tenant 보강안 (Phase 2)
+
+D-059, [PRD.md](PRD.md) §5.42. 파비콘/Timezone/관리자이메일(신규) + SMTP/SMS/PG/3PL을 API Center 참조로 통합. D-035/D-044의 "구조 준비, 활성화 보류" 원칙 유지.
+
+#### 5.14.13 산출물 13 — System Settings 설계
+
+D-056, [PRD.md](PRD.md) §5.39. 회사정보/SMTP/SMS/PG/3PL/API는 신규 테이블 없이 기존 엔진(API Center/Notification Center/tenant_settings)의 진입점만 통합. 보안정책(2FA/IP제한/비밀번호/세션/파일업로드)·로그·백업 정책은 `system_security_policies`(신규)로 신설.
+
+#### 5.14.14 산출물 14 — 수정 대상 문서 목록
+
+| 문서 | 수정 내용 |
+|---|---|
+| [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) | §1.1 — 2계층 모듈 구조로 재구성, ERP Core 12개 엔진 추가 |
+| [PRD.md](PRD.md) | §5.28~§5.42(15개 신규 섹션), §8(Open Questions 대량 추가), 헤더 |
+| [DATABASE.md](DATABASE.md) | §3.37~§3.49(13개 신규 섹션), §2/§8/헤더 |
+| [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) | API 인증키 평문저장 금지 확장, ERP Core가 기존 전용 구조를 임의 대체하지 않는다는 원칙 추가 |
+| [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md) | §7/§13 — File Manager/API Center 도입에 따른 PII·제3자제공 검토 항목 추가 |
+| [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md) | §9 — 운영자 승인이 Workflow Engine으로 이전되지 않음을 명시(로직 변경 없음) |
+| [DECISIONS.md](DECISIONS.md) | 본 문서 — D-046~D-059, O-105~O-114, §5.14(본 절) |
+| [CHANGELOG.md](CHANGELOG.md) | 신규 버전 항목 |
+
+**점검했으나 수정 불필요로 확인된 문서**: [COMPENSATION-RULES.md](COMPENSATION-RULES.md)(MLM 로직 변경 없음 — 사용자 명시 제약), [ARCHITECTURE.md](ARCHITECTURE.md)(5서비스 물리구조는 ERP Core 도입과 무관하게 유지 — 논리 모듈 추가는 PROJECT-CONTEXT.md §1.1에서 이미 "물리구조 대체 아님"으로 명시했으므로 ARCHITECTURE.md 자체의 모듈표 갱신은 다음 라운드로 미룸), [TASK-SPEC.md](TASK-SPEC.md)(작업지시서 형식은 모듈 구조와 무관).
+
+#### 5.14.15 산출물 15 — 신규 Open Decision
+
+O-105~O-114(10건) — §2 Open Decisions 마스터 테이블에 등록 완료. 핵심: 기존 승인구조의 Workflow Engine 통합 여부(O-105), API 인증키 저장소 선정(O-106), File Manager 마이그레이션 범위(O-107), cron 수정 권한(O-108), 알림 조건 표현 문법(O-109), Audit Log IP 컬럼 존재 확인(O-110), Dashboard 위젯 API 계약(O-111), CRM-CS 통합 여부(O-112), 브랜드/제조사 모델링(O-113), tenant_settings-API Center FK(O-114).
+
+#### 5.14.16 최종 점검 (§17)
+
+| 점검 항목 | 결과 |
+|---|---|
+| 문서 충돌 | **발견되지 않음** |
+| 중복 기능 | **2건 발견·해소** — ① Notification Center가 D-038(CMS 산하)과 D-051(ERP Core)에 이중 분류될 뻔했으나 "발송엔진=ERP Core, 템플릿콘텐츠=CMS 이중참조"로 정리(충돌 아님). ② CRM Center의 관심상품/회원활동을 신규 테이블로 만들지 않고 기존 `product_wishlists`/`member_activity_logs` 재사용으로 중복 차단 |
+| 누락 기능 | API Center(외부연동 일원화)·File Manager(통합 파일관리)·Scheduler Center(스케줄 가시성)·Dashboard/Report/Form Builder(관리자 자율 구성)·Audit Center(로그 조회 UI)·CRM Center(상담 관리) — 모두 ERP "Core"가 전무했던 공백이었음을 확인하고 본 라운드로 해소 |
+| ERP Core와 기존 구조 충돌 | **없음** — 의존 방향 원칙(업무모듈→ERP Core)을 지켜 기존 업무 모듈 코드/데이터 변경 없이 추가만 이루어짐 |
+| Multi-Tenant 충돌 | **없음** — API Center 도입으로 오히려 D-044의 SMTP/SMS/PG/3PL 중복 설계 위험(O-103)이 해소됨 |
+| 쇼핑몰 충돌 | **없음** — D-058은 D-040의 연장이며 기존 주문/결제 로직 변경 없음 |
+| MLM 충돌 | **없음** — COMPENSATION-RULES.md/DATABASE.md MLM 관련 섹션은 본 라운드에서 전혀 수정하지 않음(사용자 제약 100% 준수) |
+| CMS 충돌 | **없음(재배치 1건)** — Notification Center의 ERP Core 재배치는 D-038 결정을 무효화하지 않고 보완 |
+| API 구조 충돌 | **없음** — API Center 신설 이전에는 외부 연동 관리 구조 자체가 없었으므로 충돌 대상이 없었음 |
+| Workflow 중복 | **없음** — D-047에서 기존 5개 전용 구조를 의도적으로 통합하지 않기로 결정해 중복/충돌 가능성을 원천 차단 |
+
+**종합 평가**: Phase 1(D-037~D-045)이 업무 모듈 차원의 완성도를 높였고, Phase 2(D-046~D-059)는 그 모듈들이 공통으로 의존할 기반 엔진(ERP Core)을 추가했다. 두 라운드 모두 기존 MLM 마케팅·쇼핑몰 핵심 흐름·정산 로직을 변경하지 않았다 — 사용자가 반복적으로 명시한 핵심 제약을 일관되게 준수했다. 남은 격차는 본 라운드에서 식별한 Open Decision(O-105~O-114)의 세부 확정과, "이미 선구현된 5개 전용 워크플로우를 언제 Workflow Engine으로 통합할지"(O-105)와 같은 사업적 판단으로 좁혀졌다고 평가한다.

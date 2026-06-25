@@ -1,6 +1,6 @@
 # TASK-SPEC.md — AI 작업 지시서 표준 형식
 
-> 상태: Draft v0.2 · 최종 수정일: 2026-06-23 · 단계: 설계(Design)
+> 상태: Draft v0.3 (D-061 반영 — §6에 ERP UX Standard 컴포넌트 재사용 원칙 추가) · 최종 수정일: 2026-06-25 · 단계: 설계(Design)
 > 목적: Claude Code / Codex에게 작업을 위임할 때 사용하는 표준 작업 지시서 형식을 정의한다.
 
 ## 1. 원칙
@@ -77,3 +77,4 @@ FNS의 서버는 Railway 프로젝트 1개 안에 **web/api/worker/scheduler/red
 4. **worker 작업 지시서는 입력(Job payload)과 출력(기록 대상 Supabase 테이블)을 명시한다.** worker는 Redis가 아닌 Supabase PostgreSQL에 최종 결과를 기록해야 한다.
 5. **scheduler 작업 지시서에는 계산 로직을 포함하지 않는다.** scheduler 작업은 "Job 트리거(cron 등록)"로 범위를 한정한다.
 6. 위 원칙을 위반하는 작업 지시서는 발행 전 반드시 재정의한다 — [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md)에 동일 원칙이 금지 항목으로 명시되어 있다.
+7. **ConfirmDialog/Toast/LoadingButton 등 ERP UX Standard 컴포넌트([PRD.md](PRD.md) §5.44, [DECISIONS.md](DECISIONS.md) D-061) 작업 지시서는 화면별로 새로 만들지 않고 공통 컴포넌트 라이브러리를 재사용해야 한다** — 특정 화면에서 다른 UX가 필요하면 작업을 발행하기 전에 표준 자체를 먼저 갱신한다(§5.44.12 원칙).

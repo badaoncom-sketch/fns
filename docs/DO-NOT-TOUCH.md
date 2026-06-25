@@ -1,24 +1,29 @@
 # DO-NOT-TOUCH.md — 절대 임의 변경 금지 대상
 
-> 상태: Draft v0.3 (D-031 반영 — 폐기된 `pv_ledger`/`member_rank_history`를 append-only 보호 목록에서 제거) · 최종 수정일: 2026-06-24 · 단계: 설계(Design)
+> 상태: Draft v0.5 (D-061 반영 — ERP UX Standard 도입이 기존 로직/승인구조를 변경하지 않는다는 원칙 추가, Undo가 append-only 원장에는 적용되지 않는다는 원칙 추가) · 최종 수정일: 2026-06-25 · 단계: 설계(Design)
 > 목적: 사람/AI(Claude Code, Codex) 모두에게 적용되는, 명시적 승인 없이 변경·삭제·실행해서는 안 되는 대상을 정의한다.
 
 ## 1. 현재(설계 단계) 기준 원칙
 
 이 시점에는 아직 코드/운영 환경이 없으므로, 아래는 **앞으로 적용될 원칙의 선언**이며 구현 단계 진입 시 그대로 유효하다.
 
+> 아래 원칙들(특히 §1.2/§1.3)은 ARCHITECTURE.md/CODING-STANDARD.md/API-SPEC.md/TEST-PLAN.md 등 여러 문서에서도 짧게 반복 인용된다 — 의도된 반복이다(안전이 걸린 핵심 원칙은 여러 곳에서 상기시키는 쪽이 안전). 각 원칙의 **정식 정의(Single Source of Truth)와 전체 목록은 [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md)**(BR-039 worker 계산 전담, BR-018 append-only, BR-025/BR-026 조직 이동, BR-010 패키지 엔진 등)에서 한 번에 확인할 수 있다 — 다른 문서의 인용이 이 문서의 표현과 다르게 보이면 본 문서와 BUSINESS-RULE-CATALOG.md를 우선한다.
+
 ### 1.1 문서 관련
 
 - [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md), [PRD.md](PRD.md) 등 합의된 문서의 내용을 **사업팀 논의 없이 임의로 변경하지 않는다.** 특히 [COMPENSATION-RULES.md](COMPENSATION-RULES.md), [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md)의 수치(비율, 한도, 조건)는 [DECISIONS.md](DECISIONS.md)에 결정 기록이 남기 전까지 "확정"으로 표시하지 않는다. ([PROMOTION-RULES.md](PROMOTION-RULES.md)는 D-030으로 폐기되어 본 원칙의 대상에서 제외)
 - [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md)의 법적 판단은 변호사/세무사 검토 없이 "확정"으로 전환하지 않는다.
+- **ERP Core 엔진(Workflow Engine 등, [DECISIONS.md](DECISIONS.md) D-046)을 도입한다고 해서 기존 전용 구조(조직 이동 D-020, 회원 생애주기 변경 D-006, 프로그램 신청 D-042, 포인트 사용신청 D-041, 정산 승인)를 임의로 그 엔진으로 재구현하지 않는다** — 사업팀의 명시적 통합 승인 없이는 기존 데이터 모델·승인 권한 제약(예: 조직 이동의 9개 사유코드·3개 역할 제한)을 그대로 유지한다([PRD.md](PRD.md) §5.30.3).
+- **ERP UX Standard([DECISIONS.md](DECISIONS.md) D-061, [PRD.md](PRD.md) §5.44)는 행동 전후에 붙는 확인/피드백 UI 레이어일 뿐이다** — Confirm Dialog/Bulk Action UX를 도입한다고 해서 MLM/정산/쇼핑몰/CMS의 기존 계산 로직, Workflow Engine의 기존 5개 전용 승인 구조(권한·순서)를 변경하지 않는다. Confirm Dialog는 기존 행동 앞에 확인 단계를 추가할 뿐, 행동 자체의 결과나 권한 체계를 바꾸지 않는다.
 
 ### 1.2 코드/데이터 관련 (구현 단계 진입 시 적용)
 
 - **정산(커미션) 계산 로직**: 법적·금전적 영향이 크므로, [COMPENSATION-RULES.md](COMPENSATION-RULES.md)/[SETTLEMENT-RULES.md](SETTLEMENT-RULES.md)에 명시적으로 확정되지 않은 수치나 로직을 임의로 구현하지 않는다.
-- **append-only 원장 테이블** (`commission_records`, `settlement_items`, `audit_logs` — [DATABASE.md](DATABASE.md)): 기존 행을 `UPDATE`/`DELETE`로 직접 수정하지 않는다. 정정은 반드시 보정(역분개) 엔트리 추가로 처리한다. (`pv_ledger`/`member_rank_history`는 D-030으로 폐기되어 더 이상 존재하지 않음 — 목록에서 제외)
+- **append-only 원장 테이블** (`commission_records`, `settlement_items`, `audit_logs` — [DATABASE.md](DATABASE.md)): 기존 행을 `UPDATE`/`DELETE`로 직접 수정하지 않는다. 정정은 반드시 보정(역분개) 엔트리 추가로 처리한다. (`pv_ledger`/`member_rank_history`는 D-030으로 폐기되어 더 이상 존재하지 않음 — 목록에서 제외) **ERP UX Standard의 Undo("되돌리기", D-061, [PRD.md](PRD.md) §5.44.7)도 이 원칙의 예외가 아니다** — 정산승인/포인트승인 등 이 원장들에 기록되는 행동에는 Undo 버튼을 노출하지 않는다.
 - **실 회원 PII / 실 정산 금액 데이터**: 개발/테스트 환경에서는 가상/목업 데이터만 사용한다. 실 데이터를 비프로덕션 환경으로 복제하지 않는다.
 - **프로덕션 데이터베이스**: 마이그레이션/배포 파이프라인을 거치지 않은 직접 수정(콘솔 등)을 하지 않는다.
 - **`.env`, 시크릿, DB 자격증명, Railway/Supabase API 키**: 레포에 커밋하지 않으며, 코드/문서에 평문으로 기록하지 않는다.
+- **API Center(`external_api_connections.auth_key_ref`, [DATABASE.md](DATABASE.md) §3.38, D-048)의 외부 API 인증키도 동일 원칙을 따른다** — PG/3PL/SMS/공제조합 등 어떤 연동이든 인증키를 DB 컬럼에 평문으로 저장하지 않으며, Supabase Vault 등 암호화 저장소의 참조만 보관한다.
 
 ### 1.3 서버 구조 관련 (구현 단계 진입 시 적용 — [DECISIONS.md](DECISIONS.md) D-010)
 

@@ -1,18 +1,65 @@
 # PROJECT-CONTEXT.md
 
-> 상태: Draft v0.14 (D-031 — §3 용어표에 회원몰/일반쇼핑몰/정기배송 추가) · 최종 수정일: 2026-06-24 · 단계: 설계(Design)
+> 상태: Draft v0.18 (D-046 — §1.1 ERP 모듈 구조를 2계층(ERP Core 엔진 + 업무 모듈)으로 재구성, ERP Core 12개 엔진 추가) · 최종 수정일: 2026-06-25 · 단계: 설계(Design)
 > 이 문서는 FNS 프로젝트의 전체 맥락을 제공하는 최상위 문서입니다. 다른 모든 문서는 이 문서를 전제로 작성됩니다.
 
 ## 1. 프로젝트 한 줄 정의
 
-**FNS(Future Network System)** 는 직접판매(Direct Selling) 사업자를 위한 ERP 플랫폼이다.
-회원(파트너/디스트리뷰터) 관리, 조직(스폰서 트리) 관리, 후원수당(보상플랜) 계산, 정산(커미션 지급), 주문/매출 관리, 법적 컴플라이언스를 하나의 시스템에서 처리하는 것을 목표로 한다.
+**FNS(Future Network System)** 는 **ERP 플랫폼**이다. MLM(다단계/네트워크 마케팅) 보상플랜·정산은 이 ERP의 **모듈 중 하나**이며, 전체 시스템은 일반 이커머스 ERP가 갖춰야 할 쇼핑몰·회원관리·주문·결제·배송·재고·CRM·CMS·마케팅·통계·설정 기능을 모두 포함한다(확정 — [DECISIONS.md](DECISIONS.md) D-037). 회원(파트너/디스트리뷰터) 관리, 조직(스폰서 트리) 관리, 후원수당(보상플랜) 계산, 정산(커미션 지급), 주문/매출 관리, 법적 컴플라이언스를 하나의 시스템에서 처리하는 것을 목표로 한다.
+
+### 1.1 ERP 모듈 구조 (확정 — [DECISIONS.md](DECISIONS.md) D-037, D-046로 ERP Core 계층 추가)
+
+FNS ERP는 **2개 계층**으로 구성된다 — ① 모든 업무 모듈이 공통으로 사용하는 **ERP Core**(엔진 계층), ② 실제 업무 도메인을 다루는 **업무 모듈**(쇼핑몰/MLM/CMS 등). 모듈/엔진은 모두 **논리적 도메인 경계**(NestJS 모듈 단위)이며, §6.1의 5개 물리 서비스(web/api/worker/scheduler/redis) 구조를 대체하지 않는다.
+
+```
+ERP Platform
+│
+├─ ERP Core (공통 엔진 — 모든 업무 모듈이 사용, [DECISIONS.md](DECISIONS.md) D-046)
+│  ├─ Authentication       — 기존 Supabase Auth(D-002)를 ERP Core 엔진으로 재인식, PRD §5.29
+│  ├─ Authorization        — 기존 RBAC(§5.6.4)를 ERP Core 엔진으로 재인식, PRD §5.29
+│  ├─ Workflow Engine      — 신규, PRD §5.30
+│  ├─ API Center           — 신규, PRD §5.31
+│  ├─ Scheduler Center      — 신규(기존 scheduler 서비스의 관리 UI), PRD §5.33
+│  ├─ Notification Center  — 기존(§5.12)을 CMS에서 ERP Core로 재배치 + 보강, PRD §5.34
+│  ├─ Audit Center         — 신규(기존 audit_logs의 관리 UI), PRD §5.35
+│  ├─ File Manager         — 신규, PRD §5.32
+│  ├─ Dashboard Builder    — 신규, PRD §5.36
+│  ├─ Report Builder       — 신규, PRD §5.37
+│  ├─ Form Builder         — 신규, PRD §5.38
+│  └─ System Settings      — 신규(분산된 설정의 허브) + 보안정책, PRD §5.39
+│
+└─ 업무 모듈 (ERP Core를 사용 — 직접 구현 중복 금지)
+   ├─ 쇼핑몰        (Shop)         — PRD §5.1.3, §5.21, §5.41(Phase 2 보강), §5.43(이미지/미디어 관리 보강)
+   ├─ 회원관리      (Member)       — PRD §5.1/§5.3/§5.6
+   ├─ 주문관리      (Order)        — PRD §5.1.3, §3.3(DATABASE)
+   ├─ 결제관리      (Payment)      — PRD §5.1.3.3(자동결제), §5.21(쇼핑몰 결제)
+   ├─ 배송관리      (Logistics)    — PRD §5.5
+   ├─ 재고관리      (Inventory)    — PRD §5.5
+   ├─ CRM          (Customer)     — PRD §5.11(CS Center) → §5.40(CRM Center로 확장)
+   ├─ CMS          (Content)      — PRD §5.10, §5.19(대폭 확장)
+   ├─ 마케팅        (Marketing)    — PRD §5.1.5/§5.20(Marketing Program Engine), §5.17(추천링크)
+   ├─ MLM          (Compensation) — COMPENSATION-RULES.md 전체, PRD §5.1/§5.16
+   ├─ 정산          (Settlement)   — SETTLEMENT-RULES.md, PRD §5.7(공제조합)
+   └─ 통계          (Analytics)    — PRD §5.18(35%모니터링), §5.25(관리자 통계) — Dashboard/Report Builder(ERP Core)를 사용해 시각화/출력
+```
+
+- **"설정" 모듈은 폐지하지 않고 ERP Core의 System Settings로 흡수한다(D-046)** — 기존 §5.27(관리자 설정 일원화)·§5.6.4(권한)는 그대로 유지되며, System Settings가 이들을 위한 **허브 화면**을 추가로 제공한다. 중복이 아니라 재배치다.
+- **MLM은 여전히 ERP의 한 업무 모듈이다(D-037, 변경 없음)** — 다른 업무 모듈은 MLM 없이도 독립적으로 동작할 수 있어야 한다(일반 이커머스 ERP로도 사용 가능). MLM 모듈은 쇼핑몰(주문/결제) 모듈에 의존한다.
+- **ERP Core는 업무 모듈에 의존하지 않는다(D-046, 확정 원칙)** — Workflow Engine/API Center/File Manager 등은 어떤 업무 모듈(쇼핑몰/MLM/CMS)이 존재하지 않아도 동작할 수 있는 순수 엔진이다. 의존 방향은 항상 "업무 모듈 → ERP Core"이며 반대 방향은 금지한다.
+- **모듈/엔진 간 연결은 독립성을 유지한 채 API·설정으로 이루어진다(D-037 원칙 유지)** — 식별자(예: `package_id`)와 정책 설정으로 연결하며, 내부 테이블을 직접 참조하지 않는다.
+- **ERP UX Standard(신규, D-061)는 위 다이어그램과 별개의 계층이다** — 위 ERP Core/업무 모듈 구조는 **백엔드(api/worker) 모듈 경계**를 다루지만, ERP UX Standard는 **프론트엔드(web) 전용 공통 UX 컴포넌트**(Confirm/Warning Dialog, Toast, Loading, Bulk Action, Undo 등)로 관리자/회원/쇼핑몰/CMS 화면 전체가 공유한다. 어떤 업무 모듈·MLM/정산/Workflow의 기존 로직도 변경하지 않는다. 상세는 [PRD.md](PRD.md) §5.44, [ARCHITECTURE.md](ARCHITECTURE.md) §2.1.1 참조.
+- **상용 ERP 수준 Gap Analysis(D-062)를 1차로 수행했다** — "FNS 전용이 아닌 다양한 직접판매 기업이 사용할 Multi-Tenant MLM ERP Platform" 목표 대비 점검한 결과는 [GAP-ANALYSIS.md](GAP-ANALYSIS.md)에 기록한다. 결론: **기능 설계 완성도는 높음**(정성 평가 약 90% 내외, MLM 핵심 도메인뿐 아니라 ERP Core/CMS/CRM/쇼핑몰까지 폭넓게 커버)이나 **구현 착수 준비도는 낮음~중간**(ERD 다이어그램/API Specification/Coding Standard/Test Plan/Deployment Guide 등 개발 산출물이 아직 없거나 텍스트 수준에 불과). 신규 발견 갭 49건은 [DECISIONS.md](DECISIONS.md) O-121~O-169로 등록했으며, 이번 라운드에서 기능을 직접 추가하지는 않았다.
+- **개발 착수 준비 문서 세트(D-063)를 후속으로 완성했다** — Gap Analysis(D-062)가 식별한 산출물 공백 9종(Sitemap/Role Matrix/ERD/API Spec/Wireframe/Design System/UI Guideline/Coding Standard/Test Plan/Deployment Guide)을 모두 신규 문서로 작성하고, [MASTER-INDEX.md](MASTER-INDEX.md)(전체 문서 색인·읽는순서·의존관계도·최종 개발준비도 평가)를 신설했다. 모든 신규 문서는 기존 1차 설계(PRD/ARCHITECTURE/DATABASE/DECISIONS)를 재구성한 것이며 새 정책을 만들지 않았다. Open Decision 전체(O-002~O-169)도 이번에 정리했다(해소 1건, 병합 3건, 우선순위 분류 — [DECISIONS.md](DECISIONS.md) §2.1) 및 추가 갭 6건(O-170~O-175)을 등록했다. **최종 개발 준비도 평가는 [MASTER-INDEX.md](MASTER-INDEX.md) §5 참조.**
+- **개발 착수 전 최종 안정화(D-064)를 완료했다** — [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md)/[EVENT-CATALOG.md](EVENT-CATALOG.md)/[ERROR-CODE.md](ERROR-CODE.md)/[STATE-MACHINE.md](STATE-MACHINE.md)/[DATA-DICTIONARY.md](DATA-DICTIONARY.md) 5개 표준화 카탈로그를 신설해 "어느 문서가 정본인지" 찾는 비용을 낮췄고, 흩어져 있던 개발 Blocker를 **[DECISIONS.md](DECISIONS.md) §2.2 단일 목록(17건, 3-Tier)** 으로 통합했다. 문서 중복 점검 결과 심각한 중복 산문은 없었음을 확인했다([GAP-ANALYSIS.md](GAP-ANALYSIS.md) §11). 신규 기능/Open Decision은 추가하지 않았다. **Tier 1 8건(O-022/O-028/O-127/O-128/O-144/O-148/O-164/O-169)이 코드 작성 전 최우선 확정 대상이다.**
+- **기존 전용 구조는 강제로 ERP Core로 이전하지 않는다(D-046)** — 조직 이동(`organization_transfer_logs`, D-020 — 9개 사유코드·제한된 승인권자라는 법적 요구사항이 있어 범용 Workflow Engine으로 단순화하면 위험), 회원 생애주기 변경(`member_change_requests`, D-006) 등은 이미 같은 패턴(요청→Snapshot→영향분석→승인)을 선구현한 사례로 인정하되, 데이터 모델은 그대로 유지한다. ERP Core는 **신규 워크플로우**(환불/반품/교환/전자결재 등)부터 적용한다.
+- 본 모듈 구조는 기존 문서의 섹션 번호를 재배치하지 않는다 — 각 모듈/엔진의 상세 스펙은 계속 해당 문서(주로 [PRD.md](PRD.md))의 기존/신규 섹션에 위치하며, 본 절은 그 위치를 안내하는 **색인**이다.
 
 ## 2. 배경 및 목적
 
 - 다단계/네트워크 마케팅(직접판매) 사업자는 일반 이커머스와 달리 **조직 구조(스폰서 트리)**, **후원수당 계산**, **정산 시 세금 처리**, **방문판매 등에 관한 법률(이하 방문판매법) 준수**라는 도메인 특화 요구사항을 갖는다.
 - 기존에는 엑셀, 레거시 시스템, 외부 솔루션 조합으로 운영되는 경우가 많아 정확성·확장성·법적 추적성에 한계가 있다.
 - FNS는 이 도메인 요구사항을 코드와 문서로 명확히 정의하고, 작은 단위로 검증 가능한 방식으로 구축하는 것을 목표로 한다.
+- **목표 시장은 FNS 한 회사가 아니다(확정, D-035/D-037)** — FNS를 포함한 **다양한 직접판매 기업이 사용할 수 있는 Multi-Tenant SaaS ERP**를 지향한다. 이 때문에 모든 정책(수당/패키지/포인트/프로그램/쇼핑몰/CMS)은 코드에 하드코딩하지 않고 관리자 설정으로 제어해야 한다는 원칙이 문서 전반에 일관되게 적용된다(§1.1, §5.27 참조).
 
 ## 3. 비즈니스 도메인 요약
 
@@ -24,9 +71,10 @@
 | 내 조직 (회원용 메뉴명) | 회원이 본인의 LINE1~LINE5, 조직매출, 조직수당, 조직성장을 확인하는 화면의 고정 명칭 (확정 — [PRD.md](PRD.md) §5.1.1) |
 | 조직도 (관리자 전용 용어) | 관리자(Admin Console)가 전체 추천조직 트리를 조회하는 기능/용어. **회원 화면에는 사용하지 않음.** "추천조직도"라는 용어는 어디에서도 사용하지 않는다 |
 | 후원수당 (= 조직수당) | LINE1~LINE5 추천조직 실적을 기준으로 회원에게 지급되는 수당. 회원 화면에는 "조직수당"으로 표시한다 |
-| 자격 (2종, 서로 독립) | 회원가입은 무료이며 구매가 가입 조건이 아니다. **① 유니레벨 후원수당 자격**: 매월 5만원 상당 제품 구매로 그 달의 수령 자격이 결정된다(`members.status`와 독립된 월 단위 자격, 미달 시 회원 자격은 유지되고 그 달의 수령 대상에서만 제외). **② 제품 판매수익·페어보너스 자격**: 본인이 먼저 400만원 패키지를 구매한 적이 있어야 하며, 1회 충족으로 영구 획득한다. **하나를 충족해도 다른 하나가 자동으로 충족되지 않는다** (확정 — [DECISIONS.md](DECISIONS.md) D-028, D-024 정정, [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §3.5) |
-| 패키지 (400만원 패키지) | 회원가입 후 선택적으로 구매 가능한 고가 제품 세트. 구매자의 추천인이 **본인도 패키지를 구매한 적이 있는 경우에만**, 구매 시 **제품 판매수익**(25%, 100만원)을 받으며, 동일 추천인 산하 구매자끼리 30일 내 구매 순서로 짝지어지면 **페어보너스**(Pair당 200만원)가 추가 지급된다 — 추천인 본인이 패키지 구매 이력이 없으면 둘 다 지급되지 않고 소멸한다(D-028). 패키지 매출 자체는 유니레벨 후원수당 산정에서는 제외된다 (확정 — D-024/D-028, [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.1) |
-| 회원몰 / 일반 쇼핑몰 | **회원몰**: 파트너가 본인 소비·유지구매·패키지 구매를 위해 주문하는 채널. **일반 쇼핑몰**: 회원이 아닌 일반 고객도 이용 가능한 공개 채널(기존 "고객몰(B2C)"과 동일 개념, 포함 여부 미확정) — 두 채널 모두 [PRD.md](PRD.md) §5.1.3 참조 (확정 — [DECISIONS.md](DECISIONS.md) D-031) |
+| 자격 (2종, 서로 독립) | 회원가입은 무료이며 구매가 가입 조건이 아니다. **① 유니레벨 후원수당 자격**: 매월 5만원 상당 제품 구매로 그 달의 수령 자격이 결정된다(`members.status`와 독립된 월 단위 자격, 미달 시 회원 자격은 유지되고 그 달의 수령 대상에서만 제외). **② 제품 판매수익·페어보너스 자격**: 본인이 먼저 "자격 인정 패키지"를 구매한 적이 있어야 하며, 1회 충족으로 영구 획득한다(D-033 — 어떤 패키지가 자격을 부여하는지는 패키지별 정책으로 설정, FNS 현재 패키지는 자격 인정으로 설정됨). **하나를 충족해도 다른 하나가 자동으로 충족되지 않는다** (확정 — [DECISIONS.md](DECISIONS.md) D-028/D-033, D-024 정정, [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §3.5) |
+| 패키지 | 회원가입 후 선택적으로 구매 가능한 고가 제품 세트 — **개수 제한 없이 무제한 등록 가능**하며, 패키지마다 추천수당/페어보너스/유니레벨포함/자격부여 여부를 독립적으로 설정한다(확정 — [DECISIONS.md](DECISIONS.md) D-033, [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.1.0). **FNS 현재 운영 패키지(1종, 명칭 미정)**: 가격 400만원, 구매자의 추천인이 본인도 자격 인정 패키지를 구매한 적이 있는 경우에만 구매 시 **제품 판매수익**(25%, 100만원)을 받으며, 동일 추천인 산하 동일 패키지 구매자끼리 30일 내 구매 순서로 짝지어지면 **페어보너스**(Pair당 200만원)가 추가 지급된다 — 추천인 본인이 자격 인정 패키지 구매 이력이 없으면 둘 다 지급되지 않고 소멸한다(D-028). 이 패키지의 매출 자체는 유니레벨 후원수당 산정에서는 제외된다 (확정 — D-024/D-028/D-033, [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.1) |
+| 회원몰 / 일반 쇼핑몰 | **일반 쇼핑몰**: 건강기능식품/화장품/생활용품/프로모션 상품/패키지 상품 등 모든 상품이 존재하는 **단일 통합 카탈로그**(회원·일반 고객 공통, 비회원 접근 허용 여부만 미확정). **회원몰**: 상품 판매 채널이 아니라 유지구매센터×정기배송센터×자동결제센터로 구성된 회원 전용 대시보드 — 실제 구매는 일반 쇼핑몰에서 일어난다 (확정 — [DECISIONS.md](DECISIONS.md) D-034, D-031 정정, [PRD.md](PRD.md) §5.1.3) |
+| Lifestyle Program (= "+알파" 보너스) | "+알파" 보너스(Lifestyle Bonus, [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.2)의 **회원/쇼핑몰 노출용 명칭** — 마이오피스 적립 현황뿐 아니라 쇼핑몰 메인(슬라이드/프로모션/이벤트 배너)·회원몰 메인(프로그램 배너·포인트 현황·진행률)·전용 상세페이지(소개/이미지갤러리/포인트정책/누적현황/참여조건/첨부파일/FAQ)로 노출되는 마케팅·동기부여 콘텐츠다. 관리자/엔진 내부 용어는 그대로 "+알파" 보너스를 사용한다 (확정 — [DECISIONS.md](DECISIONS.md) D-036, [PRD.md](PRD.md) §5.1.5) |
 | 정기배송 (Recurring Delivery) | 회원몰에서 특정 제품을 일정 주기로 자동결제·자동주문받는 구독형 주문. §3.5.2 유니레벨 자격(매월 5만원 구매)을 안정적으로 유지시키는 핵심 기능(MVP)으로 확정 ([PRD.md](PRD.md) §5.1.3, [DECISIONS.md](DECISIONS.md) D-031) |
 | 추천 링크 | 모든 회원이 갖는 고유 가입 링크(`fns.com/r/{memberid}`, `fns.com/join?ref={memberid}`). 이 링크로 가입하면 링크 소유 회원이 추천인으로 자동 연결되어 `members.sponsor_id`가 설정된다 — 신규 가입 시점의 최초 1회 설정이며, 가입 후 추천인 변경은 여전히 관리자 전용 조직 이동(D-020)을 통해서만 가능하다 (확정 — [DECISIONS.md](DECISIONS.md) D-025, [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §3.6) |
 | 정산 | 계산된 후원수당을 실제 금액으로 확정하고 세금을 처리하여 지급하는 절차 |

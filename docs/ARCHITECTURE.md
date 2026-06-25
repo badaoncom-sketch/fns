@@ -1,11 +1,13 @@
 # ARCHITECTURE.md — 시스템 아키텍처
 
-> 상태: Draft v0.13 (D-031 잔여 정합성 정리 — `member_rank_history` 참조 제거, PROMOTION-RULES.md §6 깨진 참조 수정, Job 개수 9→10종 정정) · 최종 수정일: 2026-06-24 · 단계: 설계(Design)
+> 상태: Draft v0.17 (D-063 — 개발 착수 준비 문서 세트: [API-SPEC.md](API-SPEC.md)/[DEPLOYMENT.md](DEPLOYMENT.md)/[CODING-STANDARD.md](CODING-STANDARD.md)가 본 문서를 전제로 작성됨, §10에 Open Decision 3건 추가) · 최종 수정일: 2026-06-25 · 단계: 설계(Design)
 > 전제 문서: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md), [PRD.md](PRD.md)
 
 ## 1. 아키텍처 개요
 
 FNS의 최종 서버 구조는 **Railway 프로젝트 1개 안의 5개 서비스**로 확정한다 ([DECISIONS.md](DECISIONS.md) D-010). 각 서비스는 모듈형 모놀리스 코드베이스를 공유하되, **"요청을 받는 것"과 "무겁게 계산하는 것"을 물리적으로 분리된 프로세스로 둔다.**
+
+> **물리 구조 vs 논리 모듈(D-037)**: 위 5개 서비스는 **물리적 배포 단위**이고, [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §1.1의 ERP 13개 모듈(쇼핑몰/회원관리/.../MLM/CMS/마케팅/통계/설정 등)은 **논리적 도메인 경계**(api/worker 내부의 NestJS 모듈)다. 둘은 서로 다른 축이며, ERP 모듈이 늘어나도(예: CMS 대폭 확장, D-038) 5개 서비스 구조 자체는 변경되지 않는다 — §2.2의 모듈 목록이 ERP 모듈 경계와 대응된다.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -68,6 +70,16 @@ FNS의 최종 서버 구조는 **Railway 프로젝트 1개 안의 5개 서비스
 - API 통신은 `api` 서비스(REST)를 통해서만 수행 (Next.js에서 Supabase DB 직접 접근 금지).
 - **수당/정산 등 어떤 계산도 web에서 수행하지 않는다 (확정 — 위반 금지).** UI는 `api`가 반환한 결과를 표시만 한다.
 
+#### 2.1.1 ERP UX Standard — 공통 UX 컴포넌트 계층 (신규 — [DECISIONS.md](DECISIONS.md) D-061)
+
+Admin Console/Partner Portal/쇼핑몰/CMS가 공유하는 공통 UX 컴포넌트 라이브러리([PRD.md](PRD.md) §5.44)는 `web` 서비스 내부에만 존재하는 **순수 프레젠테이션 계층**이다.
+
+- ConfirmDialog/WarningDialog/SuccessToast·ErrorToast·InfoToast/LoadingOverlay/LoadingButton/ActionButton/ConfirmActionButton/BulkActionDialog/UnsavedChangesGuard/ImageUploader/FileUploader/ImagePreview/ProgressBar는 화면마다 새로 구현하지 않고 공통 라이브러리를 재사용한다([PRD.md](PRD.md) §5.44.9/§5.44.12).
+- **§1.1 원칙(계산과 요청처리의 분리)을 그대로 따른다** — Confirm Dialog/Loading/Toast는 `api` 호출 전후의 UI 상태일 뿐이며, 어떤 계산·검증 로직도 포함하지 않는다.
+- **Bulk Action**(§5.44.6)은 기존 단건 `api` 엔드포인트를 N회 호출하거나 기존 batch 엔드포인트를 재사용한다 — 신규 계산 로직이나 신규 워크플로우 분기를 추가하지 않는다. 대규모 건수에서 동기 처리가 비효율적이면 §2.3 `worker`의 기존 Job 패턴을 재사용할 수 있으나, 정확한 전환 임계값은 미확정(O-118, §10).
+- **Undo**(§5.44.7)는 `api`의 기존 소프트 삭제(`is_active`) 토글 엔드포인트를 재호출하는 것으로 구현되며, append-only 원장(`commission_records`/`settlement_items`)을 다루는 모듈에는 적용하지 않는다([DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) §1.2).
+- Activity Log/Audit Log/Notification Center 연계(§5.44.8)는 §2.2 `Audit`/`Notification` 모듈의 기존 경로를 그대로 호출한다 — 신규 모듈을 추가하지 않는다.
+
 ### 2.2 api — NestJS (Railway 서비스, 요청 처리 전용)
 
 모듈 경계(초안) 및 책임 범위:
@@ -91,6 +103,11 @@ FNS의 최종 서버 구조는 **Railway 프로젝트 1개 안의 5개 서비스
 | ESignature | **전자서명**([PRD.md](PRD.md) §5.13) — 서명 요청/검증(경량 — api에서 직접 처리), `member_change_requests`의 승인 선행조건 검사 |
 | ActivityLog | **회원 활동 이력**([PRD.md](PRD.md) §5.14) — 경량 기록(api에서 직접 기록), 회원 자기열람 조회 |
 | RuleDesigner | **Rule Designer**([PRD.md](PRD.md) §5.15, 도입 미확정) — 규칙 초안 CRUD, **시뮬레이션/발행 Job 생성**(계산·검증은 worker) |
+| CMS | **CMS 대폭 확장**([PRD.md](PRD.md) §5.19, D-038) — `cms_pages`/`faq_categories`·`faq_items`/`popups`/`banners`/`cms_translations` CRUD. 기존 DocumentCenter/Notification 모듈과는 별개로, 콘텐츠·FAQ·팝업·배너·다국어 번역을 전담 |
+| MarketingProgram | **Marketing Program Engine**([PRD.md](PRD.md) §5.20/§5.22, D-039) — `marketing_programs`/`marketing_program_products` CRUD, 신청 접수(`marketing_program_applications` 생성 — 승인 처리는 경량이라 api에서 직접 수행, 무거운 통계 집계만 worker로 위임) |
+| Point | **포인트 시스템**([PRD.md](PRD.md) §5.23, D-041) — 사용신청 접수, `point_accounts` 조회. 적립/만료 등 배치성 처리는 worker(§2.3) |
+| Shop | **쇼핑몰 기능 보강**([PRD.md](PRD.md) §5.21, D-040) — 리뷰/상품문의/위시리스트 CRUD, 쿠폰 발급/사용 요청 접수 |
+| Analytics | **관리자 통계**([PRD.md](PRD.md) §5.25, D-043) — 통계 조회 API(실시간 쿼리 또는 스냅샷 캐시 조회, 방식은 미확정). 집계 자체가 무거우면 worker로 위임(§2.3) |
 
 - **api request handler는 무거운 계산을 하지 않는다 (확정 — 위반 금지).** 후원수당/정산/세금/프로모션 판정/보고서 생성 등 연산량이 큰 작업은 모두 **Job을 생성**해 `redis`(BullMQ)에 적재하고, 즉시 응답(202 Accepted + Job id)한다.
 - 클라이언트는 Job 상태/결과를 폴링 또는 webhook으로 조회하며, 결과는 `worker`가 Supabase PostgreSQL에 기록한 값을 읽는다.
@@ -99,7 +116,7 @@ FNS의 최종 서버 구조는 **Railway 프로젝트 1개 안의 5개 서비스
 ### 2.3 worker — NestJS 워커 (Railway 서비스, Job 실제 처리)
 
 - `api`/`scheduler`가 `redis`(BullMQ)에 적재한 Job을 꺼내 **실제 무거운 처리**를 수행하는 단일 서비스다.
-- 처리 대상(확정 — 10종, 직급 체계 폐기로 "프로모션" Job 제거, 조직이동 적용 Job 추가 — [DECISIONS.md](DECISIONS.md) D-030/D-022):
+- 처리 대상(확정 — 12종, 직급 체계 폐기로 "프로모션" Job 제거, 조직이동 적용·정기배송 처리·포인트 만료 처리 Job 추가 — [DECISIONS.md](DECISIONS.md) D-030/D-022/D-031/D-041):
   - **수당**: Compensation 모듈의 LINE1~LINE5 후원수당(조직수당) 계산 배치
   - **정산**: Settlement 모듈의 정산 배치, 법적 한도(35%) 검증 — 검증 로직은 §8.1 **법적 한도 모니터링 엔진**을 호출한다(중복 계산 로직을 두지 않는다)
   - **법적 한도 모니터링(§8.1)**: ① 이벤트 기반 실시간 캐시 갱신(매출/후원수당 발생 시마다, Redis), ② 일/월/연도누적 배치 정합화(Postgres 확정 — scheduler 트리거)
@@ -109,7 +126,9 @@ FNS의 최종 서버 구조는 **Railway 프로젝트 1개 안의 5개 서비스
   - **회원 개인 문서 생성**: Document Center(§2.2 DocumentCenter)의 정산자료/지급명세서/원천징수자료 생성
   - **규칙 시뮬레이션/발행 검증**: Rule Designer(§2.2 RuleDesigner) 초안에 대한 dry-run 시뮬레이션 및 법적 한도 등 하드 제약 검증 (도입 시)
   - **3PL 정합성 대조**: §2.7 참조
-  - **조직이동 적용(신규, D-022)**: scheduler가 트리거한 Job을 받아, `effective_date`가 도달한 승인된 조직 이동을 찾아 `members.sponsor_id` 갱신 + `member_sponsor_history` 기록 + Audit Log를 수행한다 (§7.1.1)
+  - **조직이동 적용(D-022)**: scheduler가 트리거한 Job을 받아, `effective_date`가 도달한 승인된 조직 이동을 찾아 `members.sponsor_id` 갱신 + `member_sponsor_history` 기록 + Audit Log를 수행한다 (§7.1.1)
+  - **정기배송 처리(D-031, 기존 목록에 누락되어 있던 것을 보강)**: scheduler가 `next_delivery_date` 도달 건을 트리거하면, 자동결제 시도 → 성공 시 `orders` 생성 → 배송 트리거를 수행한다 ([DATABASE.md](DATABASE.md) §3.30, [PRD.md](PRD.md) §5.1.3.3)
+  - **포인트 만료 처리(신규, D-041)**: scheduler가 매일 트리거하면, `point_transactions.expires_at`이 도달한 미사용 포인트를 찾아 `EXPIRE` 보정 엔트리를 생성한다 ([DATABASE.md](DATABASE.md) §3.36)
 - 수당/정산/프로모션 계산 Job은 **회원의 `country_code`** 를 기준으로 해당 국가에 활성화된 마케팅 플랜 버전·세금규칙·정산규칙을 조회해 적용한다 ([DATABASE.md](DATABASE.md) §3.13) — 국가별로 동일 계산 로직이 다른 파라미터를 사용한다.
 - **수령/판정 대상 필터링과 트리 순회는 분리한다 (확정, D-021)**: WITHDRAWN/FORCED_WITHDRAWN 회원은 수당 수령·정산 생성의 **대상에서는 제외**하지만, 추천조직 트리(`sponsor_id`) 순회 자체는 상태와 무관하게 수행한다 — 다른 회원의 라인 깊이 계산에 영향을 주지 않기 위함이다 ([DATABASE.md](DATABASE.md) §4 원칙 10).
 - 회원 민감 변경의 **수당/정산 영향 분석(dry-run 시뮬레이션, §7)** 도 무거운 연산이므로 worker가 처리한다 — api가 직접 계산하지 않는다.
@@ -299,7 +318,7 @@ FNS는 국가(KR/TH/JP/US, CN은 Reserved — [PROJECT-CONTEXT.md](PROJECT-CONTE
 
 - RLS 적용 범위 (국가 스코프 필터링을 위해 RLS 채택 가능성 — country_code 기준 정책이 단순하여 유력 후보)
 - REST vs GraphQL 최종 결정
-- 환경 단계 수 및 명칭
+- 환경 단계 수 및 명칭 — **O-148로 정식화([DECISIONS.md](DECISIONS.md) §2)**, Railway 환경 분리 개수·명명 및 Supabase 프로젝트 분리 여부
 - 모니터링/로깅 도구 선정
 - 3PL 연동 업체 및 연동 방식(API/EDI/파일)
 - 조직 병합/분리/복구의 기능 정의 및 OrganizationTransfer 모듈 내 처리 방식 ([PRD.md](PRD.md) §5.16.8, [DECISIONS.md](DECISIONS.md) O-065)
@@ -324,5 +343,8 @@ FNS는 국가(KR/TH/JP/US, CN은 Reserved — [PROJECT-CONTEXT.md](PROJECT-CONTE
 - **(O-004, 신규 영향분석)** 법적 한도(35%) 초과 감지 시 정확한 처리 방식 — 배치 전체 보류 / 비례 축소(pro-rata) / 초과를 유발한 마지막 항목만 보류, 3안 중 선택 필요 (§8.1.3)
 - **(O-078)** 실시간 캐시(Redis)↔Postgres 정합화(reconciliation) Job의 실행 주기 (§8.1.1)
 - TH/JP/US의 법정 후원수당 한도 및 자체 30/33/35%(또는 다른 값) 임계치 확정 시점 (O-045 연계, §8.1.2)
+- 대규모 Bulk Action(§2.1.1)의 동기/비동기(Job) 처리 전환 임계값, 일괄작업 결과 추적용 별도 요약 테이블 필요 여부 (O-118)
+- **(신규, D-062)** 상용 ERP 수준 Gap Analysis 결과 — RTO/RPO·DR 절차(O-144), 아웃바운드 Webhook(O-145), API 호출 쿼터(O-146), Multi-Tenant Job 격리(O-159), Redis 장애 시 DLQ 재처리(O-161) 등. 상세는 [GAP-ANALYSIS.md](GAP-ANALYSIS.md), [DECISIONS.md](DECISIONS.md) §2 참조
+- **(신규, D-063)** API 버전관리/deprecation 정책(O-172), 서비스 상태페이지·장애공지(O-173), Multi-Tenant 온보딩/사용량모니터링/격리검증(O-170) — [API-SPEC.md](API-SPEC.md), [DEPLOYMENT.md](DEPLOYMENT.md) 신설 문서가 권장안을 제시했으나 최종 확정은 아님
 
 > ~~수당/정산 시뮬레이션(dry-run) API의 동기/비동기 처리 방식~~ — **해소 (D-010)**: api는 Job 생성만 하고 worker가 비동기로 처리하는 것으로 확정.

@@ -3,6 +3,276 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v1.1.0] - 2026-06-26 (Development Kickoff 준비 — 개발 착수 최종 준비 완료)
+
+> 사용자 요청: "Codex가 바로 개발에 착수할 수 있도록 최종 개발 준비 문서를 완성한다." [DECISIONS.md](DECISIONS.md) D-066. 새 기능/정책 없음. MLM/ERP Core/Database/쇼핑몰 구조 변경 없음. Repository/Monorepo/Next.js/NestJS/package.json/마이그레이션/Supabase/Railway/Redis/BullMQ 생성 없음(Codex 담당). 코드는 생성하지 않음.
+
+### Added
+
+- [DEVELOPMENT-KICKOFF.md](DEVELOPMENT-KICKOFF.md)(신규) — 프로젝트 현재 상태, 개발 시작 기준(Design Freeze 버전/Git Tag 권장값/문서 기준/Source of Truth/개발 원칙), Phase 1~5 구현 순서
+- [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md)(신규) — 구현 착수 전 문서 읽기 순서: 핵심 16단계(전원 공통) + 역할별(MLM/정산, 비즈니스, 디자이너, 백엔드, QA, DevOps) 보강 문서
+
+### Changed
+
+- [MASTER-INDEX.md](MASTER-INDEX.md) §4 — 기존의 역할별 상세 읽기순서 목록을 제거하고 [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md) 참조로 단일화(문서 중복 재발 방지), §1/§6에 신규 문서 2종 반영
+- README.md — "개발 시작 안내" 섹션 추가, 현재 단계에 "개발 준비 완료" 체크 추가, 문서 수 33개로 갱신
+
+## [v1.0.0] - 2026-06-26 (Design Freeze 선언 — 설계 단계 공식 종료)
+
+> 사용자 요청: "프로젝트는 설계 단계를 공식 종료한다... 이후 모든 변경은 Bug/Change Request/New Feature 3가지 방식으로만 관리한다." [DECISIONS.md](DECISIONS.md) D-065. 새 기능/정책/Open Decision/Business Rule을 만들지 않음. MLM/정산/Workflow/ERP Core/Database/쇼핑몰 구조 변경 없음. Open Decision 삭제 없음(번호 유지). 코드는 생성하지 않음.
+
+### Added
+
+- [DESIGN-FREEZE.md](DESIGN-FREEZE.md)(신규) — Design Version/Freeze Date/Scope/Freeze 대상 문서(31종)/변경 금지·허용 항목/Bug·Change Request·New Feature 처리 원칙/개발 단계 전환 절차
+- [RELEASE-ROADMAP.md](RELEASE-ROADMAP.md)(신규) — v1.0(Core ERP, KR)/v1.1(BI/AI 보강)/v2.0(Global/Multi-Tenant 활성화/Marketplace/Open API/Mobile App) 범위 정의
+
+### Changed
+
+- [DECISIONS.md](DECISIONS.md) §2.3(신규) — Open Decision 162건(활성)을 삭제·번호변경 없이 BLOCKER(15)/POST v1(129)/FUTURE(18)로 재분류
+- [MASTER-INDEX.md](MASTER-INDEX.md) §6(신규) — 현재 프로젝트 상태 체크리스트(기획✔/설계✔/개발문서✔/Design Freeze✔/개발⬜/QA⬜/운영⬜), Design Freeze·Release Roadmap 링크 반영
+- README.md — 최상단 상태 문구를 "Design Freeze 완료 → 개발 착수 단계"로 갱신, 현재 단계 체크리스트 추가, Roadmap을 RELEASE-ROADMAP.md 참조로 단순화
+
+## [v0.30.0] - 2026-06-26 (개발 착수 전 최종 안정화 — 개발 Blocker 통합, API-SPEC/TEST-PLAN 보강, 문서 중복 점검)
+
+> 사용자 요청: "개발자가 바로 코딩을 시작해도 흔들리지 않는 설계를 만드는 것이 목적이다." [DECISIONS.md](DECISIONS.md) D-064. 신규 기능 추가 아님 — MLM/정산/쇼핑몰/Workflow/ERP Core/Database/Architecture 구조는 변경하지 않음. 코드는 생성하지 않음.
+
+### Changed
+
+- [DECISIONS.md](DECISIONS.md) §2.2(신규) — 개발 Blocker 17건을 단일 목록으로 통합(Tier 1 착수전필수 8건/Tier 2 모듈별필수 7건/Tier 3 Multi-Tenant활성화시 2건). 기존 [GAP-ANALYSIS.md](GAP-ANALYSIS.md) §8/[MASTER-INDEX.md](MASTER-INDEX.md) §5가 각자 다른 부분집합을 나열하던 것을 통합(메타 중복 해소)
+- [API-SPEC.md](API-SPEC.md) — 버전 deprecation(O-172), Idempotency Key(O-054), 페이지네이션(O-164) Open Decision 연계 명시
+- [TEST-PLAN.md](TEST-PLAN.md) — §2.8 ERP Core 의존성 역전 방지 테스트, §2.9 Multi-Tenant 격리 테스트 추가
+- [GAP-ANALYSIS.md](GAP-ANALYSIS.md) §11(신규) — 문서 중복 제거 보고서. 사용자가 예시로 든 4개 주제(패키지 자격/worker만 계산/append-only/조직이동) 점검 결과 심각한 중복 산문은 발견되지 않음(이미 1줄+링크 패턴) — Open Decision/Blocker 목록의 메타 중복만 발견·해소
+- [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) §1 — [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md)를 가리키는 안내 추가
+- [MASTER-INDEX.md](MASTER-INDEX.md) §5 — 최종 개발준비도 재평가에 **ERP 준비도**/**MLM 준비도** 차원 추가, Blocker 목록은 DECISIONS.md §2.2 참조로 단일화
+
+## [v0.29.0] - 2026-06-25 (문서 표준화 카탈로그 5종 신설)
+
+> 문서 표준화 작업. 기존 24개 문서를 Single Source of Truth 관점에서 재구성하기 위한 색인 문서를 추가했다. 새로운 비즈니스 정책, MLM 정책, 정산 정책, ERP 기능, Open Decision은 만들지 않았고 코드는 생성하지 않았다.
+
+### Added
+
+- [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md)(신규) — PRD/DATABASE/COMPENSATION/SETTLEMENT/LEGAL/DECISIONS에 흩어진 Business Rule의 Source Locator.
+- [EVENT-CATALOG.md](EVENT-CATALOG.md)(신규) — 기존 API/Job/승인/발송/정산 흐름을 Event 관점으로 정리.
+- [ERROR-CODE.md](ERROR-CODE.md)(신규) — ERP 전체 Error Code prefix와 표준 코드 체계.
+- [STATE-MACHINE.md](STATE-MACHINE.md)(신규) — 기존 문서에 명시된 상태값만 Mermaid 상태 다이어그램으로 정리.
+- [DATA-DICTIONARY.md](DATA-DICTIONARY.md)(신규) — DATABASE.md 기반 컬럼 사전.
+
+### Changed
+
+- [MASTER-INDEX.md](MASTER-INDEX.md) — 전체 문서 수를 29개로 갱신하고, 신규 표준화 카탈로그 5종을 문서 목록/분류/의존관계/읽는 순서에 추가.
+- README.md — 문서 수를 29개로 갱신하고 표준화 카탈로그 링크 그룹 추가.
+
+## [v0.28.0] - 2026-06-25 (개발 착수 준비 문서 세트 — Sitemap/Role Matrix/ERD/API Spec/Wireframe/Design System/UI Guideline/Coding Standard/Test Plan/Deployment/Master Index 11종 신설, Open Decision 정리)
+
+> 사용자 요청: "현재 프로젝트는 기능 설계보다 개발 준비 단계로 전환한다... 개발자가 바로 개발을 시작할 수 있도록 문서 체계를 완성하는 것이 목적이다." [DECISIONS.md](DECISIONS.md) D-063. MLM/정산/Workflow/ERP Core/쇼핑몰 핵심 구조는 변경하지 않음. 신규 기능 추가 아님 — 기존 설계의 산출물 형태만 보강. 코드는 생성하지 않음.
+
+### Added (D-063 — 개발 착수 준비 문서 세트)
+
+- [SITEMAP.md](SITEMAP.md)(신규) — 전체 메뉴 1~3Depth, 7개 메뉴그룹
+- [ROLE-MATRIX.md](ROLE-MATRIX.md)(신규) — 역할 7종×액션 11종×모듈 22개 권한 매트릭스
+- [ERD.md](ERD.md)(신규) — DATABASE.md §3 시각화, 13개 클러스터, Mermaid 다이어그램 15개, 117개 엔터티
+- [API-SPEC.md](API-SPEC.md)(신규) — REST 전역 컨벤션 + 22개 모듈 엔드포인트, 비동기 Job 패턴 일관 적용
+- [WIREFRAME.md](WIREFRAME.md)(신규) — 6개 레이아웃 아키타입 × 28개 모듈 매핑
+- [UI-GUIDELINE.md](UI-GUIDELINE.md)/[DESIGN-SYSTEM.md](DESIGN-SYSTEM.md)(신규) — 시각 토큰 + 컴포넌트 30종, 라이브러리 선정(O-169)은 권장안(shadcn/ui)으로 미확정 표기
+- [CODING-STANDARD.md](CODING-STANDARD.md)(신규) — 폴더구조/네이밍/NestJS·Next.js 규칙/에러처리/로깅
+- [TEST-PLAN.md](TEST-PLAN.md)(신규) — MLM/정산/35%게이트/쇼핑몰/Workflow/API분리검증/Idempotency 7개 영역 테스트 전략
+- [DEPLOYMENT.md](DEPLOYMENT.md)(신규) — 환경/배포순서/Migration/Rollback/Backup/HealthCheck/Monitoring, O-037/O-144/O-148 미확정 부분은 권장안
+- [MASTER-INDEX.md](MASTER-INDEX.md)(신규) — 전체 24개 문서 색인, 의존관계도, 역할별 읽는순서, 최종 개발준비도 평가(9개 영역)
+- README.md(저장소 루트, 개선) — 프로젝트 진입 문서로 보강
+
+### Changed (D-063 — Open Decision 정리 + 추가 벤치마킹)
+
+- [DECISIONS.md](DECISIONS.md) §2 — 해소 1건(O-062, D-030으로 PV계층 폐기되어 소멸), 병합 3건(O-009→O-010, O-113 일부→O-098, O-121→O-028) 취소선 반영
+- [DECISIONS.md](DECISIONS.md) §2.1(신규) — Open Decision 전체(O-002~O-175)에 High(37)/Medium(111)/Low(14) 우선순위 분류 부여
+- [DECISIONS.md](DECISIONS.md) §2 — 개발준비도 관점 추가 벤치마킹으로 신규 Open Decision **O-170~O-175**(6건) 등록
+- [GAP-ANALYSIS.md](GAP-ANALYSIS.md) — §3(개발 산출물 9종 "전혀없음/부분적"→"신설" 갱신), §10(신규, 항목별 영향도/난이도/개발시점/선행조건/후속작업), §2.8(신규 벤치마킹 결과)
+- [ARCHITECTURE.md](ARCHITECTURE.md), [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md), [PRD.md](PRD.md) — D-063/신규 문서 교차 참조 추가
+
+## [v0.27.0] - 2026-06-25 (상용 ERP 수준 Gap Analysis — 5개 영역 점검, 신규 Open Decision 49건)
+
+> 사용자 요청: "FNS 전용 시스템이 아니라 다양한 직접판매 기업이 사용할 수 있는 상용 Multi-Tenant MLM ERP Platform 수준의 설계를 완성한다." [DECISIONS.md](DECISIONS.md) D-062. SAP/Dynamics/NetSuite/Odoo/ERPNext/Salesforce 운영기능/Shopify/Magento/Cafe24/NHN Commerce/Shopline 등 상용 ERP·이커머스 관리자가 일반적으로 제공하는 기능 카테고리 기준으로 점검. MLM 보상플랜/정산 로직, Workflow/ERP Core 기존 구조는 변경하지 않음. 신규 기능을 직접 설계하지 않고 점검 결과를 Open Decision으로 등록함. 코드는 생성하지 않음.
+
+### Added (D-062 — Gap Analysis)
+
+- [GAP-ANALYSIS.md](GAP-ANALYSIS.md)(신규) — 점검 방법론, 완성도 평가, 5개 영역(회원/CRM/Multi-Tenant, 쇼핑몰/주문/배송/재고, CMS/Marketing/Notification/BI, ERP Core 운영+개발산출물 점검, MLM/정산/법무 운영기능+성능/확장성+UX) 상세 갭, 개발 준비도 점검(Sitemap/Role Matrix/ERD/API Spec/UI Guideline/Design System/Coding Standard/Test Plan/Deployment Guide/Wireframe), 우선순위 종합, 개발착수 전 필수 보완항목
+- [DECISIONS.md](DECISIONS.md) §2 — 신규 Open Decision **O-121~O-169**(49건) 등록
+- [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md) §6/§13 — 전자상거래법 표시의무, 결제대금예치(에스크로) 체크 항목 추가
+- [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md) §4/§10 — 세무서식·정산 이의신청 연결 관련 Open Decision 연계 표기
+- [PRD.md](PRD.md) §8, [ARCHITECTURE.md](ARCHITECTURE.md) §10, [DATABASE.md](DATABASE.md) §7 — GAP-ANALYSIS.md 요약 링크 추가
+- COMPENSATION-RULES.md, TASK-SPEC.md, DO-NOT-TOUCH.md — 점검 결과 변경 사항 없음(확인만 수행)
+
+## [v0.26.0] - 2026-06-25 (ERP UX Standard 신설 — 공통 Confirm/Warning Dialog, Toast, Button, Bulk Action, Undo, Component Library)
+
+> 사용자 요청: "Confirm Modal만 추가하는 것이 아니라 ERP 전체에서 사용하는 공통 UX(Standard)를 설계한다." [DECISIONS.md](DECISIONS.md) D-061. 현재 MLM/정산/쇼핑몰/CMS/Workflow 로직은 변경하지 않음. 코드는 생성하지 않음.
+
+### Added (D-061 — ERP UX Standard)
+
+- [PRD.md](PRD.md) §5.44 — Confirm/Warning Dialog 정책(§5.44.1/.2), Toast 정책(§5.44.3), Button 상태/Loading(§5.44.4), Unsaved Changes Guard(§5.44.5), Bulk Action UX(§5.44.6), Undo(§5.44.7), Activity Log/Notification 연계(§5.44.8), 공통 Dialog/Toast 종류 및 Component Library(§5.44.9), 상품 이미지 UX(§5.44.10, §5.43 연결), 파일 업로드 UX(§5.44.11), 적용범위/원칙(§5.44.12)
+- [ARCHITECTURE.md](ARCHITECTURE.md) §2.1.1 — 공통 UX 컴포넌트가 `web` 서비스 전용 프레젠테이션 계층임을 명시, §1.1 계산/요청처리 분리 원칙 적용. §10에 Bulk Action 처리 임계값 Open Decision 추가
+- [DATABASE.md](DATABASE.md) §3.51 — UX 표준의 데이터 영향 정리(신규 핵심 테이블 없음, 기존 `audit_logs`/`member_activity_logs`/Notification Center/`system_security_policies.file_upload_policy` 재사용). §4 원칙 3(소프트 삭제)에 Undo가 append-only 원장에는 적용되지 않는다는 단서 추가
+- [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) §1.1/§1.2 — ERP UX Standard 도입이 기존 로직·승인구조를 변경하지 않는다는 원칙, Undo가 append-only 원장의 예외가 아니라는 원칙 추가
+- [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §1.1 — ERP UX Standard가 기존 ERP Core/업무 모듈 다이어그램과 별개의 프론트엔드 계층임을 명시
+- [TASK-SPEC.md](TASK-SPEC.md) §6 — ERP UX Standard 컴포넌트는 화면별로 새로 만들지 않고 공통 라이브러리를 재사용해야 한다는 원칙(7번) 추가
+- 신규 Open Decision **O-117~O-120**(4건)
+
+## [v0.25.0] - 2026-06-25 (상품 이미지/미디어 관리 보강)
+
+> 사용자 요청: "상품 이미지 관리 보강." [DECISIONS.md](DECISIONS.md) D-060. 기존 주문/결제/패키지/정기배송 로직 및 기존 이미지 컬럼(배너/Marketing Program 등)은 변경하지 않음. 코드는 생성하지 않음.
+
+### Added (D-060 — 상품 이미지/미디어 관리)
+
+- [PRD.md](PRD.md) §5.43 — 상품 이미지/미디어 관리(대표 썸네일/목록·상세·제품소개·성분표·사용방법·인증서 이미지/PDF 첨부/동영상 URL/순서변경/미리보기/삭제/PC·모바일 구분/Alt Text/업로드 정책)
+- [DATABASE.md](DATABASE.md) §3.50 — `product_images`(신규), `products.thumbnail_image_ref`/`video_url`/`attachment_refs`(컬럼 추가)
+- [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §1.1 — 쇼핑몰(Shop) 모듈 색인에 §5.43 추가
+- 신규 Open Decision **O-115~O-116**(2건)
+
+## [v0.24.0] - 2026-06-25 (ERP Core Platform 완성 Phase 2 — Workflow Engine, API Center, File Manager, Scheduler/Audit Center, Dashboard/Report/Form Builder, CRM Center, System Settings)
+
+> 사용자 요청: "새 MLM 기능을 추가하는 것이 아니라 ERP Core Platform으로 완성도를 높이는 작업 — 98%→99%." [DECISIONS.md](DECISIONS.md) D-046~D-059, §5.14(15개 산출물 + 최종점검). 기존 MLM 마케팅·쇼핑몰 핵심 흐름·정산 로직은 변경하지 않음. 코드는 생성하지 않음.
+
+### Changed (D-046 — ERP Core를 최상위 공통 엔진 계층으로 신설)
+
+- [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §1.1 — ERP 모듈 구조를 2계층(ERP Core 12개 엔진 + 업무 모듈 12개)으로 재구성. "설정" 모듈은 System Settings로 흡수. 의존 방향 원칙(업무모듈→ERP Core) 및 기존 전용 구조 강제 이전 금지 원칙 확정
+
+### Added (D-047~D-052 — Workflow/API/File/Scheduler/Notification/Audit)
+
+- [PRD.md](PRD.md) §5.30 — Workflow Engine(신규 승인 프로세스용). **기존 5개 전용 승인 구조(조직이동/회원변경/프로그램신청/포인트사용/정산승인)는 의도적으로 통합하지 않음** — 법적 제약 보존
+- [PRD.md](PRD.md) §5.31 — API Center(`external_api_connections`, 외부 연동 일원화). [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md)에 인증키 평문저장 금지 원칙 확장
+- [PRD.md](PRD.md) §5.32 — File Manager(`files`/`file_versions`/`file_folders`/`file_access_permissions`). 기존 `*_ref` 컬럼은 변경 없음
+- [PRD.md](PRD.md) §5.33 — Scheduler Center(기존 12종 Job의 관리 UI, 실행 로직 변경 없음)
+- [PRD.md](PRD.md) §5.34 — Notification Center를 CMS(D-038)에서 ERP Core로 재배치 + 예약/조건/대상그룹 발송, 재발송, 템플릿 버전관리 추가
+- [PRD.md](PRD.md) §5.35 — Audit Center(`audit_logs` 검색 UI, 다운로드는 Report Builder 재사용)
+- [DATABASE.md](DATABASE.md) §3.37~§3.42(6개 신규 섹션)
+
+### Added (D-053~D-056 — Dashboard/Report/Form Builder, System Settings)
+
+- [PRD.md](PRD.md) §5.36 — Dashboard Builder(위젯 Drag & Drop, 기존 고정형 대시보드 §5.18/§5.25는 유지)
+- [PRD.md](PRD.md) §5.37 — Report Builder(Excel/PDF/CSV, 예약생성/메일발송). Audit Center·공제조합 보고센터가 재사용
+- [PRD.md](PRD.md) §5.38 — Form Builder(8종 필드+Validation). 회원가입 핵심 플로우는 변경 없음
+- [PRD.md](PRD.md) §5.39 — System Settings(분산 설정 허브 + 보안/운영 정책 `system_security_policies` 신설)
+- [DATABASE.md](DATABASE.md) §3.43~§3.46(4개 신규 섹션)
+
+### Added (D-057~D-059 — CRM Center, 쇼핑몰/Multi-Tenant Phase 2)
+
+- [PRD.md](PRD.md) §5.40 — CRM Center(상담/예약/메모/Follow-up 신규, 관심상품·회원활동은 기존 테이블 재사용, CS Center는 변경 없음)
+- [PRD.md](PRD.md) §5.41 — 쇼핑몰 보강 Phase 2(브랜드/제조사/상품옵션/연관상품/재입고알림/배송비정책). D-040(O-098) 후속
+- [PRD.md](PRD.md) §5.42 — Multi-Tenant 보강 Phase 2(파비콘/Timezone/관리자이메일 신규, SMTP/SMS/PG/3PL은 API Center 참조로 통합 — O-103 해소)
+- [DATABASE.md](DATABASE.md) §3.47~§3.49(3개 신규 섹션)
+- [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md) §7/§13 — File Manager/API Center 도입에 따른 PII·제3자제공 검토 항목 추가
+- [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md) §9 — 운영자 승인이 Workflow Engine으로 이전되지 않음을 명시(로직 변경 없음)
+- 신규 Open Decision **O-105~O-114**(10건)
+
+### Notes
+
+- 본 라운드는 "새 MLM 기능 추가가 아니다"라는 사용자 지시에 따라 [COMPENSATION-RULES.md](COMPENSATION-RULES.md)/MLM 관련 DATABASE.md 섹션을 전혀 수정하지 않았다.
+- 최종 점검(§5.14.16) 결과 문서 충돌은 발견되지 않았으며, 중복 가능성 2건(Notification Center 이중분류, CRM 신규테이블 vs 기존재사용)은 설계 단계에서 즉시 해소했다.
+- ERP Core 엔진은 모두 "업무 모듈 → ERP Core" 단방향 의존을 따르도록 설계해, 기존 업무 모듈(MLM/쇼핑몰/정산)의 코드·데이터를 변경하지 않고 추가만 이루어졌다.
+
+## [v0.23.0] - 2026-06-25 (ERP 플랫폼 완성도 보강 Phase 1 — CMS 대폭 확장, Marketing Program Engine, 포인트 생애주기, 프로그램 신청, 관리자 통계, Multi-Tenant 설정 강화)
+
+> 사용자 요청: "새 MLM 마케팅을 만드는 것이 아니라 ERP 플랫폼 관점에서 부족한 부분을 보강 — 95%→99%." [DECISIONS.md](DECISIONS.md) D-037~D-045, §5.13(10개 산출물 + 최종점검). 코드는 생성하지 않음.
+
+### Changed (D-037 — ERP 모듈 구조 재정리)
+
+- [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §1 — FNS를 "MLM 시스템"이 아니라 "ERP 플랫폼, MLM은 모듈 중 하나"로 재정의. §1.1(신규) — 13개 모듈 트리(쇼핑몰/회원관리/주문/결제/배송/재고/CRM/CMS/마케팅/MLM/정산/통계/설정) 및 각 모듈의 문서 위치 색인. 섹션 재번호화는 하지 않음(교차참조 보존)
+- [ARCHITECTURE.md](ARCHITECTURE.md) §1 — 물리 서비스(5개)와 논리 모듈(13개)의 관계 명시
+
+### Added (D-038 — CMS 9개 하위 모듈 확장)
+
+- [PRD.md](PRD.md) §5.19(신규) — 콘텐츠/공지/페이지 CMS(통합, `cms_pages`) / FAQ CMS(독립 모듈, O-091 해소) / 팝업 CMS(신규) / 배너 CMS(카테고리 배너 추가, 5종) / 약관·이메일·SMS·Push CMS(기존 모듈 재배치) / 다국어 CMS(`cms_translations`, 전체 공통)
+- [DATABASE.md](DATABASE.md) §3.33(신규) — `cms_pages`/`faq_categories`·`faq_items`/`popups`/`cms_translations`. 기존 "공지사항"을 `documents`(파일형)에서 `cms_pages`(리치콘텐츠)로 재분류
+
+### Changed (D-039 — Marketing Program Engine, Lifestyle Program 일반화)
+
+- [PRD.md](PRD.md) §5.20(신규) — 프로그램 카테고리 무제한 일반화(Lifestyle/Promotion/Campaign/Event/Seminar/Travel/Golf/Education/VIP/Mission/Coupon 등 예시), `links_to_compensation`으로 MLM 보상 연결 여부 구분, 프로그램 생성 CMS(18개 설정 항목)
+- [DATABASE.md](DATABASE.md) §3.34(신규) — `marketing_programs`(`lifestyle_programs` 일반화, §3.32는 보존)/`marketing_program_products`
+- [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.2 — Lifestyle Program이 Marketing Program Engine의 한 카테고리로 재배치됨을 안내
+
+### Added (D-040 — 쇼핑몰 기능 보강 + Marketing Program↔쇼핑몰 연결)
+
+- [PRD.md](PRD.md) §5.21(신규) — 메인팝업/메인배너/카테고리배너(CMS 연동)/이벤트관/기획전/브랜드관/베스트·인기·추천·신상품/타임세일/리뷰/상품문의/최근본상품/위시리스트/쿠폰/검색어순위 점검. `products` 스키마 확장이 다수 기능의 선행조건임을 확인(O-098)
+- [PRD.md](PRD.md) §5.22(신규) — 연결 흐름: 쇼핑몰메인→프로그램배너→프로그램상세→관련상품→장바구니→결제→정기배송→포인트적립
+- [DATABASE.md](DATABASE.md) §3.35(신규) — `product_reviews`/`product_inquiries`/`product_wishlists`/`recently_viewed_products`/`coupons`/`search_query_logs`/`content_view_events`·`content_click_events`
+
+### Added (D-041 — 포인트 시스템 생애주기 확장)
+
+- [PRD.md](PRD.md) §5.23(신규) — 적립/차감/사용신청/관리자승인/사용완료/취소/복원/만료/사용이력. `lifestyle_bonus_accumulations`(적립산정)와 신규 포인트 원장(사용생애주기)의 책임 분리
+- [DATABASE.md](DATABASE.md) §3.36(신규) — `point_accounts`/`point_transactions`(`counts_toward_compliance_limit`로 MLM보상성/일반리워드 구분)/`point_policies`
+
+### Added (D-042 — 프로그램 신청 프로세스)
+
+- [PRD.md](PRD.md) §5.24(신규) — 신청/승인대기/승인/반려/참여중/완료. [DATABASE.md](DATABASE.md) §3.34.1 — `marketing_program_applications`
+
+### Added (D-043 — 관리자 통계 강화)
+
+- [PRD.md](PRD.md) §5.25(신규) — 프로그램별/쇼핑몰/회원 지표, 국가·기간별 분해 및 비교. 집계 방식(실시간 vs 스냅샷)은 미확정(O-102)
+
+### Added (D-044/D-045 — Multi-Tenant 설정 강화, 관리자 설정 일원화 점검)
+
+- [PRD.md](PRD.md) §5.26(신규) — `tenant_settings`(회사명/로고/도메인/컬러/언어/통화/국가/약관/쇼핑몰·CMS·MLM·정산 설정). D-035의 "활성화 보류" 원칙은 유지
+- [PRD.md](PRD.md) §5.27(신규) — 9개 정책 영역 점검, **신규 하드코딩 위험 2건 발견**(쇼핑몰 결제재시도 정책, 포인트 적립률/만료기간) — 후자는 `point_policies`로 즉시 해소
+- [ARCHITECTURE.md](ARCHITECTURE.md) §2.2(api 모듈 5종 추가: CMS/MarketingProgram/Point/Shop/Analytics), §2.3(worker Job 10→12종, 정기배송·포인트만료 처리 보강 — 정기배송 Job은 D-031에서 누락되어 있던 것을 이번에 발견·보강)
+- 신규 Open Decision **O-095~O-104**(10건)
+
+### Notes
+
+- 본 라운드는 "새 MLM 마케팅을 만드는 것이 아니다"라는 사용자 지시에 따라 후원수당/패키지/정산의 실제 수치·로직은 변경하지 않았다 — 모든 변경은 ERP 플랫폼 관점의 구조 보강(CMS/마케팅/포인트/통계/Multi-Tenant)이다.
+- 최종 점검(§5.13.11) 결과 문서 충돌은 발견되지 않았으며, 발견된 중복(공지사항의 소속 모호함) 1건은 즉시 해소했다.
+
+## [v0.22.0] - 2026-06-25 (Lifestyle Program 쇼핑몰 노출 구조 추가 — 쇼핑몰 메인/회원몰 메인 배너, CMS 배너 관리, 전용 상세페이지)
+
+> "+알파" 보너스를 마이오피스 한정 노출에서 쇼핑몰 전반의 마케팅·회원 동기부여 콘텐츠로 확장. [DECISIONS.md](DECISIONS.md) D-036. 적립 원장·산정 규칙은 변경 없음 — 노출/마케팅 레이어만 추가. 코드는 생성하지 않음.
+
+### Added
+
+- [PRD.md](PRD.md) §5.1.5(신규) — Lifestyle Program 쇼핑몰 마케팅 노출 구조
+  - §5.1.5.1 노출 위치: 쇼핑몰 메인(메인 슬라이드/프로모션/이벤트 배너, 비회원 노출), 회원몰 메인(프로그램 배너 + 포인트 현황/진행률), 마이오피스(기존 유지)
+  - §5.1.5.2 배너 관리(CMS, 신규) — 배너명/썸네일/PC이미지/모바일이미지/노출위치/노출시작일/노출종료일/링크URL/정렬순서/활성여부. Lifestyle Program 전용이 아닌 쇼핑몰 전반의 범용 CMS 배너 시스템으로 설계
+  - §5.1.5.3 Lifestyle Program 상세페이지(신규) — 프로그램 소개/이미지 갤러리/포인트 정책/누적 현황/참여 조건/첨부파일/FAQ
+- [DATABASE.md](DATABASE.md) §3.32(신규) — `banners`(범용 CMS 배너, 4개 노출위치 enum) / `lifestyle_programs`(프로그램 콘텐츠 카탈로그). 포인트 정책은 `plan_definition.lifestyle_bonus`(D-032)를 그대로 참조, 누적 현황은 `lifestyle_bonus_accumulations`(§3.25)를 그대로 참조 — 데이터 중복 저장 없음
+- [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.2 — "Lifestyle Program"을 "+알파" 보너스의 회원/마케팅 노출용 명칭으로 채택(D-009 명칭 분리 패턴과 동일)
+- [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §3 — "Lifestyle Program" 용어 추가
+- 신규 Open Decision **O-091**(FAQ 통합 방식), **O-092**(프로그램 타입 일반화 여부), **O-093**(배너 클릭 추적), **O-094**(동시 노출 배너 수/슬라이드 전환/타임존)
+
+### Notes
+
+- 적립률/누적기간 등 "+알파" 보너스의 실제 산정 규칙(§4.2)은 이번 라운드에서 변경되지 않았다 — 세부 수치는 여전히 미확정 상태로 남아 있다.
+- 배너 노출 기간 종료 처리는 쿼리 타임 필터로 충분하다고 판단해 별도 배치/Job을 추가하지 않았다.
+
+## [v0.21.0] - 2026-06-25 (쇼핑몰 및 패키지 엔진 구조 재설계 — 무제한 패키지+정책 엔진, 쇼핑몰/회원몰 재정의, Multi-Tenant 구조 준비)
+
+> 사용자가 FNS의 최종 목표를 "다른 MLM 회사도 사용할 수 있는 ERP 플랫폼"으로 명확히 하면서, "400만원 패키지 1종" 전제로 작성된 설계를 일반화할 것을 요청했다. [DECISIONS.md](DECISIONS.md) D-033/D-034/D-035, §5.12. 코드는 생성하지 않음.
+>
+> **동시 작업 안내**: 작업 중 별도 세션이 이미 [COMPENSATION-RULES.md](COMPENSATION-RULES.md)에 동일한 D-033을 커밋한 상태(`packages`/`package_commission_policies` 명명)였음을 확인했다 — 나머지 문서는 그 명명 규칙을 채택해 일관성을 맞췄다(§5.12.10).
+
+### Changed (D-033 — 패키지 엔진 일반화, "400만원 1종" 전제 폐기)
+
+- [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §3.5.4/§3.5.5/§4(수당종류 표)/§4.1(§4.1.0~§4.1.3 신설)/§6/§8 — 패키지를 무제한 등록 가능하게 일반화하고, 자격/페어 검증을 패키지 단위로 재정의. FNS 현재 패키지(400만원/25%/100만원/200만원/30일)의 실제 수치는 변경 없음 — "전역 고정값"에서 "패키지 정책의 예시 기본값"으로 재분류
+- [DATABASE.md](DATABASE.md) §3.24.1(신규) — `packages`(카탈로그 확장)/`package_commission_policies`(패키지·국가·시점별 정책: 추천수당/페어보너스/유니레벨포함/유지구매인정/자격부여) 테이블 추가. `package_purchases`/`package_sales_profits`/`package_pair_bonuses`는 폐기되지 않고 `package_id`/정책 스냅샷을 참조하도록 보강
+- [DATABASE.md](DATABASE.md) §3.13 — `plan_definition.package`(D-032) 제거(패키지 단위 정책으로 대체), `unilevel`/`eligibility`/`lifestyle_bonus`는 유지
+- [PRD.md](PRD.md) §5.1.4(신규) — 무제한 패키지 + 패키지별 정책 구조, 관리자 화면 정의
+- 신규 Open Decision **O-088**(패키지 간 자격 인정 범위), **O-089**(패키지 간 페어 허용 여부)
+
+### Changed (D-034 — 쇼핑몰/회원몰 구조 재정의, D-031 정정)
+
+- [PRD.md](PRD.md) §5.1.3 전면 재작성 — **일반 쇼핑몰**(통합 카탈로그, 모든 상품 종류 포함, 패키지도 그중 하나)과 **회원몰**(상품 판매 채널이 아닌 유지구매센터×정기배송센터×자동결제센터)로 재정의
+- [PRD.md](PRD.md) §5.1.3.5(신규) — 쇼핑몰 페이지/기능 점검: 상품목록/상세, 장바구니, 주문서, 결제, 주문완료, 배송조회, 반품/교환/환불, FAQ, 브랜드소개/회사소개를 MVP에 추가(공지사항/1:1문의/약관/개인정보처리방침은 기존 Document/CS Center로 이미 커버)
+- [PRD.md](PRD.md) §2 — Phase 2 "고객몰(B2C)" 항목을 "비회원 접근 허용 여부"로 좁힘(카탈로그 자체는 MVP로 확정)
+
+### Added (D-035 — Multi-Tenant 구조 준비, 활성화는 보류)
+
+- [DATABASE.md](DATABASE.md) §3.31(신규) — `tenants` 마스터, `tenant_id`를 `country_code`와 독립된 차원으로 도입 권고(공유 스키마+RLS 패턴). 적용 대상 테이블 목록 정리. 실제 활성화(다회사 SaaS화)는 별도 사업 결정으로 보류 — Center/전자서명/Rule Designer(D-012)와 동일 패턴
+- 신규 Open Decision **O-090**(Multi-Tenant 활성화 시점/범위)
+
+### Added (§5.12 — 사용자 요청 8개 산출물 종합 보고서)
+
+- [DECISIONS.md](DECISIONS.md) §5.12에 쇼핑몰 구조 수정안/회원몰 구조 수정안/패키지 엔진 구조/패키지 정책 엔진 구조/관리자 설정 항목/Multi-Tenant 대응 구조/누락된 쇼핑몰 페이지 목록/문서 수정 대상 목록 8개 산출물과 MLM 엔진 점검 결과(§5.12.6 — 유니레벨 엔진은 패키지와 독립적으로 설계되어 있어 일반화 영향 없음, 영향 범위는 §4.1/§3.5.5/§3.5.4에 한정됨을 확인) 정리
+
+### Notes
+
+- 패키지 추가/변경 시 수당 엔진 코드를 수정할 필요가 없는 구조(D-033 확정 원칙)인지 점검했고, 유니레벨(라인) 엔진은 처음부터 패키지와 독립적으로 설계되어 영향이 없었음을 확인했다 — 영향은 §4.1(제품 판매수익/페어보너스)에 한정됨.
+- Multi-Tenant는 구조 준비 단계로, 즉시 모든 테이블에 `tenant_id` 마이그레이션을 강제하지 않는다.
+
 ## [v0.20.0] - 2026-06-24 (FNS 마케팅 플랜 재정의 최종 점검 — 잔여 정합성 정리, 쇼핑몰/정기배송 구조 신설, 관리자 설정화 완료)
 
 > 사용자가 "기존 문서에 일반 MLM 구조(PV/직급/주정산)가 섞여 들어간 것 같다"는 우려로 마케팅 플랜 전체를 FNS 고유 구조 기준으로 재점검 요청. 점검 결과 핵심 구조는 이미 D-024~D-030으로 반영되어 있었음을 확인했고, D-030 폐기 작업이 남긴 잔여 참조 불일치를 정리했으며, 빠져 있던 쇼핑몰 구조를 신설했다. [DECISIONS.md](DECISIONS.md) D-031/D-032, §5.11. 코드는 생성하지 않음.

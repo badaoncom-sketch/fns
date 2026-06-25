@@ -1,2 +1,135 @@
-# fns
-Future Network System (FNS) - Direct Selling ERP Platform
+# FNS (Future Network System)
+
+**Multi-Tenant MLM ERP Platform** — 다단계/네트워크 마케팅(직접판매) 기업을 위한 ERP. FNS 한 회사 전용이 아니라, 다양한 직접판매 기업이 사용할 수 있는 SaaS ERP를 목표로 한다.
+
+> **현재 단계: Design Freeze 완료 → 개발 착수 단계.** 2026-06-26부로 설계가 동결([docs/DESIGN-FREEZE.md](docs/DESIGN-FREEZE.md), D-065)되었다. 코드는 아직 한 줄도 작성되지 않았다. 전체 문서 지도는 **[docs/MASTER-INDEX.md](docs/MASTER-INDEX.md)** 를 가장 먼저 읽을 것.
+
+## 프로젝트 소개
+
+MLM(다단계/네트워크 마케팅) 보상플랜·정산은 이 ERP의 **모듈 중 하나**일 뿐이며, 전체 시스템은 일반 이커머스 ERP가 갖춰야 할 쇼핑몰·회원관리·주문·결제·배송·재고·CRM·CMS·마케팅·통계 기능과, 그 모든 모듈이 공유하는 ERP Core(Workflow Engine/API Center/File Manager/Scheduler/Dashboard·Report·Form Builder/System Settings/Audit) 엔진 계층을 포함한다. 자세한 배경은 [docs/PROJECT-CONTEXT.md](docs/PROJECT-CONTEXT.md) 참조.
+
+## ERP 구조
+
+```
+ERP Platform
+│
+├─ ERP Core (공통 엔진 — 모든 업무 모듈이 사용)
+│  ├─ Authentication / Authorization
+│  ├─ Workflow Engine        — PRD §5.30
+│  ├─ API Center             — PRD §5.31
+│  ├─ File Manager           — PRD §5.32
+│  ├─ Scheduler Center       — PRD §5.33
+│  ├─ Notification Center    — PRD §5.34
+│  ├─ Audit Center           — PRD §5.35
+│  ├─ Dashboard / Report / Form Builder — PRD §5.36~5.38
+│  └─ System Settings        — PRD §5.39
+│
+└─ 업무 모듈 (ERP Core를 사용)
+   ├─ 쇼핑몰 (Shop)         — PRD §5.1.3, §5.21, §5.41, §5.43
+   ├─ MLM (Compensation)    — COMPENSATION-RULES.md, PRD §5.1/§5.16
+   ├─ 정산 (Settlement)     — SETTLEMENT-RULES.md
+   ├─ 회원관리 / CRM / CMS / 마케팅 / 통계 — PRD §5.x
+   └─ Multi-Tenant 설정      — PRD §5.26/§5.42
+```
+
+전체 모듈 구조는 [docs/PROJECT-CONTEXT.md](docs/PROJECT-CONTEXT.md) §1.1, 전체 메뉴 트리는 [docs/SITEMAP.md](docs/SITEMAP.md) 참조.
+
+## 기술 스택
+
+| 영역 | 선택 | 비고 |
+|---|---|---|
+| Frontend | Next.js | UI/조회 표시만, 계산 로직 없음 |
+| Backend | NestJS | `api`(요청처리)/`worker`(실제 계산)/`scheduler`(Job 트리거)로 분리 |
+| Database | Supabase (PostgreSQL) | Auth/Storage/Backup 포함, 유일한 source of truth |
+| Queue/Cache | Redis (BullMQ) | source of truth 아님 — 소실되어도 비즈니스 데이터 손실 없어야 함 |
+| Hosting | Railway | 1개 프로젝트 안에 5개 서비스(web/api/worker/scheduler/redis) |
+| ORM/마이그레이션 | **미확정** | [DECISIONS.md](docs/DECISIONS.md) O-022 |
+| UI 컴포넌트 라이브러리 | **권장안: shadcn/ui**(확정 아님) | [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md) O-169 |
+
+상세는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 참조. **핵심 원칙: 계산(수당/정산/세금/프로모션)은 `worker`만 수행하며, `web`/`api`/`scheduler`에는 절대 계산 로직을 두지 않는다** ([docs/DO-NOT-TOUCH.md](docs/DO-NOT-TOUCH.md)).
+
+## 폴더 구조 (예정 — 구현 착수 시 적용, [docs/CODING-STANDARD.md](docs/CODING-STANDARD.md) 참조)
+
+```
+fns/
+├─ docs/              # 설계 문서 전체 (현재 유일하게 존재하는 디렉터리)
+├─ apps/
+│  ├─ web/            # Next.js — Admin Console + Partner Portal + 쇼핑몰
+│  ├─ api/            # NestJS — 요청 처리, Job 생성만
+│  ├─ worker/         # NestJS — 수당/정산/세금/프로모션 등 실제 계산
+│  └─ scheduler/      # NestJS — Job 트리거(cron)만
+└─ packages/          # 공통 타입/유틸 (모노레포 권장안, 미확정)
+```
+
+## 문서 구조
+
+`docs/` 33개 문서의 목적·상태·읽는 순서·의존관계는 **[docs/MASTER-INDEX.md](docs/MASTER-INDEX.md)** 에 모두 정리되어 있다. 빠른 링크:
+
+- **설계 종료**: [DESIGN-FREEZE.md](docs/DESIGN-FREEZE.md)(Scope/변경원칙) · [RELEASE-ROADMAP.md](docs/RELEASE-ROADMAP.md)(v1.0/v1.1/v2.0)
+- **개발 착수**: [DEVELOPMENT-KICKOFF.md](docs/DEVELOPMENT-KICKOFF.md)(시작기준/Phase 1~5) · [IMPLEMENTATION-GUIDE.md](docs/IMPLEMENTATION-GUIDE.md)(문서 읽기 순서)
+
+- **비즈니스/도메인 규칙**: [PROJECT-CONTEXT.md](docs/PROJECT-CONTEXT.md) · [PRD.md](docs/PRD.md) · [COMPENSATION-RULES.md](docs/COMPENSATION-RULES.md)(MLM) · [SETTLEMENT-RULES.md](docs/SETTLEMENT-RULES.md) · [LEGAL-CHECKLIST.md](docs/LEGAL-CHECKLIST.md)
+- **개발 산출물**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) · [DATABASE.md](docs/DATABASE.md) · [ERD.md](docs/ERD.md) · [API-SPEC.md](docs/API-SPEC.md) · [SITEMAP.md](docs/SITEMAP.md) · [ROLE-MATRIX.md](docs/ROLE-MATRIX.md) · [WIREFRAME.md](docs/WIREFRAME.md) · [DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md) · [UI-GUIDELINE.md](docs/UI-GUIDELINE.md) · [CODING-STANDARD.md](docs/CODING-STANDARD.md)
+- **운영/검증**: [DO-NOT-TOUCH.md](docs/DO-NOT-TOUCH.md)(가드레일) · [TEST-PLAN.md](docs/TEST-PLAN.md) · [DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- **표준화 카탈로그**: [BUSINESS-RULE-CATALOG.md](docs/BUSINESS-RULE-CATALOG.md) · [EVENT-CATALOG.md](docs/EVENT-CATALOG.md) · [ERROR-CODE.md](docs/ERROR-CODE.md) · [STATE-MACHINE.md](docs/STATE-MACHINE.md) · [DATA-DICTIONARY.md](docs/DATA-DICTIONARY.md)
+- **의사결정 추적**: [DECISIONS.md](docs/DECISIONS.md)(D-001~D-063 확정 결정 + O-002~O-175 Open Decision) · [CHANGELOG.md](docs/CHANGELOG.md) · [GAP-ANALYSIS.md](docs/GAP-ANALYSIS.md)(상용 ERP 대비 점검)
+- **AI 작업 위임**: [TASK-SPEC.md](docs/TASK-SPEC.md) — Claude Code/Codex에게 작업을 지시할 때의 표준 형식
+
+## ERP Core
+
+Workflow/API Center/File Manager/Scheduler/Notification/Audit/Dashboard·Report·Form Builder/System Settings 12개 공통 엔진. 모든 업무 모듈이 사용하며, ERP Core는 업무 모듈에 의존하지 않는다. 상세: [PRD.md](docs/PRD.md) §5.28~§5.39, [API-SPEC.md](docs/API-SPEC.md).
+
+## MLM Engine
+
+Unilevel Sponsor Plan(추천조직 트리, LINE1~5). 후원수당·페어보너스·패키지 정책은 모두 관리자 설정 가능(하드코딩 없음). append-only 원장(`commission_records`)에 입력 스냅샷을 함께 저장해 사후 재현 가능. 상세: [COMPENSATION-RULES.md](docs/COMPENSATION-RULES.md), [DATABASE.md](docs/DATABASE.md) §3.5.
+
+## 쇼핑몰
+
+단일 통합 카탈로그(일반 쇼핑몰) + 회원몰(유지구매·정기배송·자동결제 센터). 패키지 상품도 별도 채널이 아니라 카탈로그 안의 상품 종류 중 하나다. 상세: [PRD.md](docs/PRD.md) §5.1.3, [SITEMAP.md](docs/SITEMAP.md).
+
+## CMS
+
+페이지/팝업/배너/FAQ/다국어 번역을 다루는 콘텐츠 관리. Marketing Program Engine(무제한 프로그램 카탈로그)과 연동. 상세: [PRD.md](docs/PRD.md) §5.19~§5.20.
+
+## API
+
+REST 기준, 무거운 계산은 항상 `Job 생성 → 202 Accepted → 별도 상태조회` 패턴을 따른다(`api`에 계산 로직 금지). 22개 모듈의 엔드포인트 목록과 전역 컨벤션(페이지네이션/정렬/필터/에러포맷)은 [API-SPEC.md](docs/API-SPEC.md) 참조.
+
+## ERD
+
+117개+ 엔터티를 13개 도메인 클러스터로 묶어 Mermaid ER 다이어그램으로 정리했다. [ERD.md](docs/ERD.md) 참조 — 원본 텍스트 정의는 [DATABASE.md](docs/DATABASE.md) §3.
+
+## Wireframe
+
+List/Detail/Form/Dashboard/Workflow보드/쇼핑몰 6개 레이아웃 아키타입과 28개 모듈의 매핑. [WIREFRAME.md](docs/WIREFRAME.md) 참조.
+
+## Roadmap
+
+상세 릴리스 범위는 **[docs/RELEASE-ROADMAP.md](docs/RELEASE-ROADMAP.md)** 참조.
+
+- **v1.0** — Core ERP(KR): 회원/MLM/정산/쇼핑몰/ERP Core/CMS/CRM. 착수 전 [DECISIONS.md](docs/DECISIONS.md) §2.2/§2.3 BLOCKER 15건 확정 필요.
+- **v1.1** — BI/AI 보강(Dashboard 확장, Rule Designer, AI 기능 — 범위는 New Feature로 후속 정의)
+- **v2.0** — Global(TH/JP/US 실제 출시)/Multi-Tenant 활성화/Marketplace/Open API/Mobile App
+
+전체 Open Decision은 [DECISIONS.md](docs/DECISIONS.md) §2.3에서 BLOCKER/POST v1/FUTURE로 재분류되어 있다. 개발 준비도 최종 평가는 [MASTER-INDEX.md](docs/MASTER-INDEX.md) §5 참조.
+
+## 현재 단계
+
+✔ 기획 완료
+✔ 설계 완료
+✔ 개발 문서 완료
+✔ **Design Freeze 완료** ([docs/DESIGN-FREEZE.md](docs/DESIGN-FREEZE.md), [DECISIONS.md](docs/DECISIONS.md) D-065)
+✔ **개발 준비 완료** ([docs/DEVELOPMENT-KICKOFF.md](docs/DEVELOPMENT-KICKOFF.md), [DECISIONS.md](docs/DECISIONS.md) D-066)
+⬜ 개발 진행
+⬜ QA
+⬜ 운영
+
+Design Freeze 이후 모든 설계 변경은 Bug / Change Request / New Feature 3가지 트랙으로만 진행한다 — [docs/DESIGN-FREEZE.md](docs/DESIGN-FREEZE.md) §7~§9 참조.
+
+## 개발 시작 안내
+
+현재 프로젝트는 설계가 종료되었으며, 다음 단계는 **Codex를 이용한 구현 단계**다.
+
+**구현 전 반드시 [docs/IMPLEMENTATION-GUIDE.md](docs/IMPLEMENTATION-GUIDE.md)를 먼저 읽는다.** 개발 시작 기준(Design Freeze 버전/Source of Truth/개발 원칙)과 Phase 1~5 구현 순서는 [docs/DEVELOPMENT-KICKOFF.md](docs/DEVELOPMENT-KICKOFF.md)에 정의되어 있다. 해당 Phase 착수 전 [DECISIONS.md](docs/DECISIONS.md) §2.2/§2.3의 BLOCKER 15건이 확정되어 있는지 먼저 확인한다.
+
+이 시점 이후 Claude의 역할은 Business Rule 관리·법률 검토·Change Request 영향분석·문서 관리·Release Note 작성으로 전환된다 — 실제 구현은 Codex가 담당한다.
