@@ -1,6 +1,6 @@
 # PRD.md — Product Requirements Document
 
-> 상태: Draft v0.28 (D-071 — 운영 완성도 향상 및 프로젝트 마무리: §5.51~§5.55 신규(Audit 운영보고/Tenant 운영/Feature Flag/System Health·Monitoring/License 관리). 신규 Business Rule 없음, Database/ERP Core/Workflow/MLM/정산 구조 변경 없음, 신규 Open Decision O-196 1건. **본 라운드로 설계를 종료한다.**) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.29 (D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: §5.56~§5.61 신규(고객 알림 이벤트 카탈로그/Notification Template 관리/고객 쇼핑 UX·장바구니/운영자 대시보드/관리자 업무 Queue/관리자 UX). 신규 Business Rule 없음, MLM/정산/ERP Core/Workflow 구조 변경 없음, Database는 `carts`/`cart_items`/`product_price_alerts` 3종만 신규(나머지 재사용), 신규 Open Decision O-197~O-199 3건) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md)
 
 ## 1. 제품 비전
@@ -1473,6 +1473,92 @@ Google 검색결과 미리보기, Naver 검색결과 미리보기, KakaoTalk 공
 - 본 절은 신규 Open Decision을 만들지 않는다.
 
 > §5.51~§5.55 전체는 [DECISIONS.md](DECISIONS.md) D-071(운영 완성도 향상 및 프로젝트 마무리) 참조. 신규 Business Rule 없음, Database/ERP Core/Workflow/MLM/정산 구조 변경 없음. 신규 Open Decision은 §5.53의 **O-196 1건**뿐이다.
+
+### 5.56 고객 알림 이벤트 카탈로그 (New Feature — [DECISIONS.md](DECISIONS.md) D-072, 기존 Notification Center 재사용 — 신규 알림 엔진 없음)
+
+> 개발 후 알림 항목을 하나씩 추가하면 누락·중복이 생기기 쉬워, 개발 전에 전체 카탈로그를 한 번에 고정한다. 모든 항목은 `notification_templates.event_type`(DATABASE.md §3.20, 기존 "미확정 목록" 컬럼)의 **값 목록**일 뿐이다 — 신규 테이블/엔진을 만들지 않는다.
+
+| 영역 | 이벤트(event_type 후보) |
+|---|---|
+| 주문/결제 | 주문접수/결제완료/결제실패/재결제요청/가상계좌입금안내/무통장입금대기/무통장입금확인/주문취소완료/부분취소완료/환불접수/환불완료 — `order_payment_attempts`/`virtual_account_issuances`/`bank_transfer_payments`(§3.53, D-069) 상태 변화에 연동 |
+| 배송 | 상품준비중/출고완료/송장등록/배송중/배송완료/배송지연/배송보류/택배사변경/송장번호변경 — `shipments`(§3.10/§3.57) 상태 변화에 연동 |
+| 반품/교환 | 반품신청접수/반품수거예정/반품수거완료/반품검수중/반품승인/반품반려/교환신청접수/교환상품발송/교환완료 — `returns`/`exchange_requests`(§3.53) 상태 변화에 연동 |
+| 정기배송/자동결제 | 정기배송예정/자동결제예정/자동결제성공/자동결제실패/자동결제재시도/정기배송일시정지/정기배송해지/유지구매충족/유지구매미충족 — `recurring_orders`/`recurring_order_payment_attempts`(§3.30) 기존 테이블 |
+| 회원/MLM | 회원가입완료/추천인가입발생/패키지구매완료/유니레벨자격충족/유니레벨자격미충족/제품판매수익발생/페어보너스성립/페어보너스실패/Lifestyle Point적립/월정산완료/지급완료/정산보류/공지·이벤트 — 모두 기존 이벤트(가입승인/정산완료 등, §3.20 "미확정 목록"의 구체화일 뿐, [EVENT-CATALOG.md](EVENT-CATALOG.md) 기존 항목과 1:1 대응) |
+| 채널 | 이메일/SMS/카카오 알림톡/앱·웹 Push/마이오피스 알림함 — 기존 `notification_templates.channel`(EMAIL/SMS/KAKAOTALK/PUSH) 그대로, "마이오피스 알림함"은 신규 채널이 아니라 기존 `notifications`를 마이오피스 화면에서 조회하는 뷰 |
+
+- 본 절은 신규 Business Rule을 만들지 않는다 — 발송 트리거 자체(예: 결제완료 시 발송)는 이미 각 도메인(주문/배송/정산)의 기존 상태 전이에 자연히 종속된다.
+- 신규 Open Decision을 만들지 않는다 — 어떤 이벤트가 기본 ON/OFF인지, 채널별 필수 여부는 구현 단계에서 `notification_send_rules`(§3.41)로 확정한다.
+
+### 5.57 Notification Template 관리 보강 (New Feature — [DECISIONS.md](DECISIONS.md) D-072, §5.34 확장)
+
+> §5.34(Notification Center 보강, D-051)가 이미 예약/조건/국가별/회원유형별/대상그룹/자동발송/재발송/실패관리/발송로그/템플릿버전관리를 다룬다. 본 절은 그 화면에 빠져있던 항목만 보강한다.
+
+| 항목 | 처리 |
+|---|---|
+| 템플릿명/알림유형/사용채널/발송조건/수신대상 | 기존 `notification_templates`/`notification_send_rules`(§3.20/§3.41) 컬럼 그대로 |
+| 제목/본문 | `subject_template`(§3.57, 신규 컬럼)/기존 `content_template` |
+| 변수({{member_name}}/{{order_no}}/{{product_name}}/{{tracking_no}}/{{courier_name}}/{{payment_amount}}/{{settlement_month}}/{{bonus_amount}}/{{support_url}} 등) | DB 컬럼이 아니라 `content_template`/`subject_template` 내 placeholder 문법 — 변수 목록은 `event_type`별 안내 문서(구현 단계 산출물)로 관리 |
+| 다국어 | `cms_translations`(§3.33, `content_type='notification_templates'`) 기존 패턴 재사용 — 신규 테이블 없음 |
+| 활성/비활성 | `is_active`(§3.57, 신규 컬럼) |
+| 테스트 발송/미리보기 | DB 영향 없음 — 관리자 화면 기능(임의 수신자에게 1회 발송 또는 렌더링 결과만 화면 표시) |
+| 발송 로그/실패 로그/재발송 | 기존 `notification_logs`(`failure_reason`/`retry_count`/`resent_from_log_id`, §3.41) 그대로 |
+
+- 본 절은 신규 Business Rule/Open Decision을 만들지 않는다.
+
+### 5.58 고객 쇼핑 UX 보강 (New Feature — [DECISIONS.md](DECISIONS.md) D-072)
+
+> 개발 후 수정하면 복잡해질 수 있는 쇼핑 UX(장바구니/배송추적/취소·환불·교환·반품)를 개발 전에 고정한다.
+
+#### 5.58.1 상품 탐색
+
+최근 본 상품/관심상품(찜)/상품 비교/재입고 알림은 모두 **기존 테이블 재사용**(§3.57 매핑표 참조). 가격 인하 알림은 **신규** `product_price_alerts`(§3.57, 트리거 기준 미확정 O-198). 비슷한 상품/함께 구매한 상품/추천 상품/재구매 상품/최근 검색어/인기 검색어/연관 검색어는 이미 §5.21/§5.45.3에서 "관리자 수동 큐레이션 또는 알고리즘(미확정)"/O-189/O-190으로 등록되어 있어 재등록하지 않는다.
+
+#### 5.58.2 장바구니 UX
+
+**신규** `carts`/`cart_items`(§3.57, 불가피 — 기존 MVP 갭). 장바구니 저장/옵션변경/수량변경/선택삭제는 `cart_items` CRUD. 품절 상품 표시/가격 변경 상품 표시/배송비 예상 표시/쿠폰 적용 가능 여부는 **신규 컬럼 없이** 조회 시점에 기존 테이블(`product_option_combinations`/`shipping_fee_policies`/`coupons`)과 조합한 파생 표시다. 정기배송 전환은 기존 "정기배송으로 구매" 옵션(§5.1.3.2) 재사용. 관심상품으로 이동은 `cart_items`→`product_wishlists` 이동(애플리케이션 로직, 스키마 변경 없음). "나중에 구매하기"의 정확한 처리(삭제 대신 상태 보존 여부)는 **O-197**.
+
+#### 5.58.3 주문/결제 UX
+
+주문서 자동 저장은 `cart_items`(결제 전까지) 재사용 — 별도 임시저장 테이블 불필요. 배송지 선택/최근 배송지/기본 배송지는 기존 회원 배송지 정보(주소 관련 기존 컬럼) 재사용. 쿠폰 선택/포인트 사용/복합결제는 각각 `coupons`/`point_transactions`/`order_payment_splits`(§3.36/§3.53) 기존·D-069 테이블. 결제 실패 후 재시도는 `order_payment_attempts`(§3.53). 주문 완료 화면/주문 공유·영수증 보기는 DB 영향 없음(기존 `orders` 조회 후 렌더링).
+
+#### 5.58.4 배송 추적 UX
+
+`shipments`/`shipment_items`(§3.10) 컬럼 명료화(§3.57 참조)로 충분 — 택배사/송장번호/배송상태/배송 타임라인(상태 변경 이력은 §7 STATE-MACHINE.md §17 참조)/택배사 배송조회 링크(고정 URL 패턴)/배송 지연 안내·배송 완료 확인(§5.56 알림 이벤트로 발송). 신규 테이블 없음.
+
+#### 5.58.5 취소/환불/교환/반품 UX
+
+취소 가능 여부/환불 예상 금액/부분취소 가능 여부/교환 가능 여부/반품 가능 여부 표시는 모두 **신규 컬럼 없이** 기존 `orders.status`/`returns`/`exchange_requests`(§3.53)의 현재 상태 + 정책(청약철회권 기한 등, [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md) §4)을 조합한 파생 판정이다. 반품 사유 선택/사진 첨부는 `returns`(기존, 사유 컬럼)+File Manager(§3.39, 첨부). 환불 계좌 입력은 기존 회원 계좌 정보 또는 1회성 입력(스키마 변경 없음). 진행 상태 타임라인/고객 안내 문구는 STATE-MACHINE.md §16(반품/교환 통합, 기존)·§17(배송, 신규)의 상태값을 그대로 노출.
+
+> §5.58 전체는 신규 테이블 2종(`carts`/`cart_items`, `product_price_alerts`)만 도입하고, 나머지는 기존 테이블/정책의 조회·조합이다. 신규 Open Decision은 O-197/O-198 2건뿐이다.
+
+### 5.59 운영자 대시보드 보강 (New Feature — [DECISIONS.md](DECISIONS.md) D-072, Dashboard Builder/Report Builder 재사용 — 신규 Dashboard 엔진 없음)
+
+| 구분 | 지표(예시) | 데이터 소스 |
+|---|---|---|
+| 오늘 지표 | 오늘 매출/주문/결제실패/배송준비/출고/배송완료/취소/환불/반품/교환/문의/가입/패키지구매/자동결제실패/정기배송예정 | 각 기존 트랜잭션 테이블을 `created_at`(또는 상태 변경 시각) 기준 당일 필터 — Dashboard Builder(§3.43) 위젯 |
+| 긴급 처리 지표 | 결제실패/자동결제실패/송장미등록/배송지연/환불대기/반품검수대기/CS미응답/재고부족/품절임박/정산보류/시스템장애 | 기존 테이블의 상태값 필터(예: `order_payment_attempts.status=FAILED`) — 시스템 장애는 §5.54 System Health Dashboard(D-071)와 동일 위젯 재사용 |
+| 쇼핑몰 운영 지표 | 상품별/카테고리별/검색어별 매출, 상품 조회수, 장바구니 전환율, 주문/결제 전환율, 재구매율, 고객 이탈 구간, 인기 상품, 관심상품 순위, 최근 본 상품 통계 | `orders`/`order_items`/`content_view_events`/`search_query_logs`/`cart_items`(§3.57, 신규)/`product_wishlists`/`recently_viewed_products` 집계 — 장바구니 전환율은 `carts` 도입으로 비로소 측정 가능해진 지표 |
+
+- 본 절은 신규 핵심 테이블을 요구하지 않는다(장바구니 전환율만 §5.58.2의 신규 `carts` 도입에 종속). 신규 Open Decision을 만들지 않는다.
+
+### 5.60 관리자 업무 Queue (New Feature — [DECISIONS.md](DECISIONS.md) D-072, 기존 Workflow/Dashboard 재사용 — 신규 Queue 테이블 없음)
+
+> 신규 주문확인/결제실패확인/무통장입금확인/송장등록필요/배송지연확인/반품승인대기/교환승인대기/환불승인대기/리뷰신고처리/상품승인대기/재고부족처리/자동결제실패처리/CS문의미답변 — 모두 **기존 테이블의 상태값을 횡단 조회하는 Dashboard Builder "Task Queue" 위젯**으로 구현한다(§3.57 매핑표 참조). 워크플로우(승인계열)는 기존 Workflow Engine(§3.37) 인스턴스를 그대로 조회하며, 신규 승인 구조를 만들지 않는다.
+
+- 본 절은 신규 테이블/Business Rule/Open Decision을 만들지 않는다.
+
+### 5.61 관리자 UX 보강 (New Feature — [DECISIONS.md](DECISIONS.md) D-072, ERP UX Standard(§5.44, D-061) 확장)
+
+| 기능 | 데이터 모델 |
+|---|---|
+| Quick Action/즐겨찾기 메뉴/최근 작업/최근 본 회원·주문·상품 | `member_activity_logs`(§3.22) 재사용 — 관리자 행위 로그도 이미 이 테이블에 기록되는 패턴과 동일. "즐겨찾기"만 신규 — 관리자별 메뉴 즐겨찾기 저장은 본 라운드에서 테이블을 만들지 않고 **O-199**(저장된 검색조건)와 함께 후속 확정 범위로 묶는다 |
+| 저장된 검색조건 | 본 라운드에서 테이블을 만들지 않음 — **O-199** |
+| 일괄 처리/엑셀 업로드·다운로드 | Bulk Action 패턴(§3.51) 재사용 |
+| 처리 완료 Toast/실패 항목 상세 표시 | DB 영향 없음 — ERP UX Standard(§5.44)의 Toast/Error 컴포넌트 재사용 |
+| 작업 로그 연결 | `audit_logs`(§3.8) 재사용 |
+
+> §5.56~§5.61 전체는 [DECISIONS.md](DECISIONS.md) D-072(쇼핑몰 UX·알림·운영자 대시보드 완성) 참조. 신규 Business Rule 없음. 신규 Database 테이블은 `carts`/`cart_items`/`product_price_alerts` 3종뿐이며 MLM/정산/ERP Core/Workflow 기존 구조는 변경하지 않았다. 신규 Open Decision은 O-197~O-199 3건이다.
 
 ## 6. 비기능 요구사항
 

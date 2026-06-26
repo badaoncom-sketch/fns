@@ -1,6 +1,6 @@
 # API-SPEC.md — REST API 명세
 
-> 상태: v0.3 (D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(쇼핑몰 운영 고도화/SEO·공유이미지, DATABASE.md §3.52~§3.56)와 D-070(Digital Marketing 연동/SEO Dashboard/이미지 최적화/상품 Feed, PRD.md §5.47~§5.50)에서 신설된 기능에 대한 개념 수준(설계 단계, 미구현) 엔드포인트를 §2.21~§2.25에 보강) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.4 (D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: DATABASE.md §3.57에서 신설된 `carts`/`cart_items`/`product_price_alerts`와 기존 테이블 재사용 기능을 §2.11/§2.21/§2.22에 보강하고, §2.26 Cart/§2.27 AdminTaskQueue를 신설 — 장바구니/최근 본 상품/가격 알림/알림 템플릿 테스트발송·미리보기·재발송/배송 추적/운영자 대시보드 위젯/관리자 업무 Queue 엔드포인트 추가. D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(쇼핑몰 운영 고도화/SEO·공유이미지, DATABASE.md §3.52~§3.56)와 D-070(Digital Marketing 연동/SEO Dashboard/이미지 최적화/상품 Feed, PRD.md §5.47~§5.50)에서 신설된 기능에 대한 개념 수준(설계 단계, 미구현) 엔드포인트를 §2.21~§2.25에 보강) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE.md](DATABASE.md)
 > 본 문서는 OpenAPI 산출물을 대체하지 않으며, 구현 단계에서 실제 OpenAPI yaml로 구체화하기 위한 설계 단계 명세다.
 
@@ -291,8 +291,11 @@ https://api.fns.example.com/v1/{module-path}
 |---|---|---|---|---|---|
 | `/v1/notifications/jobs` | POST | 관리자/시스템(내부 트리거) | `channel`(Email/SMS/KakaoTalk/Push)/`template_id`/`recipient_ids[]` | `202 Accepted` + `job_id` | 발송 **요청**만 접수, 실제 발송은 worker([PRD.md](PRD.md) §5.12) |
 | `/v1/notifications/jobs/{jobId}` | GET | 관리자 | - | 발송 Job 상태 | - |
-| `/v1/notification-templates` | 표준 CRUD 패턴 적용 | 관리자(CMS) | `channel`/`locale`/`country_code`/`body` | 템플릿 목록 | - |
+| `/v1/notification-templates` | 표준 CRUD 패턴 적용 | 관리자(CMS) | `channel`/`locale`/`country_code`/`subject_template`/`body`(`content_template`)/`is_active` | 템플릿 목록 | `subject_template`(제목, EMAIL 채널용 — SMS/PUSH는 nullable)/`is_active`(활성/비활성 토글)은 신규 컬럼([DATABASE.md](DATABASE.md) §3.57, D-072) |
+| `/v1/notification-templates/{id}/test-send` | POST | 관리자(CMS) | `channel`/`recipient`(테스트 수신처)/`sample_variables`(placeholder 치환값) | `202 Accepted` + `job_id` | 실제 발송 채널로 테스트 1건만 발송 — §1.7 Job 패턴 재사용(경량이나 외부 발송 채널 호출이라 Job으로 통일), 발송 이력은 `notification_logs`에 일반 발송과 동일하게 기록되되 테스트 여부 구분 컬럼은 미확정(O-199와 별개 — 후속 확인 필요) |
+| `/v1/notification-templates/{id}/preview` | GET | 관리자(CMS) | `sample_variables`(선택, 미지정 시 기본 placeholder 표기) | 렌더링된 `subject`/`body` | **순수 렌더링, 부수효과 없음** — `notification_logs`/실제 발송 채널 호출 없이 `subject_template`/`content_template`의 placeholder만 치환해 반환 |
 | `/v1/notification-logs` | GET | 관리자/본인(자기 수신내역) | `status`(성공/실패)/기간 | 발송/실패 이력 | 실패 시 재시도는 Redis Retry([ARCHITECTURE.md](ARCHITECTURE.md) §2.5) |
+| `/v1/notification-logs/{id}/resend` | POST | 관리자 | - | `202 Accepted` + `job_id` + `resent_from_log_id` | 기존 로그를 그대로 재발송 — 신규 발송 Job을 생성하고 결과 로그의 `notification_logs.resent_from_log_id`가 원본 로그를 참조([DATABASE.md](DATABASE.md) §3.57) |
 
 ### 2.12 Center
 
@@ -384,6 +387,8 @@ https://api.fns.example.com/v1/{module-path}
 | `/v1/products/{id}/reviews` | 표준 CRUD 패턴 적용 | 본인(작성)/공개(조회) | `rating`/`content`/`image_refs[]`/`order_id` | 리뷰 목록 | 구매인증 리뷰 여부 미확정 |
 | `/v1/products/{id}/inquiries` | 표준 CRUD 패턴 적용 | 본인(작성)/관리자(답변) | `question`/`is_secret` | 문의 목록 | CS Center 티켓과 별개 |
 | `/v1/wishlists` | 표준 CRUD 패턴 적용 | 본인 | `product_id` | 찜 목록 | - |
+| `/v1/recently-viewed-products` | GET | 본인 | `limit` | 최근 본 상품 목록(조회순) | `recently_viewed_products`(기존 테이블, [DATABASE.md](DATABASE.md) §3.35) — 본 라운드(D-072)에서 추가되는 것은 엔드포인트뿐, 테이블은 기존. 비회원 처리(클라이언트 저장 권고)는 미확정 |
+| `/v1/products/{id}/price-alerts` | POST/DELETE | 본인(회원) | `target_price` 또는 할인율 기준 | `alert_id` | `product_price_alerts`([DATABASE.md](DATABASE.md) §3.57, D-072) — `restock_notifications`와 동일한 "상품 알림 신청" 패턴, 트리거가 가격이라는 점만 다름. 트리거 기준이 절대가 vs 할인율인지는 **미확정**(O-198) — 확정 전까지 요청 필드는 `target_price`(절대가)를 잠정 기본으로 받되, 알림 발송 자체는 §2.11 `notifications/jobs`와 동일한 비동기 패턴(스케줄러가 가격 변동 감지 시 트리거)을 따른다 |
 | `/v1/coupons` | 표준 CRUD 패턴 적용 | 관리자(마케팅) | `code`/`discount_type`/`discount_value`/유효기간 | 쿠폰 목록 | - |
 | `/v1/coupons/{id}/issue` | POST | 관리자/시스템(프로그램 완료 트리거) | `member_ids[]` | 발급 결과 | `coupon_issuances` — 대량 발급은 Bulk Action 패턴(§5.44.6, 기존 단건 API 재사용) |
 | `/v1/coupons/issuances/{id}/use` | POST | 본인(결제 시) | `order_id` | `status=USED` | - |
@@ -398,6 +403,7 @@ https://api.fns.example.com/v1/{module-path}
 | `/v1/orders/{id}/merge` / `/v1/orders/{id}/split` | POST | 관리자 | `target_order_ids[]` 또는 `split_items[]` | `order_merge_logs`/`order_split_logs` 행 | 매출 합계 일치 규칙은 BR-049. 허용 범위(병합/분리 가능 상태·시점)는 미확정(O-179) |
 | `/v1/orders/{id}/admin-notes` | 표준 CRUD 패턴 적용 | 관리자 | `content`/`related_ticket_id` | 메모 목록 | `order_admin_notes` — CS Center 티켓(§2.14)과 `related_ticket_id`로 연결, 중복 메모 구조 아님 |
 | `/v1/orders/{id}/shipment/change-logs` | GET | 본인/관리자(물류담당) | - | 송장/배송사 변경 이력 | `shipment_change_logs`([DATABASE.md](DATABASE.md) §3.53) |
+| `/v1/shipments/{id}/tracking` | GET | 본인/관리자(물류담당) | - | `courier_name`/`tracking_no`/`status`(`PREPARING`준비중/`DISPATCHED`출고완료/`IN_TRANSIT`배송중/`DELAYED`지연/`HOLD`보류/`DELIVERED`배송완료)/`timeline`(상태 변경 이력) | §2.4 `/v1/orders/{id}/shipment`의 배송 추적 상세 진입점 — `shipments`/`shipment_items`(§3.10) 컬럼 명료화([DATABASE.md](DATABASE.md) §3.57)와 [STATE-MACHINE.md](STATE-MACHINE.md) §17(D-072 신규)을 반영. 택배사 추적페이지 URL은 `courier_name` 기준 고정 URL 패턴으로 응답 시점에 조합(저장 데이터 아님). 지연 판정 기준(시간/단계)은 미확정 |
 | `/v1/payment-methods/{id}/payment-attempts` | GET | 본인/관리자 | `order_id`/`status` | 결제 시도/재시도 이력 | `order_payment_attempts`(일반 주문 PG 실패/재결제) — 정기배송 자동결제 재시도는 이미 O-086으로 별도 등록. 가상계좌/무통장입금 도입 여부는 미확정(O-181) |
 | `/v1/orders/{id}/payment-splits` | GET | 본인/관리자 | - | 복합결제 분할 내역 | `order_payment_splits`(포인트+카드 등) — 부분실패 처리 정책은 미확정(O-182) |
 | `/v1/virtual-account-issuances` | GET | 본인/관리자 | `order_id` | 가상계좌 발급 내역 | `virtual_account_issuances` — 도입 자체는 미확정(O-181), 도입 전제 시 사용할 경로만 선반영 |
@@ -408,10 +414,23 @@ https://api.fns.example.com/v1/{module-path}
 
 | Resource Path | Method | Permission | 주요 요청 필드 | 주요 응답 필드 | 비고 |
 |---|---|---|---|---|---|
-| `/v1/analytics/dashboards/{type}` | GET | 관리자(국가스코프) | `period`/`country_code` | 집계 결과 | 실시간 쿼리 또는 스냅샷 캐시 조회, 방식 미확정([ARCHITECTURE.md](ARCHITECTURE.md) §2.2 Analytics) |
+| `/v1/analytics/dashboards/{type}` | GET | 관리자(국가스코프) | `period`/`country_code` | 집계 결과 | 실시간 쿼리 또는 스냅샷 캐시 조회, 방식 미확정([ARCHITECTURE.md](ARCHITECTURE.md) §2.2 Analytics). **운영자 대시보드(D-072)도 본 엔드포인트를 그대로 재사용** — 신규 엔드포인트 형태 없이 `{type}` 값만 아래 §2.22.1 표처럼 추가, Dashboard Builder의 기존 `data_source`/`widget_type` 패턴([DATABASE.md](DATABASE.md) §3.43) 그대로 재사용. 신규 테이블 없음([DATABASE.md](DATABASE.md) §3.57) |
 | `/v1/analytics/reports/jobs` | POST | 관리자 | `report_type`/`period` | `202 Accepted` + `job_id` | 집계 자체가 무거우면 worker로 위임 |
 | `/v1/analytics/reports/jobs/{jobId}` | GET | 관리자 | - | Job 상태/결과 | - |
 | `/v1/analytics/dashboards/seo` | GET | 관리자(상품관리/CMS) | `product_id`/`period` | 상품별 SEO 점수(파생)/OG·Meta·Schema 설정여부(파생)/공유클릭·SNS공유횟수/검색유입·클릭·노출수·CTR·검색어순위 | SEO 운영 Dashboard([PRD.md](PRD.md) §5.48, D-070) — Dashboard Builder(§3.43)/Report Builder(§3.44) 재사용, 신규 위젯 종류만 추가. SEO 점수/설정여부는 `product_seo` 필드 채움률·NULL 여부를 조회 시점에 파생 계산(별도 점수 컬럼 없음). 공유클릭/SNS공유횟수는 `content_click_events.click_type` SOCIAL_SHARE 후보값 사용 여부가 미확정(O-194)이라 그 값이 비어있으면 해당 지표만 "미확정(후속 확인 필요)"으로 응답. 검색유입/클릭/노출수/CTR/순위는 §2.25 Digital Marketing의 GSC/Naver Search Advisor 연동 결과 위젯화 — 이 지표를 DB 캐시 vs 실시간 외부 API 호출로 가져올지는 미확정(O-195) |
+
+#### 2.22.1 운영자 대시보드(D-072) — `/v1/analytics/dashboards/{type}` 신규 `{type}` 값
+
+> [PRD.md](PRD.md) §5.56~§5.58(D-072), [DATABASE.md](DATABASE.md) §3.57 기반. 신규 엔드포인트 형태 없음 — 위 `/v1/analytics/dashboards/{type}` 한 경로에 `{type}` 값만 추가하고, Dashboard Builder의 `dashboard_widgets.data_source`/`widget_type`(§3.43)을 기존 트랜잭션 테이블에 대해 조합한 결과를 반환한다.
+
+| `{type}` 값 | 위젯 그룹 | 포함 지표(요약) | 데이터 소스(기존 테이블) |
+|---|---|---|---|
+| `today-summary` | 오늘 지표 | 오늘 매출/주문/결제실패/배송준비/출고/배송완료/취소/환불/반품/교환/문의/가입/패키지구매/자동결제실패/정기배송예정 | `orders`/`order_items`/`order_payment_attempts`/`shipments`/`returns`/`exchange_requests`/`tickets`/`members`/`recurring-orders`(§2.4) |
+| `urgent-tasks` | 긴급 처리 지표 | 결제실패/자동결제실패/송장미등록/배송지연/환불대기/반품검수대기/CS미응답/재고부족/품절임박/정산보류/시스템장애 | `order_payment_attempts`/`shipments`(§3.57 `status`)/`return_items`/`tickets`/`inventory_items`/`settlement_batches`/시스템 모니터링(§5.54, O-196 연계) |
+| `shop-operation` | 쇼핑몰 운영 지표 | 상품별/카테고리별/검색어별 매출, 장바구니 전환율, 주문/결제 전환율, 재구매율 | `order_items`/`products`/`search_query_logs`/`carts`·`cart_items`(§3.57, 신규)/`orders` |
+
+- 위 3개 그룹 모두 **신규 테이블·신규 컬럼 없음** — 기존 트랜잭션 테이블 집계이며, Dashboard Builder의 위젯 추가만으로 구현([DATABASE.md](DATABASE.md) §3.57 재사용 매핑).
+- 응답 스키마(위젯별 정확한 필드명/단위)는 OpenAPI 구체화 단계에서 확정 — 본 절은 어떤 위젯 그룹이 존재하는지와 데이터 소스만 명시한다.
 
 ### 2.23 SEO
 
@@ -449,6 +468,49 @@ https://api.fns.example.com/v1/{module-path}
 | `/v1/external-api-connections` | 표준 CRUD 패턴 적용 | SuperAdmin/관리자(API Center) | `api_name`/`category`/`auth_key_ref`/`endpoint_url`/`is_enabled` | `external_api_connections` 목록/상세 | 본 라운드에서 `category`에 추가되는 값: `GA4`/`GTM`/`GSC`/`GOOGLE_MERCHANT_CENTER`/`NAVER_SEARCH_ADVISOR`/`NAVER_ANALYTICS`/`META_PIXEL`/`TIKTOK_PIXEL`/`GOOGLE_ADS_CONVERSION`/`FACEBOOK_CATALOG`/`RSS_FEED`/`INDEXNOW`/`SITEMAP_PING` — 신규 컬럼/엔드포인트 형태 추가 없음, 기존 자유 카테고리 값 사용 |
 | `/v1/external-api-connections/{id}/status` | GET | SuperAdmin/관리자(API Center) | - | `status`(`TESTING`/`ACTIVE`/`INACTIVE`) | 신규 상태값 없음 — [STATE-MACHINE.md](STATE-MACHINE.md) §12 기존 enum 그대로 재사용 |
 | `/v1/external-api-call-logs` | GET | SuperAdmin/관리자(API Center) | `connection_id`/기간 | `external_api_call_logs` 목록(append-only) | 호출 로그 조회 — GSC/Naver Search Advisor 등 §2.22 SEO Dashboard 지표의 데이터원 추적용 |
+
+### 2.26 Cart
+
+> [PRD.md](PRD.md) §5.56(D-072), [DATABASE.md](DATABASE.md) §3.57 기반 — `carts`/`cart_items`는 MVP 시점부터 식별되어 있던 갭(장바구니 영속화 테이블 부재)을 해소하는 **불가피한 신규 테이블**이다([DATABASE.md](DATABASE.md) §3.57). 그 외 상태 표시(품절/가격변경/배송비/쿠폰적용가능)는 신규 컬럼 없이 조회 시점 파생값이다.
+
+| Resource Path | Method | Permission | 주요 요청 필드 | 주요 응답 필드 | 비고 |
+|---|---|---|---|---|---|
+| `/v1/cart` | GET | 본인(회원) | - | `cart_id`/`items[]`(상품/옵션/수량/단가/품절여부/가격변경여부/배송비예상/쿠폰적용가능여부)/`subtotal` | `carts`/`cart_items`(신규, [DATABASE.md](DATABASE.md) §3.57) — 현재 장바구니 조회. 비회원 장바구니는 클라이언트 저장이 기본 권고이나 **미확정**(O-197과 동일 계열의 "비회원 처리" 패턴, [DATABASE.md](DATABASE.md) §3.57 O-099/O-188 참조) |
+| `/v1/cart/items` | POST | 본인(회원) | `product_id`/`product_option_combination_id`/`quantity` | `cart_item_id` | 담기 — `cart_items`(신규) 행 생성, `carts.updated_at` 갱신 |
+| `/v1/cart/items` | PATCH | 본인(회원) | `cart_item_id`/`quantity` 또는 `product_option_combination_id`(옵션변경) | 갱신된 `cart_items` 행 | 수량·옵션 변경 — 옵션변경은 기존 행의 `product_option_combination_id`를 교체(별도 이력 테이블 없음) |
+| `/v1/cart/items` | DELETE | 본인(회원) | `cart_item_ids[]` | - | 선택삭제 — 다중 삭제 지원 |
+| `/v1/cart/items/{id}/move-to-wishlist` | POST | 본인(회원) | - | `wishlist_id` | `cart_items` 행을 삭제하고 `wishlists`(§2.21)에 동일 `product_id`로 등록 — "나중에 구매하기"를 `cart_items` 상태 플래그로 둘지 본 방식(위시리스트 이동)으로 처리할지는 **미확정**(O-197, [DATABASE.md](DATABASE.md) §3.57) — 본 엔드포인트는 후자(위시리스트 이동)를 잠정 채택 |
+
+> **파생 지표(저장 컬럼 아님)**: 장바구니 아이템의 품절/가격변경/배송비예상/쿠폰적용가능 표시는 모두 조회(`GET /v1/cart`) 시점에 `product_option_combinations`(재고·`is_active`·`price_delta`, §3.52)/`shipping_fee_policies`(§3.48)/`coupons`(§2.21, §3.35) 테이블과 조인해 파생 계산한다 — `cart_items`에 해당 값을 저장하는 컬럼은 없다([DATABASE.md](DATABASE.md) §3.57).
+
+### 2.27 AdminTaskQueue
+
+> [PRD.md](PRD.md) §5.58(D-072), [DATABASE.md](DATABASE.md) §3.57 기반. **신규 Task Queue 테이블 없음** — Dashboard Builder(§3.43)의 "Task Queue" 위젯 종류로, `workflow_instances`/`order_payment_attempts`/`exchange_requests`/`return_items`/`product_reviews`/재고(`inventory_items`)/CS 티켓(`tickets`) 등 기존 테이블의 상태값을 횡단 조회하는 **파생 뷰**다.
+
+| Resource Path | Method | Permission | 주요 요청 필드 | 주요 응답 필드 | 비고 |
+|---|---|---|---|---|---|
+| `/v1/admin/task-queue` | GET | 관리자(국가스코프) | `task_type`(필터, 다중 지정 가능)/`country_code` | 항목별 federated 목록(`task_type`/`count`/`detail_ref`) | **파생/집계 조회(읽음 전용) — 신규 Task Queue 테이블이 아니다.** 아래 `task_type` 표의 13종을 각각 기존 테이블/상태값 조회로 federated하여 단일 응답으로 묶어 반환([DATABASE.md](DATABASE.md) §3.57) |
+
+**`task_type` 값과 데이터 소스**
+
+| `task_type` | 의미 | 데이터 소스(기존 테이블/상태) |
+|---|---|---|
+| `NEW_ORDER_CONFIRM` | 신규 주문확인 | `orders`(§2.4, 신규 상태) |
+| `PAYMENT_FAILED_CONFIRM` | 결제실패확인 | `order_payment_attempts`(§2.21) |
+| `BANK_TRANSFER_CONFIRM` | 무통장입금확인 | `bank_transfer_payments`(§2.21, 도입 자체 미확정 O-181) |
+| `INVOICE_REGISTER_NEEDED` | 송장등록필요 | `shipments`(§3.57 `status=PREPARING`) |
+| `SHIPMENT_DELAY_CONFIRM` | 배송지연확인 | `shipments`(§3.57 `status=DELAYED`, [STATE-MACHINE.md](STATE-MACHINE.md) §17) |
+| `RETURN_APPROVAL_PENDING` | 반품승인대기 | `return_items`(§2.9) |
+| `EXCHANGE_APPROVAL_PENDING` | 교환승인대기 | `exchange_requests`(§2.21, §3.53) |
+| `REFUND_APPROVAL_PENDING` | 환불승인대기 | `returns`/`return_items`(§2.9) 환불 대기 상태 |
+| `REVIEW_REPORT_PENDING` | 리뷰신고처리 | `product_reviews`(§2.21) 신고 상태 |
+| `PRODUCT_APPROVAL_PENDING` | 상품승인대기 | `workflow_instances`(`PRODUCT_APPROVAL` 워크플로우) |
+| `LOW_STOCK_HANDLING` | 재고부족처리 | `inventory_items`(§2.9, 파생 현재고) |
+| `RECURRING_PAYMENT_FAILED` | 자동결제실패처리 | `order_payment_attempts`(정기배송 자동결제 재시도, O-086) |
+| `CS_TICKET_UNANSWERED` | CS문의미답변 | `tickets`(§2.14) 미답변 상태 |
+
+- 응답의 `detail_ref`는 각 항목의 상세 목록 조회 경로(예: `PAYMENT_FAILED_CONFIRM` → `/v1/payment-methods/{id}/payment-attempts`)를 가리키며, AdminTaskQueue 자체는 건수/요약만 federated 응답으로 제공하고 상세 처리는 각 기존 엔드포인트(§2.4/§2.9/§2.14/§2.21)에서 수행한다.
+- 정렬/우선순위 기준, 실시간 쿼리 vs 캐시 조회 여부는 §2.22 `/v1/analytics/dashboards/{type}`와 동일하게 미확정이다.
 
 ## 3. 상세 예시 3종
 
@@ -836,3 +898,8 @@ https://api.fns.example.com/v1/{module-path}
 - Job 생성 Idempotency Key 저장 방식 및 적용 범위 (O-054, §1.7)
 - 검색엔진 지표(노출/클릭/CTR/순위)를 DB 캐시 vs 매 조회 시 외부 API 실시간 호출로 가져올지 — SEO Dashboard 조회 엔드포인트(O-195, §2.22)
 - SEO/공유이미지/Feed 관련 그 외 미확정 항목은 §2.23~§2.25 각 행의 비고에 인용된 기존 O-176/O-177/O-180~O-194/O-118/O-148을 그대로 참조 — 본 라운드에서 신규 Open Decision은 O-195 외 추가하지 않았다
+- 장바구니 "나중에 구매하기" 처리 방식(상태 플래그 vs 위시리스트 이동) — O-197, §2.26
+- 가격 알림 트리거 기준(절대가 vs 할인율) — O-198, §2.21
+- 장바구니/가격알림 비회원 처리(서버 저장 vs 클라이언트 저장) — O-099/O-188과 동일 계열, §2.21/§2.26
+- 배송 지연 판정 기준(시간/단계) — [STATE-MACHINE.md](STATE-MACHINE.md) §17, §2.21 `/v1/shipments/{id}/tracking`
+- 테스트발송 발송이력 구분 컬럼 여부, 관리자 업무 Queue 정렬/우선순위 기준, 운영자 대시보드 실시간 쿼리 vs 캐시 — 모두 본 라운드(D-072)에서 신규 O-번호를 추가하지 않고 "미확정(후속 확인 필요)"으로만 표기(§2.11/§2.22/§2.27)

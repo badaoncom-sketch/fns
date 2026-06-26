@@ -1,6 +1,6 @@
 # STATE-MACHINE.md — State Machine Catalog
 
-> 상태: v0.2 ([DECISIONS.md](DECISIONS.md) D-069 — §15 상품 판매상태, §16 반품/교환 통합 상태머신(권장안) 추가) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.3 ([DECISIONS.md](DECISIONS.md) D-072 — §17 배송 상세 상태/§18 결제(PG) 시도 상태/§19 자동결제 재시도 상태/§20 알림 발송 상태 추가(모두 권장안). D-069 — §15 상품 판매상태, §16 반품/교환 통합 상태머신(권장안) 추가) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 목적: 기존 문서에 이미 정의된 상태값과 전이를 Mermaid 다이어그램으로 모아본다. 본 문서는 새로운 상태값을 만들지 않는다.
 
 ## 0. 작성 원칙
@@ -269,7 +269,7 @@ stateDiagram-v2
 
 | 영역 | 현재 문서 상태 |
 |---|---|
-| 배송 상세 상태 | 배송 상태/운송장/3PL 추적은 언급되어 있으나 표준 상태 enum 미확정 |
+| 배송 상세 상태 | §17에 권장 다이어그램 추가(D-072) — 3PL 실제 연동 방식은 여전히 미확정 |
 | 반품/교환 상태머신 | §16에 권장 다이어그램 추가(D-069) — 반품/교환 통합 여부는 여전히 미확정(O-180) |
 | CMS 콘텐츠 상태 | DRAFT/IN_REVIEW/SCHEDULED/PUBLISHED 도입 여부 미확정(O-137) |
 | CRM 상담/예약 상태 | 진행중/완료/Follow-up필요 등 표기 있으나 상세 전이 미확정 |
@@ -325,3 +325,94 @@ stateDiagram-v2
 ```
 
 > 본 다이어그램은 권장안이며, O-129(반품 상태머신 세분화)·O-180(교환 통합 여부)이 확정되면 갱신한다.
+
+## 17. 배송 상세 상태 (권장안, D-072 — [DATABASE.md](DATABASE.md) §3.10/§3.57)
+
+Source: [DATABASE.md](DATABASE.md) §3.10 `shipments`/`shipment_items`, §3.57(컬럼 명료화: `courier_name`/`tracking_no`/`status`). 기존 §14가 "표준 상태 enum 미확정"으로 플래그했던 갭을 해소하는 권장안이다 — 3PL 실제 연동 방식 자체는 여전히 미확정.
+
+```mermaid
+stateDiagram-v2
+    PREPARING: 상품준비중
+    DISPATCHED: 출고완료
+    IN_TRANSIT: 배송중
+    DELAYED: 배송지연
+    HOLD: 배송보류
+    DELIVERED: 배송완료
+
+    [*] --> PREPARING: 결제완료 후 배송 대상 확정
+    PREPARING --> DISPATCHED: 송장 등록(`shipment_change_logs`, §3.53)
+    DISPATCHED --> IN_TRANSIT: 택배사 인계
+    IN_TRANSIT --> DELAYED: 3PL 추적 정보 지연 감지(기준 미확정)
+    DELAYED --> IN_TRANSIT: 지연 해소
+    IN_TRANSIT --> HOLD: 관리자 수동 보류(`shipments.hold_reason`, §3.53)
+    HOLD --> IN_TRANSIT: 보류 해제
+    IN_TRANSIT --> DELIVERED: 배송 완료
+    PREPARING --> HOLD: 출고 전 보류
+```
+
+> 택배사 변경/송장번호 변경은 별도 상태가 아니라 `shipment_change_logs`(§3.53)에 이력으로 기록되는 **동일 상태 내 속성 변경**이다. 배송 지연 판정 기준(시간/단계)은 미확정 — 구현 단계에서 3PL 연동 SLA 확정 후 결정.
+
+## 18. 결제(PG) 시도 상태 (권장안, D-072 — [DATABASE.md](DATABASE.md) §3.53 `order_payment_attempts`)
+
+Source: [DATABASE.md](DATABASE.md) §3.53. 일반 주문 결제 실패/재시도 흐름 — 정기배송 자동결제 재시도(§19)와는 별도 트랙이다.
+
+```mermaid
+stateDiagram-v2
+    ATTEMPTED: 시도
+    SUCCEEDED: 성공
+    FAILED: 실패
+    RETRY_REQUESTED: 재결제요청
+
+    [*] --> ATTEMPTED: 결제 요청
+    ATTEMPTED --> SUCCEEDED: PG 승인
+    ATTEMPTED --> FAILED: PG 거절/오류
+    FAILED --> RETRY_REQUESTED: 회원 재결제 요청(§5.56 알림 발송)
+    RETRY_REQUESTED --> ATTEMPTED: 재시도
+```
+
+> 가상계좌/무통장입금은 이 상태머신과 별개로 `virtual_account_issuances`/`bank_transfer_payments`(§3.53)의 입금 대기/확인 흐름을 따른다(도입 자체 미확정, O-181).
+
+## 19. 자동결제(정기배송) 재시도 상태 (권장안, D-072 — [DATABASE.md](DATABASE.md) §3.30 `recurring_order_payment_attempts`)
+
+Source: [DATABASE.md](DATABASE.md) §3.30. §18(일반 결제)과 별도 트랙 — 기존 O-086(정기배송 자동결제 실패/재시도)의 적용을 다이어그램으로 구체화한 것이며 재등록하지 않는다.
+
+```mermaid
+stateDiagram-v2
+    SCHEDULED: 자동결제예정
+    SUCCEEDED: 자동결제성공
+    FAILED: 자동결제실패
+    RETRYING: 재시도중
+    PAUSED: 정기배송일시정지
+    CANCELLED: 정기배송해지
+
+    [*] --> SCHEDULED: 주기 도달
+    SCHEDULED --> SUCCEEDED: PG 승인
+    SCHEDULED --> FAILED: PG 거절/오류
+    FAILED --> RETRYING: 재시도 정책(횟수/주기 미확정, O-086)
+    RETRYING --> SUCCEEDED: 재시도 성공
+    RETRYING --> PAUSED: 재시도 소진 — 회원/관리자 일시정지
+    PAUSED --> SCHEDULED: 재개
+    PAUSED --> CANCELLED: 해지
+    SCHEDULED --> CANCELLED: 회원 해지
+```
+
+## 20. 알림 발송 상태 (권장안, D-072 — [DATABASE.md](DATABASE.md) §3.20 `notifications`/`notification_logs`)
+
+Source: [DATABASE.md](DATABASE.md) §3.20. 기존 `notifications.status`(대기/발송중/발송완료/실패) 값을 다이어그램으로 명문화한 것 — 신규 상태값 추가 없음.
+
+```mermaid
+stateDiagram-v2
+    QUEUED: 대기
+    SENDING: 발송중
+    SENT: 발송완료
+    FAILED: 실패
+    RESENT: 재발송
+
+    [*] --> QUEUED: Job 생성(api)
+    QUEUED --> SENDING: worker 처리
+    SENDING --> SENT: 채널 발송 성공
+    SENDING --> FAILED: 채널 발송 실패(`notification_logs.failure_reason`)
+    FAILED --> RESENT: 관리자 재발송(`resent_from_log_id`, §3.41)
+    RESENT --> SENT: 재발송 성공
+    RESENT --> FAILED: 재발송도 실패
+```

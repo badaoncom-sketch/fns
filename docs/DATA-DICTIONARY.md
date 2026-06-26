@@ -1,6 +1,6 @@
 # DATA-DICTIONARY.md — Data Dictionary
 
-> 상태: v0.2 (D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069에서 DATABASE.md §3.52~§3.56에 추가된 18개 신규 테이블 및 기존 테이블 컬럼 확장을 본 사전에 반영 — §7 신설. D-070 자체는 신규 테이블/컬럼을 추가하지 않음, 기존 구조 재사용) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.3 (D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: `carts`/`cart_items`/`product_price_alerts`(신규 3종) + `shipments`/`notification_templates` 컬럼 명료화를 §8로 반영, Dictionary Gaps §9로 재배치. D-070 — D-069 §3.52~§3.56 신규분 반영, §7 신설) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 목적: [DATABASE.md](DATABASE.md)에 흩어진 테이블/컬럼 개념을 구현자가 빠르게 찾을 수 있도록 정리한다. 본 문서는 DB 스키마를 변경하지 않는다.
 
 ## 0. 작성 원칙
@@ -225,16 +225,39 @@
 | content_seo_metadata | related_entity_type / related_entity_id | 범용 polymorphic 참조 — File Manager(§3.39) 패턴 재사용 | string/uuid | N | 대상 콘텐츠 테이블 | N | 미정 | DATABASE §3.55 | - |
 | content_seo_metadata | seo_title / seo_description / og_image_ref / slug / canonical_url / meta_robots | product_seo와 동일 필드셋(상품 특화 Schema.org 필드 제외) | string/ref/enum | N | N | Y | 미정 | DATABASE §3.55 | - |
 
-## 8. Dictionary Gaps
+## 8. 쇼핑몰 UX/알림/운영자 대시보드 완성 (D-072)
+
+> 신규 테이블은 `carts`/`cart_items`/`product_price_alerts` 3종뿐이다 — 나머지(최근본상품/관심상품/상품비교/재입고알림/알림템플릿/반품/교환)는 기존 테이블을 그대로 재사용하므로 본 절에 재등록하지 않는다. [DATABASE.md](DATABASE.md) §3.57 참조.
+
+| Table | Column | 설명 | 자료형(개념) | PK | FK | Nullable | Enum/Default | Source of Truth | 관련 Rule |
+|---|---|---|---|---|---|---|---|---|---|
+| carts | id / member_id | 회원 장바구니(1:1) | uuid | Y | members.id | 미정(비회원 O-099/O-188 패턴) | 미정 | DATABASE §3.57 | - |
+| carts | updated_at | 마지막 변경 시각 | timestamp | N | N | N | 미정 | DATABASE §3.57 | - |
+| cart_items | cart_id | 소속 장바구니 | uuid | 미정 | carts.id | N | 미정 | DATABASE §3.57 | - |
+| cart_items | product_id / product_option_combination_id | 상품/옵션 참조 | uuid | N | products.id / product_option_combinations.id | 조건부 | 미정 | DATABASE §3.57 | - |
+| cart_items | quantity | 수량 | integer | N | N | N | 미정 | DATABASE §3.57 | - |
+| cart_items | added_at | 담은 시각 — "나중에 구매하기" 처리방식 미확정 | timestamp | N | N | N | 미확정(O-197) | DATABASE §3.57 | - |
+| product_price_alerts | member_id / product_id | 가격인하 알림 신청 대상 | uuid | 미정 | members.id / products.id | N | 미정 | DATABASE §3.57 | - |
+| product_price_alerts | target_price 또는 알림 기준 | 트리거 조건 — 절대가 vs 할인율 미확정 | decimal | N | N | N | 미확정(O-198) | DATABASE §3.57 | - |
+| product_price_alerts | notified_at | 알림 발송 시각 | timestamp | N | N | Y | 미정 | DATABASE §3.57 | - |
+| shipments | courier_name / tracking_no | 배송 추적 — 기존 테이블 컬럼 명료화(신규 테이블 아님) | string | N | N | Y | 미정 | DATABASE §3.10/§3.57 | - |
+| shipments | status | 준비중/출고완료/배송중/배송완료/지연/보류 | enum | N | N | N | [STATE-MACHINE.md](STATE-MACHINE.md) §17 | DATABASE §3.10/§3.57 | - |
+| notification_templates | subject_template | 제목(EMAIL 채널용) | string | N | N | Y | 미정 | DATABASE §3.57 | - |
+| notification_templates | is_active | 활성/비활성 토글 | boolean | N | N | N | 미정 | DATABASE §3.57 | - |
+
+## 9. Dictionary Gaps
 
 | 영역 | 현재 상태 |
 |---|---|
 | 물리 DB 타입 | ORM/마이그레이션 도구 미확정(O-022)이므로 실제 타입은 확정하지 않음 |
 | PK/FK 컬럼명 | ERD.md에서도 "(컬럼명 미확정)"으로 표시된 항목 존재 |
 | Nullable/Default | 대부분 구현 단계에서 확정 필요 |
-| 배송/반품 상태 enum | 기존 문서에 세부 상태머신 미정 |
+| 배송/반품 상태 enum | [STATE-MACHINE.md](STATE-MACHINE.md) §16/§17에 권장안 추가(D-069/D-072) — 최종 확정은 아님 |
 | CMS 콘텐츠 상태 enum | DRAFT/IN_REVIEW/SCHEDULED/PUBLISHED 도입 여부 미확정 |
 | 옵션↔SKU↔재고 연결모델 | `product_option_combinations.sku_code`와 `inventory_items`/`inventory_ledger`/`inventory_lots`의 최종 연결모델 미확정(O-176) — §3.52/§3.53 보강 전체의 전제조건 |
 | LOT(로트) 관리 도입 여부 | `inventory_lots` 신설 자체 및 적용 범위(유통기한 카테고리 한정 vs 전체) 미확정(O-177) |
 | SEO 테이블 구조 | `product_seo`/`content_seo_metadata`의 신규 테이블 분리 vs 각 콘텐츠 테이블 컬럼 직접 추가 최종 확정 미확정(O-193) |
+| 장바구니 "나중에 구매하기" 처리 | `cart_items` 보존 vs `product_wishlists` 이동 미확정(O-197) |
+| 가격인하 알림 트리거 기준 | 절대가 vs 할인율 미확정(O-198) |
+| 관리자 저장된 검색조건/즐겨찾기 메뉴 | 테이블 도입 여부 미확정(O-199) |
 

@@ -3,6 +3,38 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v1.8.0] - 2026-06-26 (쇼핑몰 UX·알림·운영자 대시보드 완성 — 설계 마지막 라운드)
+
+> 사용자 요청: "개발 후 수정하면 복잡해질 수 있는 쇼핑몰 사용자 UX, 알림, 운영자 대시보드 항목을 개발 전에 설계로 고정하는 것." [DECISIONS.md](DECISIONS.md) D-072. **새로운 MLM 정책/수당 없음. 기존 Business Rule 변경 없음. 정산/ERP Core/Workflow 구조 변경 없음. Database는 불가피한 경우에만 최소 신규(2테이블).** Open Decision은 O-197~O-199 3건만 추가, 기존 삭제 없음. 코드/package.json/실제 API/실제 Migration 없음. **본 라운드를 끝으로 쇼핑몰 UX/운영 설계를 종료하며, 이후 변경은 Change Request(CR)로만 관리한다.**
+
+### Added
+
+- [PRD.md](PRD.md) §5.56(고객 알림 이벤트 카탈로그) — 주문/결제/배송/반품·교환/정기배송·자동결제/회원·MLM 약 40종 알림을 기존 `notification_templates.event_type` 카탈로그로 등록, 신규 알림 엔진 없음
+- [PRD.md](PRD.md) §5.57(Notification Template 관리 보강) — §5.34(D-051) 확장: 제목/변수/다국어(`cms_translations` 재사용)/활성·비활성/테스트발송/미리보기/재발송
+- [PRD.md](PRD.md) §5.58(고객 쇼핑 UX) — §5.58.1 상품탐색(상품비교/가격인하알림 신규 `product_price_alerts`)/§5.58.2 장바구니(신규 `carts`/`cart_items` — D-034 시점부터 식별된 MVP 갭 해소)/§5.58.3 주문결제 UX/§5.58.4 배송추적(`shipments` 컬럼 명료화)/§5.58.5 취소·환불·교환·반품 UX(파생 표시)
+- [PRD.md](PRD.md) §5.59(운영자 대시보드) — 오늘 지표/긴급 처리 지표/쇼핑몰 운영 지표, Dashboard Builder 재사용
+- [PRD.md](PRD.md) §5.60(관리자 업무 Queue) — 기존 테이블 횡단 조회 파생 뷰, 신규 큐 테이블 없음
+- [PRD.md](PRD.md) §5.61(관리자 UX 보강) — Quick Action/즐겨찾기/최근작업, `member_activity_logs`/Bulk Action 재사용
+- [DATABASE.md](DATABASE.md) §3.57(신규) — `carts`/`cart_items`/`product_price_alerts` 신규 테이블 2종(불가피한 경우만), `shipments`/`notification_templates` 컬럼 명료화
+- [STATE-MACHINE.md](STATE-MACHINE.md) §17(배송 상세 상태)/§18(결제 PG 시도 상태)/§19(자동결제 재시도 상태)/§20(알림 발송 상태) — 모두 권장안, 기존 상태 변경 없음
+- [API-SPEC.md](API-SPEC.md) §2.26(Cart)/§2.27(AdminTaskQueue) 신설 + §2.11(Notification)/§2.21(Shop)/§2.22(Analytics) 확장
+- [DATA-DICTIONARY.md](DATA-DICTIONARY.md) §8(쇼핑몰 UX/알림/운영자 대시보드) 신설, Dictionary Gaps §9로 재배치
+- [ROLE-MATRIX.md](ROLE-MATRIX.md) §26(운영자 대시보드/관리자 업무 Queue) 신설 + §3/§4/§22 확장, §26(舊) "미확정 항목"은 §27로 재배치
+- [TEST-PLAN.md](TEST-PLAN.md) §2.11(쇼핑몰 UX/알림/운영자 대시보드 테스트) 신설
+- [SITEMAP.md](SITEMAP.md)/[WIREFRAME.md](WIREFRAME.md) — 장바구니 상세/상품비교·가격인하알림/배송추적/관리자업무Queue/운영자대시보드/알림템플릿 상세 화면 반영
+- [DECISIONS.md](DECISIONS.md) D-072 + O-197(장바구니 "나중에 구매하기")/O-198(가격인하 알림 트리거)/O-199(저장된 검색조건 도입여부) 등록
+
+### Changed
+
+- [MASTER-INDEX.md](MASTER-INDEX.md) §1/§5/§6 — PRD/DATABASE/STATE-MACHINE/API-SPEC/DATA-DICTIONARY/ROLE-MATRIX/TEST-PLAN/SITEMAP/WIREFRAME/DECISIONS/CHANGELOG/MASTER-INDEX 행 갱신, API·DB 준비도 상향, "쇼핑몰 UX/알림/운영자 대시보드 설계 완료" 체크 추가, "D-072가 마지막 라운드" 명시로 갱신
+- README.md — Open Decision 범위(O-002~O-199), API 모듈 수(27개), ERD 반영 필요 항목 명시, "쇼핑몰 UX·알림·운영자 대시보드 완성(D-072)" 절 신설
+
+### 비고
+
+- ERD.md는 본 라운드에서 동기화하지 않았다 — `carts`/`cart_items`/`product_price_alerts`(§3.57) 3종은 다음 ERD 갱신 라운드에서 클러스터 추가 필요(README.md/MASTER-INDEX.md에 명시).
+- BUSINESS-RULE-CATALOG.md는 본 라운드의 대상 문서 목록에 없어 수정하지 않았다 — 신규 Business Rule이 없으므로 Cross Reference 추가 대상도 없다.
+- COMPENSATION-RULES.md/SETTLEMENT-RULES.md/ARCHITECTURE.md는 본 라운드에서 수정하지 않았다 — MLM/정산/ERP Core 구조 무변경 확인.
+
 ## [v1.7.0] - 2026-06-26 (운영 완성도 향상 및 프로젝트 마무리 — 설계 최종 종료)
 
 > 사용자 요청: "프로젝트의 마지막 보강 작업... 실제 운영 시 필요한 운영 편의성과 유지보수성을 높이는 수준만 보강한다... 이번 작업 이후에는 Design Freeze를 유지한다." [DECISIONS.md](DECISIONS.md) D-071. **새 기능 추가가 목적이 아님. 신규 Business Rule 없음(기존 BR 변경 없음), MLM/정산/ERP Core/Workflow/Database 구조 변경 없음, Open Decision 삭제 없음.** 신규 Open Decision은 O-196 1건만 추가(최소화 원칙, "정말 필요한 경우에만"). 코드는 생성하지 않음. **본 라운드를 끝으로 설계 단계를 최종 종료하며, 이후 신규 요구사항은 Change Request(CR)로만 관리한다.**

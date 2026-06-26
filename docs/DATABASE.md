@@ -1,6 +1,6 @@
 # DATABASE.md — 데이터 모델
 
-> 상태: Draft v0.25 (D-069 — 쇼핑몰 운영 고도화 및 SEO/공유이미지 관리: §3.52~§3.56 신규(상품/옵션/재고/주문/결제/배송/리뷰/검색/프로모션/SEO 운영 보강). MLM/정산/Workflow/ERP Core 기존 구조 변경 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.26 (D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: §3.57 신규(`carts`/`cart_items`/`product_price_alerts` 신규 테이블 2종 + 배송추적/알림템플릿 컬럼 명료화, 나머지는 기존 테이블 재사용). MLM/정산/Workflow/ERP Core 기존 구조 변경 없음. D-069 — §3.52~§3.56 신규(상품/옵션/재고/주문/결제/배송/리뷰/검색/프로모션/SEO 운영 보강)) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [COMPENSATION-RULES.md](COMPENSATION-RULES.md), [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md)
 > 본 문서는 테이블 구조의 **개념 설계**이며, 실제 마이그레이션 파일/스키마는 구현 단계에서 작성한다. 코드/마이그레이션은 생성하지 않는다.
 
@@ -1471,6 +1471,53 @@
 | 상품 Import(파일→DB 반영) | File Manager(§3.39) 업로드 + Bulk Action 조합으로 가능해 보이나, 검증 실패 행 처리 등은 **O-126**(대량 Import/Export 도입 여부)에 종속 — 별도 Job 추적 테이블 필요 여부는 O-118과 연계해 후속 확정 |
 
 > `content_click_events`/`content_view_events`(§3.35) 컬럼 확장(공유클릭/유입경로)은 §3.54(검색/프로모션)·§3.55(SEO/공유이미지) 설계와 동일 테이블을 다루므로, 실제 컬럼명/값 도메인은 한 번에 확정한다(중복 설계 방지) — 본 절에서 통합 인지만 하고 별도 컬럼 후보를 추가하지 않는다.
+
+### 3.57 쇼핑몰 UX/알림/운영자 대시보드 완성 ([PRD.md](PRD.md) §5.56~§5.61, [DECISIONS.md](DECISIONS.md) D-072)
+
+> 가능한 모든 곳에서 기존 테이블을 재사용했다 — 신규 테이블은 **`carts`/`cart_items`(불가피, MVP 갭이었던 장바구니 영속화)** 와 **`product_price_alerts`(가격인하 알림, 기존 `restock_notifications`과 동일 패턴이나 트리거 종류가 달라 별도 테이블)** 2종뿐이다.
+
+**재사용 매핑(신규 테이블 없음)**
+
+| 기능 | 기존 테이블/엔진 |
+|---|---|
+| 최근 본 상품 | `recently_viewed_products`(§3.35) |
+| 관심상품/찜하기 | `product_wishlists`(§3.35) |
+| 상품 비교 | `product_comparisons`(§3.54, D-070) |
+| 재입고 알림 | `restock_notifications`(§3.48) |
+| 고객 알림 전체(주문/배송/반품/정기배송/MLM 등 이벤트 카탈로그) | `notification_templates`/`notifications`/`notification_send_rules`(§3.20/§3.41)의 `event_type` 값 목록 확장 — **신규 테이블/엔진 없음**, 신규 알림은 모두 기존 `event_type`의 카탈로그 항목 추가일 뿐 |
+| Notification Template 다국어 | `cms_translations`(§3.33, `content_type='notification_templates'` 이미 지원, §3.33 비고 참조) |
+| 취소/환불/교환/반품 | `orders.status`/`returns`·`return_items`(§3.10)/`exchange_requests`·`exchange_items`(§3.53, D-069) |
+| 운영자 대시보드(오늘 지표/긴급 처리 지표/쇼핑몰 운영 지표) | Dashboard Builder(§3.43)/Report Builder(§3.44) 위젯 추가 — 기존 트랜잭션 테이블 집계, 신규 테이블 없음 |
+| 관리자 업무 Queue | **신규 테이블을 두지 않는다.** Dashboard Builder의 위젯 종류로 "Task Queue"를 추가해, `workflow_instances`(승인대기)/`order_payment_attempts`(결제실패)/`exchange_requests`·`return_items`(승인대기)/`product_reviews`(신고)/Workflow `PRODUCT_APPROVAL`(상품승인대기)/`inventory_items`(재고부족)/CS 티켓(미답변) 등 기존 테이블의 상태값을 횡단 조회하는 **파생 뷰**로 구현한다 |
+| 관리자 UX(즐겨찾기 메뉴/최근 작업/최근 본 회원·주문·상품) | `member_activity_logs`(§3.22) 재사용 — 관리자 행위도 이미 이 테이블에 기록되는 행위자 로그 패턴과 동일 |
+
+**신규 — `carts` / `cart_items`** (불가피, 기존 설계 공백 — PRD.md §5.1.3.5가 D-034 시점에 이미 "장바구니: MVP에 추가 필요"로 식별했으나 데이터 모델이 만들어지지 않았던 항목)
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| `carts.id` / `member_id` | 회원 장바구니(1:1). 비회원 장바구니는 클라이언트 저장을 기본값으로 권고 — **미확정**(O-099/O-188과 동일한 "비회원 처리" 패턴) |
+| `carts.updated_at` | 마지막 변경 시각 |
+| `cart_items.cart_id` | `carts` 참조 |
+| `cart_items.product_id` / `product_option_combination_id` | 상품/옵션(§3.52) 참조 |
+| `cart_items.quantity` | 수량 |
+| `cart_items.added_at` | 담은 시각 — "나중에 구매하기"는 `cart_items`를 삭제하지 않고 상태 플래그로 구분할지, `product_wishlists`로 이동시킬지는 **미확정**(O-197) |
+| 품절/가격변경 표시 | 신규 컬럼 없음 — 조회 시점에 `product_option_combinations.is_active`/`price_delta`(§3.52)와 조합해 파생 표시 |
+| 배송비 예상 표시 | 신규 컬럼 없음 — `shipping_fee_policies`(§3.48) 조회 결과를 파생 표시 |
+| 쿠폰 적용 가능 여부 | 신규 컬럼 없음 — `coupons`(§3.35) 발급조건 조회 결과를 파생 표시 |
+
+**신규 — `product_price_alerts`** (가격인하 알림 — `restock_notifications`와 동일한 "상품 알림 신청" 패턴이나 트리거가 재고가 아닌 가격이라 별도 테이블)
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| member_id / product_id | 알림 신청 대상 |
+| target_price 또는 알림 기준(현재가 대비 %) | 트리거 조건 — **미확정**(O-198) |
+| notified_at | 알림 발송 시각(nullable) |
+
+**`shipments`/`shipment_items`(§3.10) 컬럼 명료화 — 배송 추적 UX 지원**: 기존 절은 "배송 상태(추적)"라고만 개념 기술되어 있었다. 배송 추적 UX(택배사/송장번호/배송상태/배송 타임라인)를 위해 `courier_name`/`tracking_no`/`status`(준비중/출고완료/배송중/배송완료/지연/보류)/`status_updated_at`을 명시적으로 확인한다 — **신규 테이블이 아니라 기존 테이블의 컬럼 존재를 명문화**하는 것이다. 택배사 배송조회 링크는 `courier_name` 기준 URL 패턴(고정 매핑, DB 불필요).
+
+**`notification_templates`(§3.20) 컬럼 추가**: `subject_template`(제목, EMAIL 채널용 — SMS/PUSH는 nullable), `is_active`(활성/비활성 토글). 변수({{member_name}} 등)는 `content_template`/`subject_template` 문자열 내 placeholder 문법으로 처리 — 별도 변수 테이블 불필요(어떤 변수가 사용 가능한지는 `event_type`별 안내 문서로 관리, DB 강제 아님).
+
+- **저장된 검색조건(관리자 UX)은 본 라운드에서 테이블을 만들지 않는다** — 빈도·필요성이 상대적으로 낮아 "불가피한 경우에만 신규 테이블"(D-072 원칙) 기준에 못 미친다고 판단했다. 도입 여부는 **O-199**로 등록한다.
 
 ## 4. 설계 원칙
 
