@@ -1,6 +1,6 @@
 # PRD.md — Product Requirements Document
 
-> 상태: Draft v0.29 (D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: §5.56~§5.61 신규(고객 알림 이벤트 카탈로그/Notification Template 관리/고객 쇼핑 UX·장바구니/운영자 대시보드/관리자 업무 Queue/관리자 UX). 신규 Business Rule 없음, MLM/정산/ERP Core/Workflow 구조 변경 없음, Database는 `carts`/`cart_items`/`product_price_alerts` 3종만 신규(나머지 재사용), 신규 Open Decision O-197~O-199 3건) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.31 (D-074 — Dynamic Board Engine: §5.67 신규 — 공지사항/보도자료/갤러리/FAQ/자료실/이벤트/홍보영상 등을 관리자가 직접 생성하는 범용 게시판 엔진. `boards`/`board_posts`(DATABASE.md §3.58) 공통 구조 + `board_type`/`metadata`(JSON) 확장, 게시판 유형마다 고정 테이블 없음. **기존 CMS(cms_pages/FAQ/팝업/배너)는 변경하지 않음.** 신규 Business Rule 없음, 신규 Open Decision O-200 1건뿐. D-073 — §5.62~§5.66 신규(Abandoned Cart/Saved Cart/Customer Timeline/My Dashboard/Customer Service 보강), Database 구조 무변경) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md)
 
 ## 1. 제품 비전
@@ -1537,8 +1537,10 @@ Google 검색결과 미리보기, Naver 검색결과 미리보기, KakaoTalk 공
 | 구분 | 지표(예시) | 데이터 소스 |
 |---|---|---|
 | 오늘 지표 | 오늘 매출/주문/결제실패/배송준비/출고/배송완료/취소/환불/반품/교환/문의/가입/패키지구매/자동결제실패/정기배송예정 | 각 기존 트랜잭션 테이블을 `created_at`(또는 상태 변경 시각) 기준 당일 필터 — Dashboard Builder(§3.43) 위젯 |
+| 오늘 지표(D-073 추가) | 오늘 재고부족 / 오늘 SEO 오류 / 오늘 Feed 오류 | 재고부족은 `inventory_items`(§3.10) 안전재고 미달 필터(기존). **SEO 오류**는 `product_seo`(§3.55)의 필수 필드(Title/Description/OG Image)가 비어있고 자동생성 fallback도 실패한(예: 대표이미지 자체가 없는) 상품 수를 조회 시점에 파생 계산(저장 컬럼 없음). **Feed 오류**는 `scheduled_job_run_logs`(§3.40)에서 "Feed 갱신" Job 종류의 `status=FAILED` 건수를 조회(기존 컬럼) — 둘 다 신규 테이블/컬럼 없이 기존 테이블 조회만으로 위젯화한다 |
 | 긴급 처리 지표 | 결제실패/자동결제실패/송장미등록/배송지연/환불대기/반품검수대기/CS미응답/재고부족/품절임박/정산보류/시스템장애 | 기존 테이블의 상태값 필터(예: `order_payment_attempts.status=FAILED`) — 시스템 장애는 §5.54 System Health Dashboard(D-071)와 동일 위젯 재사용 |
 | 쇼핑몰 운영 지표 | 상품별/카테고리별/검색어별 매출, 상품 조회수, 장바구니 전환율, 주문/결제 전환율, 재구매율, 고객 이탈 구간, 인기 상품, 관심상품 순위, 최근 본 상품 통계 | `orders`/`order_items`/`content_view_events`/`search_query_logs`/`cart_items`(§3.57, 신규)/`product_wishlists`/`recently_viewed_products` 집계 — 장바구니 전환율은 `carts` 도입으로 비로소 측정 가능해진 지표 |
+| Abandoned Cart 지표(D-073 추가) | 미결제 장바구니 수 / 알림 발송 건수 / 자동쿠폰 전환율 / 재방문율 | `carts`/`cart_items`(§3.57) + `notification_logs`(§3.20) + `coupon_issuances`(§3.35) 조회·조합 — §5.62 참조 |
 
 - 본 절은 신규 핵심 테이블을 요구하지 않는다(장바구니 전환율만 §5.58.2의 신규 `carts` 도입에 종속). 신규 Open Decision을 만들지 않는다.
 
@@ -1553,12 +1555,102 @@ Google 검색결과 미리보기, Naver 검색결과 미리보기, KakaoTalk 공
 | 기능 | 데이터 모델 |
 |---|---|
 | Quick Action/즐겨찾기 메뉴/최근 작업/최근 본 회원·주문·상품 | `member_activity_logs`(§3.22) 재사용 — 관리자 행위 로그도 이미 이 테이블에 기록되는 패턴과 동일. "즐겨찾기"만 신규 — 관리자별 메뉴 즐겨찾기 저장은 본 라운드에서 테이블을 만들지 않고 **O-199**(저장된 검색조건)와 함께 후속 확정 범위로 묶는다 |
+| Quick Action 목록(D-073 구체화) | 주문 조회/회원 조회/상품 등록/패키지 등록/송장 등록/환불 승인/공지 등록 — 각 기존 화면(주문관리/회원관리/상품관리/패키지관리/배송관리/CMS)으로의 **바로가기**일 뿐 별도 데이터 모델이 없다. 환불 승인은 기존 승인 절차(§3.53 `returns`)를 그대로 거치며 Quick Action이 승인 권한을 우회하지 않는다(Workflow/기존 권한 구조 재사용) |
 | 저장된 검색조건 | 본 라운드에서 테이블을 만들지 않음 — **O-199** |
 | 일괄 처리/엑셀 업로드·다운로드 | Bulk Action 패턴(§3.51) 재사용 |
 | 처리 완료 Toast/실패 항목 상세 표시 | DB 영향 없음 — ERP UX Standard(§5.44)의 Toast/Error 컴포넌트 재사용 |
 | 작업 로그 연결 | `audit_logs`(§3.8) 재사용 |
 
 > §5.56~§5.61 전체는 [DECISIONS.md](DECISIONS.md) D-072(쇼핑몰 UX·알림·운영자 대시보드 완성) 참조. 신규 Business Rule 없음. 신규 Database 테이블은 `carts`/`cart_items`/`product_price_alerts` 3종뿐이며 MLM/정산/ERP Core/Workflow 기존 구조는 변경하지 않았다. 신규 Open Decision은 O-197~O-199 3건이다.
+
+### 5.62 Abandoned Cart — 장바구니 미결제 회복 (New Feature — [DECISIONS.md](DECISIONS.md) D-073, Notification Center 재사용 — 신규 엔진 없음)
+
+> 장바구니 담기 → 24시간 미결제 → 자동 알림 → 관리자 Dashboard → 자동 쿠폰 → 재방문. **신규 테이블/컬럼 없음** — 기존 `carts`/`cart_items`(§3.57)/Scheduler Center(§3.40)/Notification Center(§3.20)/`coupon_issuances`(§3.35)의 조합이다.
+
+| 단계 | 구현 |
+|---|---|
+| 미결제 감지 | Scheduler Center(§3.40) Job이 `cart_items.added_at`(§3.57)이 임계 시간(예: 24시간, 관리자 설정값 — 정확한 기본값/저장 위치는 구현 단계에서 결정) 이전이고 해당 장바구니로 완료된 주문이 없는 회원을 매 실행마다 다시 조회(파생, 별도 "감지됨" 플래그 없음) |
+| 자동 알림 | 기존 `notification_templates.event_type`(§3.20) 카탈로그에 "ABANDONED_CART_REMINDER" 값 추가(§5.56과 동일한 카탈로그 확장 방식, 신규 컬럼 아님). 중복 발송 방지는 `notification_logs`(§3.20, 기존)에서 동일 회원·동일 이벤트의 최근 발송 여부를 조회해 판단(별도 플래그 불필요) |
+| 관리자 Dashboard | §5.59(운영자 대시보드)의 "Abandoned Cart 지표" 위젯 — Dashboard Builder 재사용 |
+| 자동 쿠폰 | 기존 `coupons`/`coupon_issuances`(§3.35) 재사용 — 발급 트리거(Scheduler Center vs 쇼핑몰 모듈 책임)는 이미 **O-192**로 추적 중이라 재등록하지 않는다 |
+| 재방문 | 별도 시스템이 아니라 위 알림/쿠폰의 자연스러운 결과(쇼핑몰 재접속) |
+
+- 본 절은 신규 Open Decision을 만들지 않는다 — 임계 시간 정확한 기본값은 다른 임계치(예: §2.6 API 응답시간 임계치)와 동일하게 "구현 단계에서 운영 데이터로 보정 필요"로 남긴다.
+
+### 5.63 Saved Cart — 장바구니 저장 (New Feature — [DECISIONS.md](DECISIONS.md) D-073, 기존 Cart 재사용)
+
+> 장바구니 저장 → 나중에 구매 → 복원 → 주문. **`carts`/`cart_items`(§3.57)는 이미 영속 테이블이므로 "저장"은 별도 동작이 아니라 기존 장바구니의 기본 동작 그 자체다** — 회원이 재방문하면 `cart_items`가 그대로 남아있어 복원이 자동으로 일어난다. 본 절은 신규 데이터 모델이 아니라 UX 명명("저장된 장바구니" 메뉴 노출)만 추가한다. "나중에 구매하기" 시 관심상품 이동 여부는 이미 §5.58.2의 **O-197**로 추적 중이라 재등록하지 않는다.
+
+### 5.64 Customer Timeline — 회원 활동 타임라인 (New Feature — [DECISIONS.md](DECISIONS.md) D-073, 기존 데이터 조회 — 신규 테이블 없음)
+
+> 회원 상세 화면에서 회원가입→주문→결제→배송→문의→반품→패키지 구매→정산→Lifestyle→최근 로그인→알림 발송을 시간순으로 보여준다. **신규 테이블을 만들지 않는다 — 기존 여러 테이블을 시각(occurred_at/created_at 등) 기준으로 UNION 조회하는 화면 레벨 집계다.**
+
+| 타임라인 항목 | 데이터 소스(기존) |
+|---|---|
+| 회원가입 | `members.created_at` |
+| 주문/결제 | `orders`/`order_payment_attempts`(§3.53) |
+| 배송 | `shipments`(§3.10/§3.57) |
+| 문의 | Customer Service Center 티켓(§3.19) |
+| 반품 | `returns`(§3.10)/`exchange_requests`(§3.53) |
+| 패키지 구매 | `orders`(패키지 상품 포함 주문) |
+| 정산 | `settlement_items`(§3.6) |
+| Lifestyle | `point_transactions`(`source_type`, §3.36) |
+| 최근 로그인 | `member_activity_logs`(`activity_type=LOGIN`, §3.22) |
+| 알림 발송 | `notifications`/`notification_logs`(§3.20) |
+
+- 본 절은 신규 Business Rule/Open Decision을 만들지 않는다 — 순수 조회 화면이다.
+
+### 5.65 My Dashboard — 운영자 개인화 Dashboard (New Feature — [DECISIONS.md](DECISIONS.md) D-073, 기존 Dashboard Builder 재사용)
+
+> 운영자가 본인만의 Dashboard를 구성한다 — 오늘 주문/배송/문의/가입/패키지/자동결제실패/환불 등 위젯, 즐겨찾기 위젯, 위젯 위치 저장. **이미 기존 스키마로 100% 지원된다** — `dashboard_definitions.owner_admin_id`/`is_shared`(§3.43)가 "내 전용 Dashboard"를, `dashboard_widgets.position`(§3.43, 기존 JSON 컬럼)이 "위젯 위치 저장"을 이미 제공한다. "즐겨찾기 위젯"은 별도 플래그가 아니라 **본인 개인 Dashboard(`is_shared=false`)에 위젯을 추가하는 행위 자체**로 충분하다.
+
+- 본 절은 신규 테이블/컬럼/Business Rule/Open Decision을 만들지 않는다 — 순수하게 "이미 있는 기능을 운영자가 발견하기 쉽게" 만드는 UX 작업이다.
+
+### 5.66 Customer Service 보강 — 상담원 단일 화면 (New Feature — [DECISIONS.md](DECISIONS.md) D-073, CS Center(§5.11) + Customer Timeline(§5.64) 재사용)
+
+> 고객센터 상담원이 회원 Timeline/최근 주문/최근 문의/최근 배송/최근 환불/최근 알림/최근 로그인을 **한 화면에서** 확인한다. §5.64 Customer Timeline을 CS Center(§3.19) 상담 화면에 임베드하는 것일 뿐 — 신규 데이터 모델이 없다.
+
+- 본 절은 신규 테이블/Business Rule/Open Decision을 만들지 않는다.
+
+> §5.62~§5.66(+§5.59/§5.61 보강)은 [DECISIONS.md](DECISIONS.md) D-073(운영 UX 및 고객 경험 완성) 참조. **신규 Business Rule 없음. 신규 Database 테이블/컬럼 없음(Database 구조 무변경). 신규 Open Decision 없음** — 모두 기존 구조 재사용 또는 기존 Open Decision(O-192/O-197)에 귀속된다. MLM/정산/ERP Core/Workflow/쇼핑몰 구조 변경 없음.
+
+### 5.67 Dynamic Board Engine (New Feature — [DECISIONS.md](DECISIONS.md) D-074, 기존 CMS는 변경하지 않음)
+
+> 공지사항/보도자료/갤러리/FAQ/자료실/이벤트/홍보영상/교육자료/제품자료/인증자료/사용후기/회사소개/CSR/채용/IR 등을 관리자가 **코드 배포 없이 직접 생성**할 수 있는 범용 게시판 엔진이다. **게시판 유형마다 고정 테이블을 만들지 않는다** — `boards`/`board_posts`(DATABASE.md §3.58) 공통 구조 + `board_type` 분류값 + `metadata`(JSON) 확장으로 모든 유형을 수용한다. **기존 CMS(`cms_pages`/FAQ/팝업/배너, §5.19)는 이번 라운드에서 변경하지 않는다** — Board Engine은 그 옆에 신설되는 병렬 구조다.
+
+#### 5.67.1 게시판 엔진(Board Engine)
+
+관리자가 게시판을 직접 생성한다 — 예시 유형(공지사항/보도자료/갤러리/FAQ/자료실/이벤트/홍보영상/교육자료/제품자료/인증자료/사용후기/회사소개/CSR/채용/IR)은 모두 `boards.board_type`의 값일 뿐이며, 신규 유형 추가는 데이터 입력(새 분류값)으로 끝난다(코드/스키마 변경 없음).
+
+#### 5.67.2 게시판 관리(관리자 설정 항목)
+
+게시판명/코드/설명/유형/활성·비활성/메뉴 노출/쇼핑몰 노출/회원몰 노출/마이오피스 노출/메인 노출/노출 순서/사용 국가/사용 언어 — 모두 `boards`(DATABASE.md §3.58) 컬럼으로 1:1 대응한다.
+
+#### 5.67.3 게시판 유형(Board Type)
+
+기본 제공: 일반/공지형/갤러리형/FAQ형/자료실형/보도자료형/이벤트형/영상형. `board_type`이 자유 확장 분류값(기존 `marketing_programs.category`/`external_api_connections.category`와 동일한 패턴)이므로 관리자가 새 유형명을 추가하는 데 스키마 변경이 필요 없다 — 유형별 동작 차이(예: FAQ형의 Q&A 표시)는 화면(레이아웃)과 `metadata` 필드 활용으로 구현한다.
+
+#### 5.67.4 게시판 기능 설정(ON/OFF)
+
+댓글/답글/파일첨부/이미지/대표이미지/동영상/다운로드/조회수/좋아요/공유/SEO/OG/예약게시/승인후게시/카테고리/태그/검색/RSS — `boards.feature_flags`(JSON, DATABASE.md §3.58) 1개 컬럼에 모두 담아, 향후 기능 토글이 추가되어도 스키마 변경이 필요 없게 한다.
+
+#### 5.67.5 게시글 공통 기능
+
+모든 게시판이 공유하는 `board_posts`(DATABASE.md §3.58) 공통 구조 — 제목/내용(에디터)/대표이미지/이미지삽입·다중이미지·파일첨부·PDF·동영상·다운로드(File Manager `files` 재사용)/SEO·OG·Slug·Canonical(`content_seo_metadata` 재사용)/다국어(`cms_translations` 재사용)/예약게시(`scheduled_publish_at`)/공개·비공개(`is_public`)/조회수(`content_view_events` 재사용)/작성자·수정자·등록일·수정일(기존 컬럼). 댓글/답글은 `board_post_comments`의 자기참조(`parent_comment_id`)로, 좋아요는 `board_post_likes`로 표현한다 — 둘 다 신규 최소 테이블.
+
+#### 5.67.6 게시판 Layout
+
+리스트형/카드형/갤러리형/FAQ/영상형 — `boards.layout_type`(DATABASE.md §3.58)으로 관리자가 선택한다. `board_type`(콘텐츠 분류)과 독립적인 차원이다(예: PRESS 유형이면서 CARD 레이아웃 선택 가능).
+
+#### 5.67.7 게시판 권한
+
+신규 권한 테이블을 만들지 않는다 — [ROLE-MATRIX.md](ROLE-MATRIX.md)의 기존 7역할×11액션(조회/등록/수정/삭제/승인/반려/출력/다운로드/엑셀/일괄처리/권한관리) 체계를 게시판 모듈에 그대로 적용한다. "예약게시"는 등록/수정 액션의 한 옵션이고, "승인"은 `feature_flags.승인후게시=true`일 때만 의미를 갖는다(Workflow Engine 재사용, `subject_type='BOARD_POST_APPROVAL'`).
+
+#### 5.67.8 게시판 메뉴 연결
+
+관리자가 게시판을 정적 메뉴 그룹(예: "회사소개") 하위에 연결하고 순서를 정한다 — `boards.menu_group`/`sort_order`(DATABASE.md §3.58)로 충분하며, 별도의 범용 "메뉴 엔진"을 신설하지 않는다(요청 범위를 Board Engine에 한정 — 전체 사이트 내비게이션의 완전한 동적화는 본 라운드 범위 밖).
+
+- 본 절 전체의 데이터 모델은 [DATABASE.md](DATABASE.md) §3.58 참조. **신규 Business Rule을 만들지 않았다** — 게시판 운영 규칙(예: 예약게시 전이, 승인후게시)은 기존 BR-045(자동전이 패턴)/BR-036(Workflow 범용 승인) 원칙을 그대로 따르는 운영 흐름이며 별도 BR 번호를 부여하지 않는다. 신규 Open Decision은 **O-200**(기존 CMS 콘텐츠의 Board Engine 통합 마이그레이션 여부) 1건이다. 기존 쇼핑몰/MLM/ERP Core/Workflow 구조는 변경하지 않았다.
 
 ## 6. 비기능 요구사항
 

@@ -1,6 +1,6 @@
 # DATA-DICTIONARY.md — Data Dictionary
 
-> 상태: v0.3 (D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: `carts`/`cart_items`/`product_price_alerts`(신규 3종) + `shipments`/`notification_templates` 컬럼 명료화를 §8로 반영, Dictionary Gaps §9로 재배치. D-070 — D-069 §3.52~§3.56 신규분 반영, §7 신설) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.4 (D-074 — Dynamic Board Engine: `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes`(신규 5종)를 §9로 반영, Dictionary Gaps §10으로 재배치. **기존 CMS(`cms_pages`/FAQ/팝업/배너) 무변경.** D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: `carts`/`cart_items`/`product_price_alerts`(신규 3종) + `shipments`/`notification_templates` 컬럼 명료화를 §8로 반영) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 목적: [DATABASE.md](DATABASE.md)에 흩어진 테이블/컬럼 개념을 구현자가 빠르게 찾을 수 있도록 정리한다. 본 문서는 DB 스키마를 변경하지 않는다.
 
 ## 0. 작성 원칙
@@ -245,7 +245,32 @@
 | notification_templates | subject_template | 제목(EMAIL 채널용) | string | N | N | Y | 미정 | DATABASE §3.57 | - |
 | notification_templates | is_active | 활성/비활성 토글 | boolean | N | N | N | 미정 | DATABASE §3.57 | - |
 
-## 9. Dictionary Gaps
+## 9. Dynamic Board Engine (D-074)
+
+> 신규 테이블 5종(`boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes`)만 등록한다 — 첨부/이미지/SEO/다국어/조회수는 기존 File Manager `files`/`content_seo_metadata`/`cms_translations`/`content_view_events`를 재사용하므로 본 절에 재등록하지 않는다. **기존 CMS(`cms_pages`/`faq_categories`/`faq_items`/`popups`)는 본 라운드에서 변경하지 않아 §3.33 그대로다.** [DATABASE.md](DATABASE.md) §3.58 참조.
+
+| Table | Column | 설명 | 자료형(개념) | PK | FK | Nullable | Enum/Default | Source of Truth | 관련 Rule |
+|---|---|---|---|---|---|---|---|---|---|
+| boards | id / name / code | 게시판 식별자/명/코드(unique) | uuid/string | Y(id) | N | N | 미정 | DATABASE §3.58 | - |
+| boards | board_type | 게시판 유형 | string | N | N | N | 자유 확장값(`marketing_programs.category`와 동일 패턴), 고정 enum 아님 | DATABASE §3.58 | - |
+| boards | layout_type | 목록 화면 레이아웃 | enum | N | N | N | LIST/CARD/GALLERY/FAQ/VIDEO | DATABASE §3.58 | - |
+| boards | menu_exposure / shop_exposure / shop_member_exposure / my_office_exposure / main_exposure | 노출 위치 토글 | boolean | N | N | N | 미정 | DATABASE §3.58 | - |
+| boards | menu_group / sort_order | 메뉴 연결/순서 | string/integer | N | N | Y/N | 참조 무결성 없는 자유 텍스트 | DATABASE §3.58 | - |
+| boards | country_codes / language_codes | 사용 국가/언어 | array | N | N | Y | nullable=전체(기존 패턴) | DATABASE §3.58 | - |
+| boards | feature_flags | 댓글/답글/파일첨부/이미지/대표이미지/동영상/다운로드/조회수/좋아요/공유/SEO/OG/예약게시/승인후게시/카테고리/태그/검색/RSS ON/OFF | json | N | N | N | 미정 | DATABASE §3.58 | - |
+| board_categories | board_id / name / sort_order | 게시판별 카테고리 | uuid/string/integer | 미정 | boards.id | N | `feature_flags.카테고리=true`일 때만 사용 | DATABASE §3.58 | - |
+| board_posts | board_id / category_id | 소속 게시판/카테고리 | uuid | 미정 | boards.id / board_categories.id | 조건부 | 미정 | DATABASE §3.58 | - |
+| board_posts | title / content / thumbnail_image_ref / slug | 제목/본문/대표이미지/URL경로 | string/text/ref/string | N | N | 조건부 | 미정 | DATABASE §3.58 | - |
+| board_posts | status | 게시 상태 | enum | N | N | N | DRAFT/SCHEDULED/PENDING_APPROVAL/PUBLISHED/UNPUBLISHED | DATABASE §3.58 | - |
+| board_posts | scheduled_publish_at | 예약게시 시각 | timestamp | N | N | Y | `feature_flags.예약게시=true`일 때만 사용 | DATABASE §3.58 | - |
+| board_posts | is_public / tags | 공개여부/태그 | boolean/json | N | N | N/Y | tags는 배열, 전용 마스터 테이블 미도입 | DATABASE §3.58 | - |
+| board_posts | metadata | 유형별 특수 필드 확장 포인트 | json | N | N | Y | 예: VIDEO의 video_url, FAQ의 answer | DATABASE §3.58 | - |
+| board_posts | view_count_cache / like_count_cache | 조회수/좋아요 캐시(파생) | integer | N | N | N | 원본은 `content_view_events`/`board_post_likes` | DATABASE §3.58 | - |
+| board_post_comments | post_id / parent_comment_id | 소속 게시글/상위 댓글 | uuid | 미정 | board_posts.id / board_post_comments.id | 조건부(parent는 null=최상위, 값있음=답글) | `feature_flags.댓글=true`일 때만 사용, 답글 전용 테이블 없음 | DATABASE §3.58 | - |
+| board_post_comments | member_id / content / is_active | 작성회원/내용/소프트삭제 | uuid/text/boolean | 미정 | members.id | N | 미정 | DATABASE §3.58 | - |
+| board_post_likes | post_id / member_id | 복합 unique(회원당 1회) | uuid | Y(복합) | board_posts.id / members.id | N | `feature_flags.좋아요=true`일 때만 사용 | DATABASE §3.58 | - |
+
+## 10. Dictionary Gaps
 
 | 영역 | 현재 상태 |
 |---|---|
@@ -260,4 +285,6 @@
 | 장바구니 "나중에 구매하기" 처리 | `cart_items` 보존 vs `product_wishlists` 이동 미확정(O-197) |
 | 가격인하 알림 트리거 기준 | 절대가 vs 할인율 미확정(O-198) |
 | 관리자 저장된 검색조건/즐겨찾기 메뉴 | 테이블 도입 여부 미확정(O-199) |
+| 기존 CMS ↔ Board Engine 통합 | `cms_pages`/FAQ/팝업/배너를 Board Engine으로 마이그레이션할지 여부 미확정(O-200) — 결정 전까지 두 구조가 병렬로 유지된다 |
+| 게시판/게시글 삭제 시 하위 데이터 처리 | 게시판 삭제 시 `board_posts`/`board_categories`/`board_post_comments`/`board_post_likes` cascade vs 소프트삭제 정책 미확정 — 기존 소프트삭제 원칙(§4 설계원칙 3)과의 정합 필요 |
 

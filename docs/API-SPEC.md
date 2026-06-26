@@ -1,6 +1,6 @@
 # API-SPEC.md — REST API 명세
 
-> 상태: v0.4 (D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: DATABASE.md §3.57에서 신설된 `carts`/`cart_items`/`product_price_alerts`와 기존 테이블 재사용 기능을 §2.11/§2.21/§2.22에 보강하고, §2.26 Cart/§2.27 AdminTaskQueue를 신설 — 장바구니/최근 본 상품/가격 알림/알림 템플릿 테스트발송·미리보기·재발송/배송 추적/운영자 대시보드 위젯/관리자 업무 Queue 엔드포인트 추가. D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(쇼핑몰 운영 고도화/SEO·공유이미지, DATABASE.md §3.52~§3.56)와 D-070(Digital Marketing 연동/SEO Dashboard/이미지 최적화/상품 Feed, PRD.md §5.47~§5.50)에서 신설된 기능에 대한 개념 수준(설계 단계, 미구현) 엔드포인트를 §2.21~§2.25에 보강) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.5 (D-074 — Dynamic Board Engine: 코드 배포 없이 신규 게시판 종류를 추가할 수 있는 범용 게시판/게시물 엔진을 §2.28 Board Engine으로 신설 — DATABASE.md §3.58에서 신설된 `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5종 테이블에 대한 CRUD/게시물/댓글/좋아요/RSS 엔드포인트를 추가하고, 첨부·이미지·동영상은 File Manager(`files`)/SEO는 `content_seo_metadata`/다국어는 `cms_translations`/조회수는 `content_view_events`/승인후게시는 Workflow Engine/예약게시는 Scheduler Center 기존 패턴을 재사용. 기존 CMS(§2.18, `cms_pages`/FAQ/popups/banners)는 본 라운드에서 변경하지 않으며 병렬 구조로 신설(통합 여부는 O-200 미확정). D-073 — 운영 UX 및 고객 경험 완성(최종 설계 라운드): Database 구조 변경 없이(신규 테이블/컬럼 0건) 기존 테이블 재사용만으로 §2.2 Member에 Customer Timeline 엔드포인트 신설, §2.14 CustomerService에 티켓 상세-Timeline 연계 비고 추가, §2.22/§2.22.1 Analytics에 Abandoned Cart `type` 값 및 SEO/Feed 오류 위젯 비고 보강, §2.22에 Dashboard Builder `/v1/dashboards` 신규 CRUD 진입점 추가(My Dashboard), §2.26 Cart에 Saved Cart 비고 추가, §0에 Quick Action 비고 추가. D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: DATABASE.md §3.57에서 신설된 `carts`/`cart_items`/`product_price_alerts`와 기존 테이블 재사용 기능을 §2.11/§2.21/§2.22에 보강하고, §2.26 Cart/§2.27 AdminTaskQueue를 신설 — 장바구니/최근 본 상품/가격 알림/알림 템플릿 테스트발송·미리보기·재발송/배송 추적/운영자 대시보드 위젯/관리자 업무 Queue 엔드포인트 추가. D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(쇼핑몰 운영 고도화/SEO·공유이미지, DATABASE.md §3.52~§3.56)와 D-070(Digital Marketing 연동/SEO Dashboard/이미지 최적화/상품 Feed, PRD.md §5.47~§5.50)에서 신설된 기능에 대한 개념 수준(설계 단계, 미구현) 엔드포인트를 §2.21~§2.25에 보강) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE.md](DATABASE.md)
 > 본 문서는 OpenAPI 산출물을 대체하지 않으며, 구현 단계에서 실제 OpenAPI yaml로 구체화하기 위한 설계 단계 명세다.
 
@@ -9,6 +9,7 @@
 - 본 문서가 다루는 대상은 [ARCHITECTURE.md](ARCHITECTURE.md) §2.2의 `api`(NestJS, 요청 처리 전용) 서비스가 노출하는 REST 엔드포인트다. `worker`/`scheduler`는 외부에 API를 노출하지 않는다 — `api`가 Job을 생성하고 상태/결과만 조회한다.
 - **api는 계산하지 않는다(확정 — 위반 금지, [ARCHITECTURE.md](ARCHITECTURE.md) §1.1/§2.2/§3, [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) §1.3).** 후원수당/정산/세금/프로모션 판정/보고서 생성 등 연산량이 큰 작업을 다루는 모든 엔드포인트는 본 문서에서 **"Job 생성 → 202 Accepted + Job id → 별도 상태조회 엔드포인트"** 패턴으로만 기술한다. 동기 계산 응답(200 + 계산결과)을 반환하는 것처럼 쓰지 않는다.
 - 실제 값(필드 상세 타입, 정확한 enum, 정렬·필터 가능 필드 전체 목록 등)은 다수가 [DECISIONS.md](DECISIONS.md)에서 **미확정** 상태다. 본 문서는 ARCHITECTURE.md/DATABASE.md에 이미 정의된 모듈·테이블·흐름을 REST 형태로 옮기는 것이며, 존재하지 않는 필드/모듈을 새로 만들지 않는다.
+- **Quick Action(관리자 대시보드 바로가기 메뉴, [PRD.md](PRD.md) §5.61, D-073)은 신규 API 표면이 아니다** — 주문조회/회원조회/상품등록/패키지등록/송장등록/환불승인/공지등록 등 Quick Action 메뉴 항목은 모두 본 문서에 이미 문서화된 기존 엔드포인트(§2.2/§2.3/§2.4/§2.9/§2.18 등)로 1:1 매핑되는 UI 바로가기일 뿐이며, 별도의 `/v1/quick-actions` 엔드포인트를 두지 않는다. 환불승인 Quick Action도 기존 `returns` 승인 흐름(§2.9)을 그대로 호출하며 우회 경로를 만들지 않는다.
 
 ## 1. 전역 컨벤션
 
@@ -184,6 +185,7 @@ https://api.fns.example.com/v1/{module-path}
 | `/v1/members/{id}/my-organization` | GET | 본인 | `period` | LINE1~5/조직매출/조직수당/조직성장 | '내 조직' 메뉴([PRD.md](PRD.md) §5.1.1, [DATABASE.md](DATABASE.md) §3.11) — 파생 데이터 조회, 실시간 계산 여부는 미확정 |
 | `/v1/members/{id}/qualification-status` | GET | 본인/관리자 | - | 유니레벨 자격/패키지 자격 현황 | §5.1.2 — 2개의 독립 자격을 구분 표시(D-028) |
 | `/v1/members/{id}/referral-link` | GET | 본인 | - | 추천링크/QR/클릭수/가입수 | §5.17.2 마이오피스 |
+| `/v1/members/{id}/timeline` | GET | 본인/관리자(국가스코프) | `type`(필터, 다중 지정 가능)/`from`/`to` | 시간순 통합 타임라인 목록 — 각 항목 `type`(가입/주문/결제/배송/문의/반품/패키지구매/정산/Lifestyle/로그인/알림)/`occurred_at`/`summary`/`detail_ref` | **Customer Timeline**([PRD.md](PRD.md) §5.64, D-073) — **읽기 전용 federated 조회, 신규 테이블 없음.** `members.created_at`(가입)/`orders`(주문)/`order_payment_attempts`(결제)/`shipments`(배송)/`tickets`(§2.14, 문의)/`returns`·`exchange_requests`(반품/패키지 관련 교환)/`settlement_items`(§2.5, 정산)/`point_transactions`(§2.20, Lifestyle/포인트)/`member_activity_logs`(§3.22, `activity_type=LOGIN`인 로그인 이력)/`notifications`·`notification_logs`(§2.11, 알림)를 `occurred_at` 기준으로 시간 역순 병합한 결과를 반환한다. 각 기존 테이블에 대한 UNION 조회이며 응답 즉시 조립(실시간) vs 캐시 여부는 §2.22 운영자 대시보드와 동일하게 미확정 — "구현 단계에서 보정 필요". CS Center 티켓 상세 화면에서도 본 엔드포인트를 그대로 재사용한다(§2.14 비고 참조) |
 
 ### 2.3 Catalog
 
@@ -317,7 +319,7 @@ https://api.fns.example.com/v1/{module-path}
 
 | Resource Path | Method | Permission | 주요 요청 필드 | 주요 응답 필드 | 비고 |
 |---|---|---|---|---|---|
-| `/v1/tickets` | 표준 CRUD 패턴 적용 | 본인(생성)/관리자(처리) | `ticket_type`(1:1문의/정산문의/수당문의/회원문의/명의변경문의/이의신청/불만접수) | 티켓 목록/상세 | - |
+| `/v1/tickets` | 표준 CRUD 패턴 적용 | 본인(생성)/관리자(처리) | `ticket_type`(1:1문의/정산문의/수당문의/회원문의/명의변경문의/이의신청/불만접수) | 티켓 목록/상세 | 티켓 상세(단건 GET) 응답에는 해당 회원의 `/v1/members/{id}/timeline`(§2.2, D-073) 결과가 함께 임베드된다 — **신규 엔드포인트/데이터 모델 아님**, 상담원이 문의 처리 중 회원의 가입/주문/결제/배송/반품/정산/로그인/알림 이력을 한 화면에서 볼 수 있도록 기존 Customer Timeline을 그대로 참조([PRD.md](PRD.md) §5.66, D-073) |
 | `/v1/tickets/{id}/messages` | 표준 CRUD 패턴 적용 | 본인/관리자 | `content`/`attachment_refs[]` | 메시지 목록 | - |
 | `/v1/tickets/{id}/link-change-request` | POST | 관리자 | `change_request_id` | 연결됨 | 명의변경 문의/이의신청을 `member_change_requests`와 연결([DATABASE.md](DATABASE.md) §3.18) |
 
@@ -414,23 +416,32 @@ https://api.fns.example.com/v1/{module-path}
 
 | Resource Path | Method | Permission | 주요 요청 필드 | 주요 응답 필드 | 비고 |
 |---|---|---|---|---|---|
-| `/v1/analytics/dashboards/{type}` | GET | 관리자(국가스코프) | `period`/`country_code` | 집계 결과 | 실시간 쿼리 또는 스냅샷 캐시 조회, 방식 미확정([ARCHITECTURE.md](ARCHITECTURE.md) §2.2 Analytics). **운영자 대시보드(D-072)도 본 엔드포인트를 그대로 재사용** — 신규 엔드포인트 형태 없이 `{type}` 값만 아래 §2.22.1 표처럼 추가, Dashboard Builder의 기존 `data_source`/`widget_type` 패턴([DATABASE.md](DATABASE.md) §3.43) 그대로 재사용. 신규 테이블 없음([DATABASE.md](DATABASE.md) §3.57) |
+| `/v1/analytics/dashboards/{type}` | GET | 관리자(국가스코프) | `period`/`country_code` | 집계 결과 | 실시간 쿼리 또는 스냅샷 캐시 조회, 방식 미확정([ARCHITECTURE.md](ARCHITECTURE.md) §2.2 Analytics). **운영자 대시보드(D-072)도 본 엔드포인트를 그대로 재사용** — 신규 엔드포인트 형태 없이 `{type}` 값만 아래 §2.22.1 표처럼 추가, Dashboard Builder의 기존 `data_source`/`widget_type` 패턴([DATABASE.md](DATABASE.md) §3.43) 그대로 재사용. 신규 테이블 없음([DATABASE.md](DATABASE.md) §3.57). **D-073에서 `abandoned-cart` `type` 값 추가**(§2.22.1 표 참조) |
 | `/v1/analytics/reports/jobs` | POST | 관리자 | `report_type`/`period` | `202 Accepted` + `job_id` | 집계 자체가 무거우면 worker로 위임 |
 | `/v1/analytics/reports/jobs/{jobId}` | GET | 관리자 | - | Job 상태/결과 | - |
+| `/v1/dashboards` | 표준 CRUD 패턴 적용 | 관리자(본인) | `name`/`is_shared`/`widgets[]`(`widget_type`/`data_source`/`config`/`position`) | 대시보드 목록/상세 | Dashboard Builder([DATABASE.md](DATABASE.md) §3.43) `dashboard_definitions`/`dashboard_widgets`에 대한 최초 CRUD 진입점 — 본 문서에 그동안 §2.22/§2.27이 위젯 종류만 보강해왔을 뿐 정의 자체의 CRUD 엔드포인트가 없었기에 본 라운드(D-073)에서 추가. 신규 컬럼 없음 — 기존 `owner_admin_id`/`is_shared`/`position`(JSON) 그대로 노출 |
+| `/v1/dashboards` | GET | 관리자(본인) | `mine`(기본 true) | 본인 소유 대시보드 목록 우선 | **My Dashboard**([PRD.md](PRD.md) §5.65, D-073) — 신규 엔드포인트가 아니라 위 CRUD 목록 조회가 기존 `dashboard_definitions.owner_admin_id`로 자동 필터링되고 기본 뷰로 채택되는 것뿐, 위젯 배치는 기존 `dashboard_widgets.position`(JSON) 그대로 사용 — 신규 테이블/컬럼 없음 |
 | `/v1/analytics/dashboards/seo` | GET | 관리자(상품관리/CMS) | `product_id`/`period` | 상품별 SEO 점수(파생)/OG·Meta·Schema 설정여부(파생)/공유클릭·SNS공유횟수/검색유입·클릭·노출수·CTR·검색어순위 | SEO 운영 Dashboard([PRD.md](PRD.md) §5.48, D-070) — Dashboard Builder(§3.43)/Report Builder(§3.44) 재사용, 신규 위젯 종류만 추가. SEO 점수/설정여부는 `product_seo` 필드 채움률·NULL 여부를 조회 시점에 파생 계산(별도 점수 컬럼 없음). 공유클릭/SNS공유횟수는 `content_click_events.click_type` SOCIAL_SHARE 후보값 사용 여부가 미확정(O-194)이라 그 값이 비어있으면 해당 지표만 "미확정(후속 확인 필요)"으로 응답. 검색유입/클릭/노출수/CTR/순위는 §2.25 Digital Marketing의 GSC/Naver Search Advisor 연동 결과 위젯화 — 이 지표를 DB 캐시 vs 실시간 외부 API 호출로 가져올지는 미확정(O-195) |
 
-#### 2.22.1 운영자 대시보드(D-072) — `/v1/analytics/dashboards/{type}` 신규 `{type}` 값
+#### 2.22.1 운영자 대시보드(D-072, D-073) — `/v1/analytics/dashboards/{type}` 신규 `{type}` 값
 
-> [PRD.md](PRD.md) §5.56~§5.58(D-072), [DATABASE.md](DATABASE.md) §3.57 기반. 신규 엔드포인트 형태 없음 — 위 `/v1/analytics/dashboards/{type}` 한 경로에 `{type}` 값만 추가하고, Dashboard Builder의 `dashboard_widgets.data_source`/`widget_type`(§3.43)을 기존 트랜잭션 테이블에 대해 조합한 결과를 반환한다.
+> [PRD.md](PRD.md) §5.56~§5.58(D-072)/§5.62(D-073), [DATABASE.md](DATABASE.md) §3.57 기반. 신규 엔드포인트 형태 없음 — 위 `/v1/analytics/dashboards/{type}` 한 경로에 `{type}` 값만 추가하고, Dashboard Builder의 `dashboard_widgets.data_source`/`widget_type`(§3.43)을 기존 트랜잭션 테이블에 대해 조합한 결과를 반환한다.
 
 | `{type}` 값 | 위젯 그룹 | 포함 지표(요약) | 데이터 소스(기존 테이블) |
 |---|---|---|---|
-| `today-summary` | 오늘 지표 | 오늘 매출/주문/결제실패/배송준비/출고/배송완료/취소/환불/반품/교환/문의/가입/패키지구매/자동결제실패/정기배송예정 | `orders`/`order_items`/`order_payment_attempts`/`shipments`/`returns`/`exchange_requests`/`tickets`/`members`/`recurring-orders`(§2.4) |
+| `today-summary` | 오늘 지표 | 오늘 매출/주문/결제실패/배송준비/출고/배송완료/취소/환불/반품/교환/문의/가입/패키지구매/자동결제실패/정기배송예정/**SEO 오류**(D-073)/**Feed 오류**(D-073) | `orders`/`order_items`/`order_payment_attempts`/`shipments`/`returns`/`exchange_requests`/`tickets`/`members`/`recurring-orders`(§2.4). SEO 오류는 `product_seo`(§3.55) 필수 필드 미입력/NULL 건수를 조회 시점에 파생 카운트(§2.22 `dashboards/seo`와 동일한 파생 계산 방식, 별도 오류 컬럼 없음). Feed 오류는 `scheduled_job_run_logs`(§3.40)를 Feed 종류 Job(§2.24 `product-feeds`)으로 필터링한 `status=FAILED` 건수 — 둘 다 신규 컬럼 없는 파생 카운트 |
 | `urgent-tasks` | 긴급 처리 지표 | 결제실패/자동결제실패/송장미등록/배송지연/환불대기/반품검수대기/CS미응답/재고부족/품절임박/정산보류/시스템장애 | `order_payment_attempts`/`shipments`(§3.57 `status`)/`return_items`/`tickets`/`inventory_items`/`settlement_batches`/시스템 모니터링(§5.54, O-196 연계) |
 | `shop-operation` | 쇼핑몰 운영 지표 | 상품별/카테고리별/검색어별 매출, 장바구니 전환율, 주문/결제 전환율, 재구매율 | `order_items`/`products`/`search_query_logs`/`carts`·`cart_items`(§3.57, 신규)/`orders` |
+| `abandoned-cart` | Abandoned Cart 지표(D-073) | 미결제 장바구니 수/알림발송건수/쿠폰전환율/재방문율 | 미결제 장바구니 수 = `carts`/`cart_items`(§3.57)를 `cart_items.added_at` 기준 미결제 상태로 일정 시간 경과한 건 카운트(파생). 알림발송건수 = `notification_logs`(§2.11)를 `event_type=ABANDONED_CART_REMINDER`로 필터(아래 비고 참조). 쿠폰전환율 = `coupon_issuances`(§3.35)에서 해당 트리거로 발급된 쿠폰의 `status=USED` 비율(파생). 재방문율 = `member_activity_logs`(§3.22, `activity_type=LOGIN`)로 알림 발송 후 재방문 여부 파생 집계. 4개 지표 모두 기존 테이블 조회 결과의 파생값이며 신규 컬럼 없음 |
 
-- 위 3개 그룹 모두 **신규 테이블·신규 컬럼 없음** — 기존 트랜잭션 테이블 집계이며, Dashboard Builder의 위젯 추가만으로 구현([DATABASE.md](DATABASE.md) §3.57 재사용 매핑).
+- 위 4개 그룹 모두 **신규 테이블·신규 컬럼 없음** — 기존 트랜잭션 테이블 집계이며, Dashboard Builder의 위젯 추가만으로 구현([DATABASE.md](DATABASE.md) §3.57 재사용 매핑).
 - 응답 스키마(위젯별 정확한 필드명/단위)는 OpenAPI 구체화 단계에서 확정 — 본 절은 어떤 위젯 그룹이 존재하는지와 데이터 소스만 명시한다.
+
+**Abandoned Cart 감지/알림([PRD.md](PRD.md) §5.62, D-073)**:
+- 장바구니 방치 감지 자체는 **고객향 엔드포인트가 아니다** — Scheduler Center(§3.40)가 주기적으로 트리거하는 내부 Job이 `cart_items.added_at`/`carts.updated_at`(§3.57)을 조회해 방치 장바구니를 판정한다. `api`는 이 내부 Job에 대한 신규 엔드포인트 형태를 두지 않는다(§1 원칙 — scheduler/worker는 외부에 API를 노출하지 않음). 수동 트리거가 필요하면 기존 `/v1/notifications/jobs`(§2.11) 패턴을 그대로 사용한다.
+- 알림 발송은 `notification_templates.event_type`에 `ABANDONED_CART_REMINDER` 값을 추가하는 것으로 처리한다 — D-072 §5.56에서 채택한 "신규 알림은 모두 기존 `event_type` 카탈로그 항목 추가" 패턴과 동일하며, `notification_templates`/`notifications`/`notification_logs`(§3.20/§2.11) 구조 자체는 변경하지 않는다.
+- 중복 발송 방지는 신규 컬럼 없이 발송 전 `notification_logs`(§2.11)를 `member_id`+`event_type=ABANDONED_CART_REMINDER`+기간 조건으로 조회해 이미 발송 이력이 있는지 확인하는 조회 로직으로 처리한다.
+- 자동 쿠폰 발급은 기존 `/v1/coupons/{id}/issue`(§2.21)를 그대로 호출 — 발급 트리거 주체(Scheduler Center vs Shop 모듈)는 신규 Open Decision을 만들지 않고 기존 **O-192**(첫구매/생일쿠폰 자동발급 트리거 시점·책임 모듈)와 동일한 미확정 사항으로 묶어 처리한다.
 
 ### 2.23 SEO
 
@@ -475,7 +486,7 @@ https://api.fns.example.com/v1/{module-path}
 
 | Resource Path | Method | Permission | 주요 요청 필드 | 주요 응답 필드 | 비고 |
 |---|---|---|---|---|---|
-| `/v1/cart` | GET | 본인(회원) | - | `cart_id`/`items[]`(상품/옵션/수량/단가/품절여부/가격변경여부/배송비예상/쿠폰적용가능여부)/`subtotal` | `carts`/`cart_items`(신규, [DATABASE.md](DATABASE.md) §3.57) — 현재 장바구니 조회. 비회원 장바구니는 클라이언트 저장이 기본 권고이나 **미확정**(O-197과 동일 계열의 "비회원 처리" 패턴, [DATABASE.md](DATABASE.md) §3.57 O-099/O-188 참조) |
+| `/v1/cart` | GET | 본인(회원) | - | `cart_id`/`items[]`(상품/옵션/수량/단가/품절여부/가격변경여부/배송비예상/쿠폰적용가능여부)/`subtotal` | `carts`/`cart_items`(신규, [DATABASE.md](DATABASE.md) §3.57) — 현재 장바구니 조회. 비회원 장바구니는 클라이언트 저장이 기본 권고이나 **미확정**(O-197과 동일 계열의 "비회원 처리" 패턴, [DATABASE.md](DATABASE.md) §3.57 O-099/O-188 참조). **Saved Cart([PRD.md](PRD.md) §5.63, D-073)는 별도 기능이 아니다** — `carts`/`cart_items`가 D-072부터 이미 영속 테이블이므로 본 엔드포인트가 곧 "저장된 장바구니" 조회이며, 신규 경로 없이 메뉴 명칭만 "저장된 장바구니"로 노출할 수 있다(순수 UX/메뉴-네이밍 정리) |
 | `/v1/cart/items` | POST | 본인(회원) | `product_id`/`product_option_combination_id`/`quantity` | `cart_item_id` | 담기 — `cart_items`(신규) 행 생성, `carts.updated_at` 갱신 |
 | `/v1/cart/items` | PATCH | 본인(회원) | `cart_item_id`/`quantity` 또는 `product_option_combination_id`(옵션변경) | 갱신된 `cart_items` 행 | 수량·옵션 변경 — 옵션변경은 기존 행의 `product_option_combination_id`를 교체(별도 이력 테이블 없음) |
 | `/v1/cart/items` | DELETE | 본인(회원) | `cart_item_ids[]` | - | 선택삭제 — 다중 삭제 지원 |
@@ -511,6 +522,29 @@ https://api.fns.example.com/v1/{module-path}
 
 - 응답의 `detail_ref`는 각 항목의 상세 목록 조회 경로(예: `PAYMENT_FAILED_CONFIRM` → `/v1/payment-methods/{id}/payment-attempts`)를 가리키며, AdminTaskQueue 자체는 건수/요약만 federated 응답으로 제공하고 상세 처리는 각 기존 엔드포인트(§2.4/§2.9/§2.14/§2.21)에서 수행한다.
 - 정렬/우선순위 기준, 실시간 쿼리 vs 캐시 조회 여부는 §2.22 `/v1/analytics/dashboards/{type}`와 동일하게 미확정이다.
+
+### 2.28 Board Engine
+
+> [DATABASE.md](DATABASE.md) §3.58(D-074) 기반 — 코드 배포 없이 관리자가 새 게시판 종류(보도자료/갤러리/자료실/이벤트/홍보영상/교육자료/제품자료/인증자료/사용후기/회사소개/CSR/채용/IR 등)를 만들 수 있는 **범용 게시판/게시물 엔진**이다. **본 라운드는 기존 CMS(§2.18, `cms_pages`/FAQ/popups/banners)를 변경하지 않는다** — Board Engine은 그와 별개인 신규 병렬 구조이며, 두 구조의 통합/마이그레이션 여부는 미확정(O-200)이다. 신규 테이블은 `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5종뿐이며, 첨부파일/이미지/동영상은 File Manager(`files`, §3.39)의 `related_entity_type='board_posts'` 재사용, SEO/OG는 `content_seo_metadata`(§3.55, §2.23) 재사용, 다국어는 `cms_translations`(§3.33) 재사용, 조회수는 `content_view_events`(§3.35) 재사용, 승인후게시는 Workflow Engine(§3.37) 재사용, 예약게시는 Scheduler Center(§3.40) 재사용이다 — 아래 표에서 이 영역은 신규 엔드포인트 형태가 아니라 기존 엔드포인트에 대한 **비고 cross-reference**로만 표기한다.
+
+| Resource Path | Method | Permission | 주요 요청 필드 | 주요 응답 필드 | 비고 |
+|---|---|---|---|---|---|
+| `/v1/boards` | 표준 CRUD 패턴 적용 | 관리자(CMS) | `name`/`code`/`description`/`board_type`/`layout_type`(`LIST`/`CARD`/`GALLERY`/`FAQ`/`VIDEO`)/`menu_exposure`/`shop_exposure`/`shop_member_exposure`/`my_office_exposure`/`main_exposure`/`menu_group`/`sort_order`/`country_codes`/`language_codes`/`feature_flags` | 게시판 정의 목록/상세 | `boards`(§3.58, D-074) — `board_type`은 `marketing_programs.category`(§2.19)와 동일하게 자유 확장 분류값, 코드 배포 없이 신규 게시판 종류 추가 가능. `feature_flags`(JSON)는 댓글/답글/파일첨부/이미지/대표이미지/동영상/다운로드/조회수/좋아요/공유/SEO/OG/예약게시/승인후게시/카테고리/태그/검색/RSS 토글 — 각 토글의 정확한 키 이름/기본값은 OpenAPI 구체화 단계에서 확정 |
+| `/v1/boards/{id}/categories` | 표준 CRUD 패턴 적용 | 관리자(CMS) | `name`/`sort_order` | 카테고리 목록 | `board_categories`(§3.58) — `feature_flags.카테고리=true`인 게시판에만 의미 있음(`false`면 카테고리 없이 운영, 엔드포인트 자체는 막지 않되 UI 노출만 조건부) |
+| `/v1/boards/{boardId}/posts` | GET | 공개(목록, `is_public=true`/`status=PUBLISHED`만)/관리자(전체 상태 조회) | `category_id`/`status`/`tags`/`q` | 게시물 목록 | `board_posts`(§3.58) — 공개 조회는 `status=PUBLISHED`+`is_public=true`+`published_at<=now()`만 노출(예약게시 미도달 건 제외) |
+| `/v1/boards/{boardId}/posts` | POST | 관리자(CMS) 또는 본인(게시판 정책에 따라 회원 작성 허용 시) | `category_id`/`title`/`content`/`thumbnail_image_ref`/`slug`/`tags[]`/`metadata`/`is_public`/`scheduled_publish_at` | `post_id`/`status` | `scheduled_publish_at` 지정 시 `status=SCHEDULED`로 생성되고 실제 게시 전환은 Scheduler Center(§3.40, `products.publish_start_at`와 동일 패턴) 재사용. 대상 게시판의 `feature_flags.승인후게시=true`이면 `status=PENDING_APPROVAL`로 생성되며 Workflow Engine(§3.37) 인스턴스가 `subject_type='BOARD_POST_APPROVAL'`(기존 `PRODUCT_APPROVAL`과 동일 패턴, §2.27 `PRODUCT_APPROVAL_PENDING` 참조)로 생성되어 승인 완료 후에만 `PUBLISHED`로 전환 — 승인후게시이면서 예약게시도 함께 지정된 경우의 우선순위/순서는 미확정(구현 단계 결정) |
+| `/v1/posts/{id}` | GET/PATCH/DELETE | 공개(GET, 공개 게시물만)/관리자 또는 작성자 본인(PATCH/DELETE) | `title`/`content`/`thumbnail_image_ref`/`tags[]`/`metadata`/`is_public`/`status` | 게시물 상세 | `board_posts` 표준 CRUD(DELETE는 소프트삭제, §1 표기 규칙) — `metadata`(JSON)는 게시판 유형별 확장 필드(예: VIDEO 게시판의 `video_url`, FAQ형 게시판의 `answer`)를 담는 용도이며 컬럼 추가 없이 흡수 |
+| `/v1/posts/{id}/comments` | GET/POST | 공개(GET, 공개 게시물)/본인(회원, POST) | `content`/`parent_comment_id`(선택) | 댓글 목록(트리 구조)/`comment_id` | `board_post_comments`(§3.58) — 대상 게시판의 `feature_flags.댓글=true`일 때만 노출/허용. 답글은 별도 엔드포인트 없이 본 엔드포인트에 `parent_comment_id`를 채워 POST(self-referencing, §3.58) — `parent_comment_id=null`이면 최상위 댓글 |
+| `/v1/posts/{id}/likes` | POST/DELETE | 본인(회원) | - | `liked`(boolean)/`like_count_cache` | `board_post_likes`(§3.58, `post_id`+`member_id` 복합 unique) — POST는 토글(이미 좋아요 상태면 취소, 아니면 등록) 또는 POST=등록/DELETE=취소로 분리할지는 미확정(구현 단계 결정), 대상 게시판의 `feature_flags.좋아요=true`일 때만 노출/허용. `board_posts.like_count_cache`는 파생 캐시(원장은 `board_post_likes`) |
+| `/v1/boards/{id}/rss.xml` | GET | 공개 | - | RSS XML | 별도 저장 없이 `board_posts`에서 `status=PUBLISHED`+`is_public=true`인 게시물을 **요청 시점에 동적 생성**(§2.23 `sitemap.xml`/BR-054와 동일 패턴) — 대상 게시판의 `feature_flags.RSS=true`일 때만 노출, 캐싱 여부는 미확정 |
+| (cross-ref) 첨부/이미지/대표이미지/동영상/다운로드 파일 | - | - | - | - | File Manager `files`(§3.39) 기존 업로드/조회 엔드포인트를 `related_entity_type='board_posts'`/`related_entity_id={post_id}`로 그대로 사용 — Board Engine 전용 파일 엔드포인트를 신설하지 않음. 대상 게시판의 `feature_flags.파일첨부`/`이미지`/`대표이미지`/`동영상`/`다운로드` 토글에 따라 클라이언트가 업로드 UI 노출만 분기 |
+| (cross-ref) SEO/OG | - | - | - | - | `/v1/content-seo-metadata`(§2.23) 기존 엔드포인트를 `related_entity_type='board_posts'`로 그대로 사용 — Board Engine 전용 SEO 엔드포인트를 신설하지 않음. 대상 게시판의 `feature_flags.SEO`/`OG=true`일 때만 입력 UI 노출 |
+| (cross-ref) 다국어(게시판/게시물) | - | - | - | - | `cms_translations`(§3.33) 패턴 재사용 — `content_type='boards'` 또는 `'board_posts'`로 적용. §2.18 CMS에 이미 노출된 `/v1/cms/translations` 표준 CRUD 엔드포인트와 동일한 `content_type`/`content_id`/`locale`/`field_name`/`translated_value` 형태를 그대로 따르되, 본 라운드에서 Board Engine용 신규 엔드포인트는 추가하지 않는다 |
+| (cross-ref) 조회수 | - | - | - | - | `content_view_events`(§3.35)에 `content_type='board_posts'`로 조회 이벤트 적재(기존 패턴 재사용) — `board_posts.view_count_cache`는 이를 집계한 파생 캐시일 뿐, 별도 조회수 기록 엔드포인트를 신설하지 않음 |
+| (cross-ref) 공유/다운로드 통계 | - | - | - | - | `content_click_events`(§3.35) `click_type` 확장으로 흡수 — 이미 §2.22 `dashboards/seo`에서 동일하게 미확정으로 등록된 기존 Open Decision(O-194, SOCIAL_SHARE 후보값 채택 여부)에 묶이며, 본 라운드에서 별도 Open Decision을 추가하지 않는다 |
+
+- 게시판별로 어떤 `feature_flags` 키가 어떤 엔드포인트의 노출/허용을 좌우하는지는 위 표의 비고에 1:1로 정리했다 — 실제 키 이름/기본값/하위호환(신규 키 추가 시 기존 게시판 기본값) 정책은 OpenAPI 구체화 단계에서 확정한다.
+- 기존 CMS(`cms_pages`/`faq_categories`/`faq_items`/`popups`/`banners`, §2.18)의 콘텐츠를 Board Engine으로 이전할지(예: 공지사항을 `boards`로 전환)는 본 라운드의 범위가 아니며 O-200으로 미확정 — §2.18은 본 라운드에서 변경하지 않는다.
 
 ## 3. 상세 예시 3종
 
@@ -903,3 +937,5 @@ https://api.fns.example.com/v1/{module-path}
 - 장바구니/가격알림 비회원 처리(서버 저장 vs 클라이언트 저장) — O-099/O-188과 동일 계열, §2.21/§2.26
 - 배송 지연 판정 기준(시간/단계) — [STATE-MACHINE.md](STATE-MACHINE.md) §17, §2.21 `/v1/shipments/{id}/tracking`
 - 테스트발송 발송이력 구분 컬럼 여부, 관리자 업무 Queue 정렬/우선순위 기준, 운영자 대시보드 실시간 쿼리 vs 캐시 — 모두 본 라운드(D-072)에서 신규 O-번호를 추가하지 않고 "미확정(후속 확인 필요)"으로만 표기(§2.11/§2.22/§2.27)
+- 기존 CMS 콘텐츠를 Board Engine으로 이전할지 여부 — O-200, §2.28
+- Board Engine 승인후게시+예약게시 동시 지정 시 우선순위/처리 순서, 좋아요 토글 방식(단일 토글 엔드포인트 vs POST/DELETE 분리) — 본 라운드(D-074)에서 신규 O-번호를 추가하지 않고 "미확정(구현 단계 결정)"으로만 표기(§2.28)

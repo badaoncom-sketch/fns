@@ -3,6 +3,62 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v2.0.0] - 2026-06-26 (Dynamic Board Engine — CMS 최종 보강, 설계 최종 종료)
+
+> 사용자 요청: "Multi-Tenant ERP에서 회사마다 공지사항/보도자료/갤러리/자료실/FAQ/이벤트/홍보영상 등을 관리자가 직접 생성하고 메뉴에 연결하며 운영할 수 있는 범용 Dynamic Board Engine을 설계로 완성한다." [DECISIONS.md](DECISIONS.md) D-074. **기존 CMS(`cms_pages`/FAQ/팝업/배너)는 변경하지 않음.** 신규 MLM 정책/Business Rule 없음. 기존 쇼핑몰/ERP Core/Workflow 구조 변경 없음. 신규 Open Decision은 O-200 1건뿐(최소화 원칙), 기존 삭제 없음. 코드는 생성하지 않음. **본 라운드를 끝으로 설계를 최종 종료하며, 이후 신규 기능은 Change Request(CR)로만 관리한다.**
+
+### Added
+
+- [PRD.md](PRD.md) §5.67(Dynamic Board Engine) — 게시판 엔진/게시판 관리/게시판 유형(자유 확장)/기능 ON-OFF(`feature_flags`)/게시글 공통 기능/Layout/권한(기존 ROLE-MATRIX 재사용)/메뉴 연결 8개 하위 절
+- [DATABASE.md](DATABASE.md) §3.58 — `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 신규 5테이블. 게시판 유형마다 별도 테이블을 만들지 않고 `board_type`(자유 확장 분류값)/`metadata`(JSON 확장 포인트)로 모든 유형 수용. 첨부(File Manager `files`)/SEO(`content_seo_metadata`)/다국어(`cms_translations`)/조회수(`content_view_events`)는 기존 테이블 재사용, 승인후게시(Workflow Engine `BOARD_POST_APPROVAL`)/예약게시(Scheduler Center)는 기존 엔진 재사용
+- [DATA-DICTIONARY.md](DATA-DICTIONARY.md) §9(Dynamic Board Engine) 신설, Dictionary Gaps §10으로 재배치
+- [API-SPEC.md](API-SPEC.md) §2.28(Board Engine) 신설 — Board/Post/Comment/Like/RSS 엔드포인트 9개 + 첨부/SEO/번역 재사용 cross-reference 4개
+- [ROLE-MATRIX.md](ROLE-MATRIX.md) §27(Board Engine) 신설 — 게시판 레벨 + 게시글 레벨(승인/첨부/댓글/좋아요) 권한, Partner(회원) 행 명시. 기존 §27 "미확정 항목"은 §28로 재배치
+- [WIREFRAME.md](WIREFRAME.md) §2 — Board Engine 모듈 6화면(게시판 목록/생성·설정/게시글 관리/게시글 승인/게시판 권한/게시글 상세) 신설, 기존 CMS 행은 무변경
+- [SITEMAP.md](SITEMAP.md) §5.3(Board Management) 신설 + §2/§3에 admin-created board 노출 cross-reference(신규 메뉴 행 나열 없음 — 게시판 유형은 개방형)
+- [TEST-PLAN.md](TEST-PLAN.md) §2.13(Dynamic Board Engine 테스트) — 생성/비활성화/삭제/권한/첨부/SEO/예약게시/승인후게시/다국어/**기존 CMS 비영향 회귀** 테스트
+- [DECISIONS.md](DECISIONS.md) D-074 + **O-200**(기존 CMS의 Board Engine 통합 마이그레이션 여부) — 본 라운드의 유일한 신규 Open Decision
+
+### Changed
+
+- [MASTER-INDEX.md](MASTER-INDEX.md) §1/§6 — PRD/DATABASE/DATA-DICTIONARY/API-SPEC/ROLE-MATRIX/WIREFRAME/SITEMAP/TEST-PLAN/DECISIONS/CHANGELOG/MASTER-INDEX 행 갱신(일부 누락된 버전번호 정합화 포함), "Dynamic Board Engine 설계 완료(최종 CMS 보강)" 체크 추가, "D-074가 마지막 라운드" 명시
+- README.md — Open Decision 범위(O-002~O-200), API 모듈 수(28개), ERD 엔터티 수(143개+), CMS 절에 Dynamic Board Engine 한 줄 추가, "Dynamic Board Engine(D-074)" 절 신설
+
+### 비고
+
+- ERD.md/BUSINESS-RULE-CATALOG.md는 본 라운드의 대상 문서 목록에 없어 수정하지 않았다 — `boards`/`board_posts` 등 5테이블의 ERD 클러스터 반영은 후속 라운드 과제(README.md/MASTER-INDEX.md에 명시).
+- 기존 CMS(`cms_pages`/`faq_categories`/`faq_items`/`popups`/`banners`)는 본 라운드에서 단 한 줄도 수정하지 않았다 — `git diff` 기준으로도 변경 없음을 확인.
+- COMPENSATION-RULES.md/SETTLEMENT-RULES.md/ARCHITECTURE.md/BUSINESS-RULE-CATALOG.md는 본 라운드에서 수정하지 않았다 — MLM/정산/ERP Core 구조 및 BR 카탈로그 무변경 확인(BR 총 54개 유지).
+
+## [v1.9.0] - 2026-06-26 (운영 UX 및 고객 경험 완성 — 설계 최종 종료)
+
+> 사용자 요청: "실제 서비스 운영에서 고객 경험(Customer Experience)과 운영 편의성(Operation)을 조금 더 높이는 것." [DECISIONS.md](DECISIONS.md) D-073. **새로운 MLM 정책/Business Rule 없음. Database 구조 무변경(신규 테이블/컬럼 0건) — 이전 라운드보다 더 엄격한 기준. ERP Core/Workflow/쇼핑몰 기존 구조 변경 없음. 신규 Open Decision 0건, 기존 삭제 없음.** 코드/package.json/실제 API/실제 Migration 없음. **본 라운드를 끝으로 설계를 종료하며, 이후 신규 기능은 Change Request(CR)로만 관리한다.**
+
+### Added
+
+- [PRD.md](PRD.md) §5.62(Abandoned Cart) — Scheduler Job이 기존 `cart_items.added_at`로 24시간 미결제를 매번 재조회(플래그 없음), 신규 `notification_templates.event_type` 카탈로그 값(`ABANDONED_CART_REMINDER`)만 추가, 중복발송 방지는 `notification_logs` 조회, 자동쿠폰은 기존 `coupons`/`coupon_issuances`(O-192 재사용)
+- [PRD.md](PRD.md) §5.63(Saved Cart) — 신규 기능 아님, `carts`/`cart_items`(D-072)가 이미 영속 테이블이므로 명명만 추가
+- [PRD.md](PRD.md) §5.64(Customer Timeline) — 회원 상세 화면, 신규 테이블 없이 `members`/`orders`/`shipments`/CS티켓/`returns`/`settlement_items`/`point_transactions`/`member_activity_logs`/`notifications` 등 기존 테이블의 읽기 전용 federated 조회
+- [PRD.md](PRD.md) §5.65(My Dashboard) — 기존 `dashboard_definitions.owner_admin_id`/`is_shared`/`dashboard_widgets.position`이 이미 완전히 지원, 신규 컬럼 없음
+- [PRD.md](PRD.md) §5.66(Customer Service 보강) — CS Center 화면에 Customer Timeline 임베드
+- [PRD.md](PRD.md) §5.59 보강 — 오늘 지표에 재고부족/SEO오류/Feed오류 위젯 추가(기존 `product_seo`/`scheduled_job_run_logs` 파생 조회)
+- [PRD.md](PRD.md) §5.61 보강 — Quick Action 구체 목록(주문조회/회원조회/상품등록/패키지등록/송장등록/환불승인/공지등록), 기존 승인 절차 우회 없음
+- [WIREFRAME.md](WIREFRAME.md) — 회원상세 Timeline 탭, My Dashboard 기본진입, CS Timeline 임베드, QuickActionMenu(§3 공통 UX 레이어), Abandoned Cart/Saved Cart 화면 보강
+- [API-SPEC.md](API-SPEC.md) — `GET /v1/members/{id}/timeline`(신규), `/v1/dashboards` CRUD(My Dashboard), `abandoned-cart` Analytics 위젯 타입, Saved Cart/Quick Action 관련 비고 보강
+- [ROLE-MATRIX.md](ROLE-MATRIX.md) — §1/§10/§16/§22/§26에 풋노트만 추가(신규 권한 표 없음 — 전부 기존 조회/관리 권한에 귀속)
+- [TEST-PLAN.md](TEST-PLAN.md) §2.12(운영 UX 및 고객 경험 테스트) — Abandoned Cart 감지/중복방지/자동쿠폰, Customer Timeline 정합성, My Dashboard 격리, SEO·Feed 오류 위젯, Quick Action 무회피 회귀
+
+### Changed
+
+- [MASTER-INDEX.md](MASTER-INDEX.md) §1/§5/§6 — PRD/DECISIONS/CHANGELOG/MASTER-INDEX/ROLE-MATRIX/API-SPEC/WIREFRAME/TEST-PLAN 행 갱신, API 준비도 상향, "운영 UX/고객 경험 설계 완료(최종 보강)" 체크 추가, "D-073이 마지막 라운드" 명시로 갱신
+- README.md — Open Decision 범위는 변동 없음(O-002~O-199 유지, 신규 0건), "운영 UX 및 고객 경험 완성(D-073)" 절 신설
+
+### 비고
+
+- DATABASE.md/DATA-DICTIONARY.md/STATE-MACHINE.md/SITEMAP.md/BUSINESS-RULE-CATALOG.md/ERD.md/DECISIONS.md §2 Open Decision 표는 본 라운드의 대상 문서 목록(PRD/WIREFRAME/API-SPEC/ROLE-MATRIX/TEST-PLAN/MASTER-INDEX/README/CHANGELOG)에 없어 수정하지 않았다 — Database 구조 무변경 원칙과 정확히 일치.
+- COMPENSATION-RULES.md/SETTLEMENT-RULES.md/ARCHITECTURE.md는 본 라운드에서 수정하지 않았다 — MLM/정산/ERP Core 구조 무변경 확인.
+- D-069부터 D-073까지 5개 라운드에 걸쳐 신규 Open Decision은 O-176~O-199(24건)이며, O-197~O-199(D-072)를 끝으로 더 이상 추가되지 않았다(D-073은 0건).
+
 ## [v1.8.0] - 2026-06-26 (쇼핑몰 UX·알림·운영자 대시보드 완성 — 설계 마지막 라운드)
 
 > 사용자 요청: "개발 후 수정하면 복잡해질 수 있는 쇼핑몰 사용자 UX, 알림, 운영자 대시보드 항목을 개발 전에 설계로 고정하는 것." [DECISIONS.md](DECISIONS.md) D-072. **새로운 MLM 정책/수당 없음. 기존 Business Rule 변경 없음. 정산/ERP Core/Workflow 구조 변경 없음. Database는 불가피한 경우에만 최소 신규(2테이블).** Open Decision은 O-197~O-199 3건만 추가, 기존 삭제 없음. 코드/package.json/실제 API/실제 Migration 없음. **본 라운드를 끝으로 쇼핑몰 UX/운영 설계를 종료하며, 이후 변경은 Change Request(CR)로만 관리한다.**

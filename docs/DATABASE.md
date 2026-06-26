@@ -1,6 +1,6 @@
 # DATABASE.md — 데이터 모델
 
-> 상태: Draft v0.26 (D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: §3.57 신규(`carts`/`cart_items`/`product_price_alerts` 신규 테이블 2종 + 배송추적/알림템플릿 컬럼 명료화, 나머지는 기존 테이블 재사용). MLM/정산/Workflow/ERP Core 기존 구조 변경 없음. D-069 — §3.52~§3.56 신규(상품/옵션/재고/주문/결제/배송/리뷰/검색/프로모션/SEO 운영 보강)) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.27 (D-074 — Dynamic Board Engine: §3.58 신규(`boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5종 — 게시판 유형마다 테이블을 만들지 않고 공통 구조+`board_type`+`metadata`(JSON)로 수용. 첨부/이미지/SEO/다국어/조회수는 기존 File Manager/`content_seo_metadata`/`cms_translations`/`content_view_events` 재사용). **기존 CMS(`cms_pages`/FAQ/팝업/배너) 변경 없음.** D-072 — §3.57 신규(`carts`/`cart_items`/`product_price_alerts` 신규 테이블 2종 + 배송추적/알림템플릿 컬럼 명료화). MLM/정산/Workflow/ERP Core 기존 구조 변경 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [COMPENSATION-RULES.md](COMPENSATION-RULES.md), [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md)
 > 본 문서는 테이블 구조의 **개념 설계**이며, 실제 마이그레이션 파일/스키마는 구현 단계에서 작성한다. 코드/마이그레이션은 생성하지 않는다.
 
@@ -1518,6 +1518,90 @@
 **`notification_templates`(§3.20) 컬럼 추가**: `subject_template`(제목, EMAIL 채널용 — SMS/PUSH는 nullable), `is_active`(활성/비활성 토글). 변수({{member_name}} 등)는 `content_template`/`subject_template` 문자열 내 placeholder 문법으로 처리 — 별도 변수 테이블 불필요(어떤 변수가 사용 가능한지는 `event_type`별 안내 문서로 관리, DB 강제 아님).
 
 - **저장된 검색조건(관리자 UX)은 본 라운드에서 테이블을 만들지 않는다** — 빈도·필요성이 상대적으로 낮아 "불가피한 경우에만 신규 테이블"(D-072 원칙) 기준에 못 미친다고 판단했다. 도입 여부는 **O-199**로 등록한다.
+
+### 3.58 Dynamic Board Engine ([PRD.md](PRD.md) §5.67, [DECISIONS.md](DECISIONS.md) D-074)
+
+> **기존 CMS(`cms_pages`/`faq_categories`·`faq_items`/`popups`/`banners`/`documents`, §3.33)는 변경하지 않는다.** 본 절은 그 옆에 병렬로 존재하는 **신규 범용 게시판 엔진**을 설계한다 — 관리자가 새로운 게시판(보도자료/갤러리/자료실/이벤트/홍보영상/교육자료/제품자료/인증자료/사용후기/회사소개/CSR/채용/IR 등)을 코드 배포 없이 직접 생성할 수 있도록 한다. **게시판 유형(Board Type)마다 별도 테이블을 만들지 않는다** — `boards`/`board_posts` 공통 구조 + `board_type` 분류값 + `metadata`(JSON) 확장으로 모든 유형을 수용한다.
+
+**`boards`** — 게시판 정의(신규).
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| id | 게시판 식별자 |
+| name | 게시판명 |
+| code | 게시판 코드(URL/API 식별자, 관리자 지정, unique) |
+| description | 게시판 설명 |
+| board_type | `GENERAL`/`NOTICE`/`GALLERY`/`FAQ`/`ARCHIVE`(자료실)/`PRESS`(보도자료)/`EVENT`/`VIDEO` 등 — `marketing_programs.category`(§3.34)와 동일한 **자유 확장 분류값**(고정 enum 강제 아님, 관리자가 새 유형명을 추가할 수 있음) |
+| layout_type | `LIST`/`CARD`/`GALLERY`/`FAQ`/`VIDEO` — 목록 화면 레이아웃(§5.67.6), board_type과 독립적으로 선택 가능 |
+| is_active | 활성/비활성 |
+| menu_exposure | 메뉴 노출 여부 |
+| shop_exposure / shop_member_exposure / my_office_exposure / main_exposure | 쇼핑몰/회원몰/마이오피스/메인 노출 여부 — 각각 독립 토글 |
+| menu_group | 어느 정적 메뉴 그룹(예: "회사소개") 하위에 노출되는지 — 참조 무결성 없는 자유 텍스트(기존 SITEMAP.md 메뉴 트리와의 매핑은 운영 단계 설정) |
+| sort_order | 노출 순서 |
+| country_codes | 사용 국가 — nullable = 전체(기존 패턴) |
+| language_codes | 사용 언어 — nullable = 전체 |
+| feature_flags | JSON — 댓글/답글/파일첨부/이미지/대표이미지/동영상/다운로드/조회수/좋아요/공유/SEO/OG/예약게시/승인후게시/카테고리/태그/검색/RSS 각각의 ON/OFF(§5.67.4). 컬럼을 20개 추가하는 대신 JSON 1개로 묶어 신규 기능 토글 추가 시 스키마 변경 없이 확장 가능 |
+| created_by / updated_by / created_at / updated_at | |
+
+**`board_categories`** — 게시판별 카테고리(신규, `boards.feature_flags.category=true`일 때만 사용).
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| id / board_id | 소속 게시판 |
+| name / sort_order | |
+
+**`board_posts`** — 게시글 공통 구조(신규). `cms_pages`(§3.33)와 의도적으로 유사한 형태를 취하되 별도 테이블이다(기존 CMS 비변경 원칙).
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| id / board_id | 소속 게시판 |
+| category_id | `board_categories` 참조 — nullable |
+| title / content | 제목/본문(리치 텍스트) |
+| thumbnail_image_ref | 대표 이미지 — File Manager(`files`, §3.39) 참조 |
+| slug | URL 경로(관리자 지정 또는 자동생성) |
+| status | `DRAFT`/`SCHEDULED`/`PENDING_APPROVAL`/`PUBLISHED`/`UNPUBLISHED` |
+| scheduled_publish_at | 예약게시 시각 — nullable, `feature_flags.예약게시=true`일 때 사용 |
+| published_at | 실제 게시 시각 |
+| is_public | 공개/비공개 |
+| tags | JSON 배열 — 태그(전용 마스터/조인 테이블 대신 배열로 단순화, 태그클라우드·분석이 필요해지면 후속 라운드에서 전용 테이블 검토) |
+| metadata | JSON, nullable — **유형별 특수 필드 확장 포인트**(§14 원칙). 예: VIDEO 유형의 `video_url`, FAQ 유형의 `answer`(질문은 title 재사용) — 신규 컬럼 추가 대신 이 안에 담는다 |
+| view_count_cache / like_count_cache | 조회수/좋아요 캐시(파생값, 원본은 `content_view_events`/`board_post_likes`) — 목록 화면 성능을 위한 비정규화, 신뢰 가능한 값은 항상 원본 집계 |
+| created_by / updated_by / created_at / updated_at | |
+
+**`board_post_comments`** — 댓글(신규, `boards.feature_flags.댓글=true`일 때만 사용). 답글은 별도 테이블이 아니라 **자기참조**로 표현한다(§5.67.5).
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| id / post_id | 소속 게시글 |
+| parent_comment_id | nullable — 값이 있으면 답글, null이면 최상위 댓글 |
+| member_id | 작성 회원 |
+| content | |
+| is_active | 소프트 삭제 |
+| created_at | |
+
+**`board_post_likes`** — 좋아요(신규, `boards.feature_flags.좋아요=true`일 때만 사용).
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| post_id / member_id | 복합 unique(회원당 게시글당 1회) |
+| created_at | |
+
+**기존 구조 재사용 매핑(신규 테이블 최소화)**
+
+| 기능 | 재사용 대상 |
+|---|---|
+| 첨부파일/이미지/다중이미지/PDF/동영상 파일 | File Manager `files`(§3.39, `related_entity_type='board_posts'`/`related_entity_id`) — 이미 다형 참조 패턴이라 신규 테이블 불필요 |
+| SEO/OG/Canonical | `content_seo_metadata`(§3.55, D-069, `related_entity_type='board_posts'`) — 이미 범용 SEO 테이블 |
+| 다국어 | `cms_translations`(§3.33, `content_type='board_posts'`/`'boards'`) — 이미 범용 번역 오버레이 |
+| 조회수 | `content_view_events`(§3.35, `content_type='board_posts'`) — 이미 범용 조회 이벤트, `board_posts.view_count_cache`는 이 집계의 파생 캐시일 뿐 |
+| 공유/다운로드 통계 | `content_click_events`(§3.35, `click_type` 확장) — 공유클릭(SOCIAL_SHARE)/다운로드 구분은 이미 미확정으로 추적 중(**O-194**, 재등록하지 않음) |
+| 검색 | `search_query_logs`(§3.35) 패턴 재사용 또는 구현 단계 전문검색(풀텍스트 인덱스) — 신규 테이블 불필요 |
+| RSS | 신규 저장 없음 — `boards.feature_flags.RSS=true`인 게시판의 `board_posts`(status=PUBLISHED)를 요청 시점에 RSS XML로 동적 생성(BR-054의 sitemap.xml과 동일한 쿼리타임 파생 패턴) |
+| 승인후게시 | Workflow Engine(§3.37) 재사용 — `workflow_instances.subject_type='BOARD_POST_APPROVAL'`(기존 자유 카탈로그 값 추가, PRODUCT_APPROVAL과 동일 패턴) — 신규 전용 승인 구조 없음 |
+| 예약게시 실행 | `board_posts.scheduled_publish_at` 도달 시 `status: SCHEDULED → PUBLISHED` 전이 — Scheduler Center(§3.40) 기존 Job 패턴 재사용(products.publish_start_at, §3.52와 동일 원리) |
+
+- **권한(§5.67.7)은 신규 테이블이 필요 없다** — [ROLE-MATRIX.md](ROLE-MATRIX.md)의 기존 역할 체계(7역할×11액션)를 게시판 모듈에 그대로 적용한다.
+- **기존 5개 CMS 콘텐츠(공지사항/FAQ/팝업/배너)를 Board Engine으로 마이그레이션할지 여부는 본 라운드에서 결정하지 않는다** — "기존 CMS를 변경하지 않는다"는 본 라운드 원칙에 따라 현재 구조를 그대로 유지하며, 통합 여부는 **O-200**으로 등록한다.
 
 ## 4. 설계 원칙
 
