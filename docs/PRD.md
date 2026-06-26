@@ -1,6 +1,6 @@
 # PRD.md — Product Requirements Document
 
-> 상태: Draft v0.26 (D-069 — 쇼핑몰 운영 고도화 및 SEO/공유이미지 관리: §5.45~§5.46 신규. 기존 쇼핑몰/MLM/정산 구조 변경 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.27 (D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: §5.47~§5.50 신규(Digital Marketing 연동/SEO Dashboard/이미지 최적화/상품 Feed). 기존 쇼핑몰/MLM/정산/Database 구조 변경 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md)
 
 ## 1. 제품 비전
@@ -1343,6 +1343,75 @@ Site Title/Description/Keywords, Default Meta/OG/Twitter Card Image, Favicon(기
 Google 검색결과 미리보기, Naver 검색결과 미리보기, KakaoTalk 공유 미리보기, Facebook 공유 미리보기, X/Twitter Card 미리보기, 모바일 미리보기 — **순수 프론트엔드(web) 렌더링 기능이며 DB 영향이 없다.** §5.46.1~5.46.3에서 입력(또는 자동생성)된 값을 각 플랫폼 레이아웃으로 실시간 렌더링한다.
 
 - 본 절 전체의 신규 Open Decision은 [DECISIONS.md](DECISIONS.md) §2의 O-176~O-194(§5.45/§5.46 관련) 참조. **신규 Business Rule(BR-045~BR-054)은 모두 쇼핑몰/CMS 운영 규칙이며 MLM Rule이 아니다** — [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) §1 참조.
+
+### 5.47 Digital Marketing 연동 관리 (New Feature — [DECISIONS.md](DECISIONS.md) D-070, 운영 설계만 — 실제 연동 구현 없음)
+
+> 관리자가 외부 마케팅/검색엔진 도구의 연동 정보(추적 ID/컨테이너 ID/소유권 확인 키)를 설정할 수 있도록 하는 운영 설계다. **실제 외부 API 호출/스크립트 삽입은 본 라운드에서 구현하지 않는다.** 데이터 모델은 기존 API Center `external_api_connections`(DATABASE.md §3.38)를 그대로 재사용한다 — `category`가 이미 자유 입력 필드이므로 신규 컬럼/테이블이 필요 없다.
+
+| 연동 대상 | `category` 값(예시) | 비고 |
+|---|---|---|
+| Google Analytics 4 | GA4 | 추적 ID는 `auth_key_ref`로 참조 저장(평문 금지, 기존 원칙) |
+| Google Tag Manager | GTM | 컨테이너 ID |
+| Google Search Console | GSC | 소유권 확인 키 — §5.48 SEO Dashboard 지표의 데이터원 |
+| Google Merchant Center | GOOGLE_MERCHANT_CENTER | §5.50 Feed 연동의 전제 |
+| Naver Search Advisor | NAVER_SEARCH_ADVISOR | 사이트 소유 확인 |
+| Naver Analytics | NAVER_ANALYTICS | 추적 스크립트 |
+| Meta Pixel | META_PIXEL | |
+| TikTok Pixel | TIKTOK_PIXEL | |
+| Google Ads Conversion | GOOGLE_ADS_CONVERSION | 전환 추적 ID |
+| Facebook Catalog | FACEBOOK_CATALOG | §5.50 Feed와 연계 |
+| RSS Feed | RSS_FEED | 인증 불요, 자동 생성 |
+| IndexNow | INDEXNOW | Google/Naver/Bing 공통 API |
+| 자동 Sitemap Ping(Google/Naver/Bing) | SITEMAP_PING | 검색엔진별 개별 등록 |
+
+- 관리자는 위 항목별로 ON/OFF, 추적ID/키 입력, 연동 상태(기존 `status` 값 TESTING/ACTIVE/INACTIVE 그대로 재사용 — [STATE-MACHINE.md](STATE-MACHINE.md) §12) 확인이 가능하다. **신규 상태값을 만들지 않는다.**
+- 실제 스크립트 삽입 방식(서버사이드 렌더링 vs GTM 컨테이너 단일창구)과 쿠키 동의관리(컨센트) 연계 여부는 구현 단계/[LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md) 영역으로 남기고, 본 라운드에서는 신규 Open Decision으로 등록하지 않는다(기존 미확정 범위에 자연 포함).
+
+### 5.48 SEO 운영 Dashboard (New Feature — [DECISIONS.md](DECISIONS.md) D-070)
+
+> 관리자가 SEO 상태를 한눈에 볼 수 있는 대시보드. Dashboard Builder(§5.36)/Report Builder(§5.37)를 재사용하며 신규 핵심 테이블을 요구하지 않는다.
+
+| 지표 | 데이터 소스 |
+|---|---|
+| 상품별 SEO 점수 | `product_seo`(DATABASE.md §3.55) 필드 채움률(Title/Description/OG/Schema)을 조회 시점에 파생 계산 — 별도 점수 컬럼 저장 없음 |
+| OG 설정 여부 / Meta 설정 여부 / Schema 적용 여부 | `product_seo` 컬럼의 NULL 여부로 파생 |
+| 카카오 공유 클릭 / SNS 공유 횟수 | `content_click_events.click_type`(§3.35)에 `SOCIAL_SHARE` 후보 추가 — DATABASE.md §3.56/O-194에 이미 미확정으로 등록되어 있어 재등록하지 않음 |
+| 검색 유입 / 검색 클릭 / 노출수 / CTR / 검색어 순위 | §5.47에서 등록한 Google Search Console/Naver Search Advisor 연동 결과를 위젯으로 표시 |
+
+- 본 Dashboard는 Dashboard Builder(§3.43)의 `widget_type`(CHART/TABLE/KPI)·`data_source` 패턴 그대로 사용한다 — SEO 전용 위젯 종류만 추가되는 것이며 데이터 모델 변경은 아니다.
+- **신규 Open Decision(최소화 원칙에 따라 본 라운드에서 등록하는 유일한 항목)**: 검색엔진 지표(노출/클릭/CTR/순위)를 자체 DB에 캐시·저장할지, 매 조회마다 외부 API를 실시간 호출할지 — [DECISIONS.md](DECISIONS.md) **O-195**.
+
+### 5.49 이미지 최적화 운영 (New Feature — [DECISIONS.md](DECISIONS.md) D-070)
+
+> 쇼핑몰 이미지 처리 파이프라인 보강. 대부분 File Manager(§5.32) 업로드 처리 로직 차원이며 신규 데이터 모델을 요구하지 않는다.
+
+| 항목 | 상태 | 비고 |
+|---|---|---|
+| Alt Text 관리 | 재사용 | `product_images.alt_text`(기존 컬럼) |
+| WebP/AVIF 자동 변환 | 구현 단계 처리 로직 | 파생 포맷을 별도 행으로 저장할지 서빙 시점에만 변환할지는 기존 O-116(D-060, 업로드 정책 확장 범위)에 포함되는 것으로 간주 — 재등록하지 않음 |
+| 자동 Resize / Responsive Image / 썸네일 자동 생성 | 구현 단계 처리 로직 | `files`/`product_images` 기존 구조로 충분 |
+| Lazy Loading | DB 영향 없음 | 프론트엔드(web) 렌더링 정책 |
+| CDN 사용 | 인프라 결정 | Railway/Supabase Storage 호스팅 구조에 종속 — 기존 **O-148**(환경 구조)에 연계, 재등록하지 않음 |
+| 이미지 압축 | 구현 단계 처리 로직 | 업로드 파이프라인 내부 동작, DB 영향 없음 |
+| 대표 이미지 자동 생성 | 재사용 | 첫 업로드 이미지를 대표로 지정하는 기존 관례, `product_images`(§3.50) 기존 컬럼 재사용 |
+
+- 본 절은 [DECISIONS.md](DECISIONS.md) **O-115/O-116**(D-060, 상품 이미지 업로드 정책)의 적용 범위를 명확히 하는 보강이며, 신규 Open Decision을 만들지 않는다.
+
+### 5.50 상품 Feed 관리 (New Feature — [DECISIONS.md](DECISIONS.md) D-070)
+
+> Google Shopping/Facebook/Naver Shopping에 제출할 상품 Feed를 관리자가 생성·다운로드·자동갱신 설정할 수 있도록 한다. Bulk Action(§5.44.6)/File Manager(§5.32)/Scheduler Center(§5.33) 기존 패턴을 재사용한다.
+
+| 기능 | 데이터 모델 |
+|---|---|
+| Feed 생성(상품/SEO/가격/재고 데이터 조합) | 신규 테이블 없음 — `products`/`product_seo`(§3.55)/`product_option_combinations` 조회 결과를 파생 생성(저장하지 않음) |
+| Feed 다운로드 | File Manager(`files`, category=FEED) 재사용 — 생성된 파일을 등록 |
+| Feed 자동 갱신 | Scheduler Center(`scheduled_job_definitions`) 재사용 — 기존 Job 종류에 "Feed 갱신"을 추가하는 것과 동일한 방식(관리자가 on/off, 주기는 기존 cron 관리 범위) |
+| Google Shopping Feed / Facebook Feed / Naver Shopping Feed | 포맷만 다른 동일 데이터의 변환 — 포맷별 신규 테이블 불필요 |
+
+- Google Merchant Center/Facebook Catalog 연동은 §5.47의 `external_api_connections` 등록을 전제로 한다.
+- 본 절은 신규 Open Decision을 만들지 않는다 — Feed 자동 갱신 주기 기본값/실패 알림 방식은 Scheduler Center(§3.40)의 기존 "관리자가 켜고 끌 수 있다" 원칙을 그대로 따른다.
+
+> §5.47~§5.50 전체는 [DECISIONS.md](DECISIONS.md) D-070(쇼핑몰 운영 Phase 2 및 문서 동기화) 참조. 신규 Business Rule은 만들지 않았으며, 기존 BR/Open Decision과의 연결은 [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) §3 Cross Reference에 정리한다.
 
 ## 6. 비기능 요구사항
 

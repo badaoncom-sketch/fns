@@ -1,6 +1,6 @@
 # API-SPEC.md — REST API 명세
 
-> 상태: v0.2 (D-064 — 개발착수 전 최종 안정화: 버전 deprecation/Idempotency Open Decision 연계 보강) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.3 (D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(쇼핑몰 운영 고도화/SEO·공유이미지, DATABASE.md §3.52~§3.56)와 D-070(Digital Marketing 연동/SEO Dashboard/이미지 최적화/상품 Feed, PRD.md §5.47~§5.50)에서 신설된 기능에 대한 개념 수준(설계 단계, 미구현) 엔드포인트를 §2.21~§2.25에 보강) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE.md](DATABASE.md)
 > 본 문서는 OpenAPI 산출물을 대체하지 않으며, 구현 단계에서 실제 OpenAPI yaml로 구체화하기 위한 설계 단계 명세다.
 
@@ -387,6 +387,22 @@ https://api.fns.example.com/v1/{module-path}
 | `/v1/coupons` | 표준 CRUD 패턴 적용 | 관리자(마케팅) | `code`/`discount_type`/`discount_value`/유효기간 | 쿠폰 목록 | - |
 | `/v1/coupons/{id}/issue` | POST | 관리자/시스템(프로그램 완료 트리거) | `member_ids[]` | 발급 결과 | `coupon_issuances` — 대량 발급은 Bulk Action 패턴(§5.44.6, 기존 단건 API 재사용) |
 | `/v1/coupons/issuances/{id}/use` | POST | 본인(결제 시) | `order_id` | `status=USED` | - |
+| `/v1/product-bundles` | 표준 CRUD 패턴 적용 | 관리자(상품관리) | `name`/`bundle_type`/판매기간 | 번들 목록/상세 | `product_bundles`([DATABASE.md](DATABASE.md) §3.54, D-069) — MLM 패키지 엔진(`packages`)과 별개, 보상플랜·페어보너스 무관 |
+| `/v1/product-bundles/{id}/items` | 표준 CRUD 패턴 적용 | 관리자(상품관리) | `product_id`/`option_combination_id`/`quantity`/`sort_order` | 번들 구성품 목록 | `product_bundle_items` — 번들 할인과 쿠폰/회원할인 중복 적용 규칙은 미확정(O-191) |
+| `/v1/products/{id}/comparisons` | POST/DELETE | 본인(회원) | `product_id` | `comparison_id` | `product_comparisons`([DATABASE.md](DATABASE.md) §3.54) — 비회원 처리(서버 vs 클라이언트 저장)는 미확정(O-188) |
+| `/v1/members/{id}/comparisons` | GET | 본인 | - | 비교함 상품 목록 | - |
+| `/v1/inventory-items/{id}/hold` | POST/DELETE | 관리자(물류담당)/시스템(주문 생성·결제완료 내부 트리거) | `order_id`/`quantity` | hold 상태 | 재고 예약(Hold) 개념은 이미 §2.9 Logistics `inventory-ledger`에 내포 — 본 행은 Shop 모듈에서의 진입점만 추가. 예약→확정차감→실패시 해제 절차/창고 우선순위는 미확정(O-127) |
+| `/v1/orders/{id}/exchange-requests` | POST | 본인 | `order_item_ids[]`/`reason`/`exchange_to_option_combination_id` | `exchange_id`/`status=REQUESTED` | 부분교환 — `exchange_requests`+`exchange_items`([DATABASE.md](DATABASE.md) §3.53, D-069). 반품 상태머신(O-129)과 통합할지 별도 분리할지는 미확정(O-180). 재고 정합성은 반품입고확인+신규출고 단일 트랜잭션(BR-050) |
+| `/v1/exchange-requests/{id}` | GET | 본인/관리자 | - | 교환 요청 상세 | - |
+| `/v1/exchange-requests/{id}/approve` | POST | 관리자(물류담당) | - | `status=APPROVED` | 경량 상태전이(api 직접 처리) — 실제 재고 트랜잭션 수행은 BR-050 규칙을 따름 |
+| `/v1/orders/{id}/merge` / `/v1/orders/{id}/split` | POST | 관리자 | `target_order_ids[]` 또는 `split_items[]` | `order_merge_logs`/`order_split_logs` 행 | 매출 합계 일치 규칙은 BR-049. 허용 범위(병합/분리 가능 상태·시점)는 미확정(O-179) |
+| `/v1/orders/{id}/admin-notes` | 표준 CRUD 패턴 적용 | 관리자 | `content`/`related_ticket_id` | 메모 목록 | `order_admin_notes` — CS Center 티켓(§2.14)과 `related_ticket_id`로 연결, 중복 메모 구조 아님 |
+| `/v1/orders/{id}/shipment/change-logs` | GET | 본인/관리자(물류담당) | - | 송장/배송사 변경 이력 | `shipment_change_logs`([DATABASE.md](DATABASE.md) §3.53) |
+| `/v1/payment-methods/{id}/payment-attempts` | GET | 본인/관리자 | `order_id`/`status` | 결제 시도/재시도 이력 | `order_payment_attempts`(일반 주문 PG 실패/재결제) — 정기배송 자동결제 재시도는 이미 O-086으로 별도 등록. 가상계좌/무통장입금 도입 여부는 미확정(O-181) |
+| `/v1/orders/{id}/payment-splits` | GET | 본인/관리자 | - | 복합결제 분할 내역 | `order_payment_splits`(포인트+카드 등) — 부분실패 처리 정책은 미확정(O-182) |
+| `/v1/virtual-account-issuances` | GET | 본인/관리자 | `order_id` | 가상계좌 발급 내역 | `virtual_account_issuances` — 도입 자체는 미확정(O-181), 도입 전제 시 사용할 경로만 선반영 |
+| `/v1/bank-transfer-payments` | GET | 관리자 | `order_id`/`match_status` | 무통장입금 매칭 내역 | `bank_transfer_payments` — 도입 자체는 미확정(O-181) |
+| `/v1/shipping-fee-settlements` | GET | 관리자(물류담당) | `period`/`warehouse_id` | 배송비 정산 내역 | `shipping_fee_settlements` — 정산 시점 정책 버전 스냅샷 고정(BR-051). MLM/후원수당 정산과 무관. 도입 여부/실행주기는 미확정(O-184) |
 
 ### 2.22 Analytics
 
@@ -395,6 +411,44 @@ https://api.fns.example.com/v1/{module-path}
 | `/v1/analytics/dashboards/{type}` | GET | 관리자(국가스코프) | `period`/`country_code` | 집계 결과 | 실시간 쿼리 또는 스냅샷 캐시 조회, 방식 미확정([ARCHITECTURE.md](ARCHITECTURE.md) §2.2 Analytics) |
 | `/v1/analytics/reports/jobs` | POST | 관리자 | `report_type`/`period` | `202 Accepted` + `job_id` | 집계 자체가 무거우면 worker로 위임 |
 | `/v1/analytics/reports/jobs/{jobId}` | GET | 관리자 | - | Job 상태/결과 | - |
+| `/v1/analytics/dashboards/seo` | GET | 관리자(상품관리/CMS) | `product_id`/`period` | 상품별 SEO 점수(파생)/OG·Meta·Schema 설정여부(파생)/공유클릭·SNS공유횟수/검색유입·클릭·노출수·CTR·검색어순위 | SEO 운영 Dashboard([PRD.md](PRD.md) §5.48, D-070) — Dashboard Builder(§3.43)/Report Builder(§3.44) 재사용, 신규 위젯 종류만 추가. SEO 점수/설정여부는 `product_seo` 필드 채움률·NULL 여부를 조회 시점에 파생 계산(별도 점수 컬럼 없음). 공유클릭/SNS공유횟수는 `content_click_events.click_type` SOCIAL_SHARE 후보값 사용 여부가 미확정(O-194)이라 그 값이 비어있으면 해당 지표만 "미확정(후속 확인 필요)"으로 응답. 검색유입/클릭/노출수/CTR/순위는 §2.25 Digital Marketing의 GSC/Naver Search Advisor 연동 결과 위젯화 — 이 지표를 DB 캐시 vs 실시간 외부 API 호출로 가져올지는 미확정(O-195) |
+
+### 2.23 SEO
+
+> [DATABASE.md](DATABASE.md) §3.55(D-069)/[PRD.md](PRD.md) §5.46·§5.48(D-070) 기반 — 본 절의 모든 엔드포인트는 **설계 단계 개념 정의**이며 실제 OpenAPI 구체화·구현은 하지 않는다. SEO 자동생성 필드라도 관리자 수동 입력값이 항상 우선한다(BR-053).
+
+| Resource Path | Method | Permission | 주요 요청 필드 | 주요 응답 필드 | 비고 |
+|---|---|---|---|---|---|
+| `/v1/products/{id}/seo` | GET/PATCH | 관리자(상품관리)/공개(메타태그 렌더링용 GET) | `seo_title`/`seo_description`/`seo_keywords`/`slug`/`canonical_url`/`meta_robots`/`og_*`/`twitter_*`/`schema_brand_override`/`schema_enabled`/`sitemap_priority`/`sitemap_change_frequency` | `product_seo` 행(1:1) | 미입력 필드는 BR-053 우선순위(상품명→Title, 요약설명→Description, 대표이미지→OG Image, 브랜드→Schema Brand, 가격→Offer, 재고→Availability)로 자동매핑된 값을 응답에 포함하되 원본 컬럼 값(수동입력 여부)도 함께 노출 — 자동매핑 vs 수동입력 구분 표시 형식은 미확정 |
+| `/v1/content-seo-metadata` | 표준 CRUD 패턴 적용 | 관리자(CMS) | `related_entity_type`(`CMS_PAGE`/`MARKETING_PROGRAM`/`FAQ_CATEGORY` 등)/`related_entity_id`/`seo_title`/`seo_description`/`og_image_ref`/`slug`/`canonical_url`/`meta_robots`/`is_indexable` | `content_seo_metadata` 목록/상세 | 상품 외 페이지(쇼핑몰 메인/카테고리/브랜드관/기획전/이벤트/공지사항/FAQ/회사소개/회원가입/로그인 등) SEO — File Manager의 `related_entity_type`/`related_entity_id` 패턴 재사용. 다국어 SEO는 `cms_translations` 확장으로 흡수 여부 미확정(O-193) |
+| `/v1/tenant-share-images` | 표준 CRUD 패턴 적용 | 관리자(CMS) | `share_type`(`KAKAO_DEFAULT`/`MAIN_URL_DEFAULT`/`PRODUCT_DEFAULT`/`EVENT_DEFAULT`/`PROMOTION_DEFAULT`/`BRAND_DEFAULT` 등 자유확장)/`image_ref`/`label` | `tenant_share_images` 목록/상세 | 이미지 권장 규격(OG 1200×630 등)은 DB 제약이 아닌 UI 안내 문구로만 처리(BR-054) — 본 엔드포인트는 규격 검증을 하지 않으며, 업로드 자체의 확장자/용량 검증은 기존 `system_security_policies.file_upload_policy`(§3.46) 경로를 그대로 따른다 |
+| `/v1/tenant-settings/seo` | GET/PATCH | 관리자(SuperAdmin/CountryAdmin) | `site_title`/`site_description`/`site_keywords`/`default_og_image_ref`/`default_twitter_image_ref`/`apple_touch_icon_ref`/`canonical_base_url`/`default_robots_txt` | `tenant_settings` SEO 관련 컬럼 | 상품/콘텐츠 SEO 미입력 시 최종 fallback 값 |
+| `/v1/sitemap.xml` | GET | 공개 | - | sitemap XML | 별도 원장 없이 `product_seo`/`content_seo_metadata`의 `is_active`/`slug`/`sitemap_priority`/`sitemap_change_frequency`를 조합해 **요청 시점에 동적 생성**(BR-054, `banners` 노출기간 쿼리타임 필터링과 동일 패턴) — 캐싱 여부는 미확정 |
+| `/v1/robots.txt` | GET | 공개 | - | robots.txt 텍스트 | `tenant_settings.default_robots_txt` + 상품/콘텐츠 `meta_robots` 조합 동적 생성(BR-054) — 캐싱 여부는 미확정 |
+| `/v1/seo/sitemap-regenerate` | POST | 관리자(상품관리/CMS) | - | `202 Accepted` + `job_id` | sitemap.xml/robots.txt는 쿼리타임 파생이라 원칙적으로 "재생성"이 불필요하나, CDN/캐시 계층 도입 시 캐시 무효화 트리거 용도로 개념상 자리만 선반영 — 무거운 연산이면 §1.7 Job 패턴, 경량이면 즉시 처리(캐시 계층 도입 여부 자체가 미확정, O-148 연계) |
+| `/v1/products/seo/bulk-update` | POST | 관리자(상품관리) | `product_ids[]`/변경 필드 | `202 Accepted` + `job_id`(Bulk Action) | SEO 일괄수정/OG이미지 일괄업로드/alt text 일괄수정([DATABASE.md](DATABASE.md) §3.56) — Bulk Action 패턴(§3.51) 재사용, 신규 계산 로직 없음. 동기/비동기 전환 임계값은 미확정(O-118) |
+
+### 2.24 Feed
+
+> [PRD.md](PRD.md) §5.50(D-070) 기반 — Bulk Action(§3.51)/File Manager(§3.39, category=FEED)/Scheduler Center(§3.40, `scheduled_job_definitions`) 기존 패턴을 재사용한다. Feed 포맷별 신규 테이블은 없다(동일 데이터의 출력 포맷만 다름).
+
+| Resource Path | Method | Permission | 주요 요청 필드 | 주요 응답 필드 | 비고 |
+|---|---|---|---|---|---|
+| `/v1/product-feeds/jobs` | POST | 관리자(상품관리/마케팅) | `feed_type`(`GOOGLE_SHOPPING`/`FACEBOOK`/`NAVER_SHOPPING`)/`country_code` | `202 Accepted` + `job_id` | Feed 생성 — `products`/`product_seo`/`product_option_combinations` 조회 결과를 파생 생성(저장하지 않음), 생성 자체는 무거운 연산으로 간주해 Job 패턴 적용 |
+| `/v1/product-feeds/jobs/{jobId}` | GET | 관리자 | - | Job 상태/결과(`result_ref`로 생성된 `files` 행 참조) | §1.7 공통 스키마 |
+| `/v1/product-feeds` | GET | 관리자(상품관리/마케팅) | `feed_type`/기간 | 생성된 Feed 목록(다운로드 링크 포함) | File Manager(`files`, category=FEED) 재사용 — 생성된 파일을 등록·목록화한 것을 조회만, 별도 Feed 전용 테이블 없음 |
+| `/v1/product-feeds/{id}/download` | GET | 관리자 | - | 파일 스트림 또는 signed URL | `files.file_ref`(Supabase Storage) 참조 |
+| `/v1/product-feeds/auto-refresh-config` | GET/PATCH | 관리자(상품관리/마케팅) | `feed_type`/`is_enabled`/`cron_expression` | `scheduled_job_definitions` 행("Feed 갱신" Job 종류) | Scheduler Center 재사용 — 관리자가 on/off, 주기는 기존 cron 관리 범위([DATABASE.md](DATABASE.md) §3.40). Google Merchant Center/Facebook Catalog 연동은 §2.25의 `external-api-connections` 등록을 전제로 한다 |
+
+### 2.25 Digital Marketing 연동
+
+> [PRD.md](PRD.md) §5.47(D-070) 기반 — **운영 설계만, 실제 외부 API 호출/스크립트 삽입은 본 라운드에서 구현하지 않는다.** 기존 API Center `external_api_connections`(§3.38, §2.x 표에 전용 섹션 없이 [DATABASE.md](DATABASE.md)에만 정의되어 있었음)를 그대로 재사용 — `category`가 이미 자유 입력 필드라 신규 엔드포인트 형태를 만들지 않는다.
+
+| Resource Path | Method | Permission | 주요 요청 필드 | 주요 응답 필드 | 비고 |
+|---|---|---|---|---|---|
+| `/v1/external-api-connections` | 표준 CRUD 패턴 적용 | SuperAdmin/관리자(API Center) | `api_name`/`category`/`auth_key_ref`/`endpoint_url`/`is_enabled` | `external_api_connections` 목록/상세 | 본 라운드에서 `category`에 추가되는 값: `GA4`/`GTM`/`GSC`/`GOOGLE_MERCHANT_CENTER`/`NAVER_SEARCH_ADVISOR`/`NAVER_ANALYTICS`/`META_PIXEL`/`TIKTOK_PIXEL`/`GOOGLE_ADS_CONVERSION`/`FACEBOOK_CATALOG`/`RSS_FEED`/`INDEXNOW`/`SITEMAP_PING` — 신규 컬럼/엔드포인트 형태 추가 없음, 기존 자유 카테고리 값 사용 |
+| `/v1/external-api-connections/{id}/status` | GET | SuperAdmin/관리자(API Center) | - | `status`(`TESTING`/`ACTIVE`/`INACTIVE`) | 신규 상태값 없음 — [STATE-MACHINE.md](STATE-MACHINE.md) §12 기존 enum 그대로 재사용 |
+| `/v1/external-api-call-logs` | GET | SuperAdmin/관리자(API Center) | `connection_id`/기간 | `external_api_call_logs` 목록(append-only) | 호출 로그 조회 — GSC/Naver Search Advisor 등 §2.22 SEO Dashboard 지표의 데이터원 추적용 |
 
 ## 3. 상세 예시 3종
 
@@ -780,3 +834,5 @@ https://api.fns.example.com/v1/{module-path}
 - Bulk Action의 동기/비동기 전환 임계값 (O-118)
 - API 버전 deprecation 공지 절차·sunset 기한 (O-172, §1.1)
 - Job 생성 Idempotency Key 저장 방식 및 적용 범위 (O-054, §1.7)
+- 검색엔진 지표(노출/클릭/CTR/순위)를 DB 캐시 vs 매 조회 시 외부 API 실시간 호출로 가져올지 — SEO Dashboard 조회 엔드포인트(O-195, §2.22)
+- SEO/공유이미지/Feed 관련 그 외 미확정 항목은 §2.23~§2.25 각 행의 비고에 인용된 기존 O-176/O-177/O-180~O-194/O-118/O-148을 그대로 참조 — 본 라운드에서 신규 Open Decision은 O-195 외 추가하지 않았다

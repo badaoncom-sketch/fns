@@ -3,6 +3,31 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v1.6.0] - 2026-06-26 (쇼핑몰 운영 Phase 2 및 문서 동기화 — 설계 마지막 라운드)
+
+> 사용자 요청: "프로젝트의 마지막 설계 보강 작업... 쇼핑몰 운영 기능을 실제 상용 ERP 수준까지 보강하고 문서 간 동기화를 완료한다." [DECISIONS.md](DECISIONS.md) D-070. **신규 Business Rule 없음(기존 BR 변경 없음), MLM 정책/Database 구조/ERP Core/Workflow 변경 없음, Open Decision 삭제 없음.** 신규 Open Decision은 O-195 1건만 추가(최소화 원칙). 코드는 생성하지 않음. **본 라운드를 끝으로 설계 단계를 종료하며, 이후 신규 기능은 Change Request(CR)로만 관리한다.**
+
+### Added
+
+- [PRD.md](PRD.md) §5.47(Digital Marketing 연동 관리) · §5.48(SEO 운영 Dashboard) · §5.49(이미지 최적화 운영) · §5.50(상품 Feed 관리) — 4개 절 신설, 모두 기존 구조(`external_api_connections`/Dashboard Builder/File Manager/Scheduler Center/Bulk Action) 재사용
+- [DECISIONS.md](DECISIONS.md) O-195(SEO Dashboard 지표 캐시 저장 vs 실시간 API 호출) — 본 라운드의 유일한 신규 Open Decision
+- [API-SPEC.md](API-SPEC.md) §2.23(SEO) · §2.24(Feed) · §2.25(Digital Marketing 연동) 신설 + §2.21(Shop)/§2.22(Analytics) 확장 — D-069 신규분(Bundle/상품비교/재고Hold/부분배송·환불·교환·반품/자동결제재시도/공유이미지관리)과 D-070 신규분의 개념 수준 엔드포인트 보강(34개 행)
+- [ERD.md](ERD.md) 클러스터14(14-A/14-B/14-C, Mermaid 3종) — D-069의 신규 테이블 18종을 시각화(엔터티 117→135)
+- [DATA-DICTIONARY.md](DATA-DICTIONARY.md) §7(쇼핑몰 운영 Phase 2/SEO) — D-069 신규 테이블/컬럼 52행 반영, Dictionary Gaps에 O-176/O-177/O-193 추가(§8로 재배치)
+- [ROLE-MATRIX.md](ROLE-MATRIX.md) §24(SEO/공유이미지 관리) · §25(Digital Marketing 연동/Feed 관리) — SEO/Feed/Analytics/Search Console/Merchant 관리자는 기존 7역할 중 "기능별 관리자" 하위유형 후보로 처리(O-042 범위, 신규 최상위 역할 없음), §26 미확정 항목에 신규 발견 사항 추가
+- [TEST-PLAN.md](TEST-PLAN.md) §2.10(쇼핑몰 운영 Phase 2/SEO/Digital Marketing 테스트) — SEO/OG/Schema/Feed/Analytics 설정/자동 Sitemap/카카오 공유/Google Preview 테스트 케이스
+- [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) §4(쇼핑몰/SEO Rule Cross Reference) — BR-045~054 × API-SPEC/ERD/DATA-DICTIONARY/ROLE-MATRIX/TEST-PLAN 연결표 신설, **신규 BR 없음**
+
+### Changed
+
+- [MASTER-INDEX.md](MASTER-INDEX.md) §1 — PRD/DECISIONS/SITEMAP/ROLE-MATRIX/ERD/API-SPEC/TEST-PLAN/BUSINESS-RULE-CATALOG/DATA-DICTIONARY/CHANGELOG/MASTER-INDEX 11개 행 갱신, §5 API·DB 준비도 통계(25개 모듈/135개+ 엔터티) 갱신, §6에 "설계 마지막 라운드" 명시
+- README.md — Open Decision 범위(O-002~O-195), API 모듈 수(25개), ERD 클러스터 수(14개), "쇼핑몰 운영/SEO/Analytics/Feed" 절 신설(요청 §12)
+
+### 비고
+
+- DATA-DICTIONARY.md/API-SPEC.md/ERD.md/ROLE-MATRIX.md/TEST-PLAN.md/BUSINESS-RULE-CATALOG.md 동기화로, D-069 등록 시점에 보류했던 "문서만 수정한다" 범위의 잔여 작업이 모두 해소되었다.
+- COMPENSATION-RULES.md/SETTLEMENT-RULES.md/ARCHITECTURE.md/DATABASE.md(§3.52~3.56 기존분 외 신규 변경 없음)는 본 라운드에서 수정하지 않았다.
+
 ## [v1.5.0] - 2026-06-26 (쇼핑몰 운영 고도화 및 SEO/공유이미지 관리 — New Feature 트랙)
 
 > 사용자 요청: "쇼핑몰 운영(상품/옵션/재고/주문/결제/배송/리뷰/고객쇼핑/검색/프로모션)과 SEO(상품별/사이트/페이지별/Preview)·카카오톡 공유이미지 관리를 상용 ERP 수준으로 보강한다." [DECISIONS.md](DECISIONS.md) D-069. Design Freeze 이후 New Feature 트랙(신규 Business Rule/Open Decision 등록 허용)으로 진행. **MLM 보상플랜·정산 계산 로직·Workflow 기존 구조·ERP Core 구조·기존 Business Rule은 변경하지 않았고, 기존 기능을 삭제하지 않았으며, Open Decision도 삭제하지 않았다.** 코드/실제 Database/실제 API는 생성하지 않음.

@@ -1,6 +1,6 @@
 # DATA-DICTIONARY.md — Data Dictionary
 
-> 상태: 신규 v0.1 (문서 표준화 — DATABASE.md 기반 컬럼 사전) · 최종 수정일: 2026-06-25 · 단계: 설계(Design)
+> 상태: v0.2 (D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069에서 DATABASE.md §3.52~§3.56에 추가된 18개 신규 테이블 및 기존 테이블 컬럼 확장을 본 사전에 반영 — §7 신설. D-070 자체는 신규 테이블/컬럼을 추가하지 않음, 기존 구조 재사용) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 목적: [DATABASE.md](DATABASE.md)에 흩어진 테이블/컬럼 개념을 구현자가 빠르게 찾을 수 있도록 정리한다. 본 문서는 DB 스키마를 변경하지 않는다.
 
 ## 0. 작성 원칙
@@ -166,7 +166,66 @@
 | notification_logs | failure_reason / retry_count | 발송 실패/재시도 정보 | text/integer | N | N | Y | 미정 | DATABASE §3.41 | BR-039 |
 | report_generation_logs | status | 보고서 생성 상태 | enum/string | N | N | 미정 | 미정 | DATABASE §3.44 | BR-039 |
 
-## 7. Dictionary Gaps
+## 7. 쇼핑몰 운영 Phase 2 (Shop Operations) / SEO
+
+> D-069(DATABASE.md §3.52~§3.56)에서 신설/확장되었으나 본 사전에 반영되지 않았던 항목을 D-070에서 동기화한다. 신규 Business Rule/Open Decision은 추가하지 않으며, 기존 BR-045~BR-054/O-176~O-194만 인용한다.
+
+| Table | Column | 설명 | 자료형(개념) | PK | FK | Nullable | Enum/Default | Source of Truth | 관련 Rule |
+|---|---|---|---|---|---|---|---|---|---|
+| products | publish_start_at / publish_end_at | 예약 공개/종료 — `packages.sales_start_at/sales_end_at`와 동일 패턴 | timestamp | N | N | Y | 미정 | DATABASE §3.52 | - |
+| products | sales_status | 판매상태 | enum | N | N | N | DRAFT/ON_SALE/SOLD_OUT/SUSPENDED/ENDED | DATABASE §3.52 | BR-045 |
+| products | display_order | 진열순서(수동 정렬값) | integer | N | N | 미정 | 미정 | DATABASE §3.52 | - |
+| products | search_boost_score | 검색 노출순위 가중치 | decimal | N | N | 미정 | 미정 | DATABASE §3.52 | - |
+| product_option_combinations | sku_code | 옵션조합 SKU — 옵션-재고 연결모델 최종 확정 미확정 | string | N | N | 미정 | 연결모델 미확정(O-176) | DATABASE §3.52 | - |
+| product_option_combinations | barcode | 옵션별 바코드 | string | N | N | Y | 미정 | DATABASE §3.52 | - |
+| product_option_combinations | price_delta 또는 price_override | 옵션별 가격(차액형/절대값형 중 택1) | decimal | N | N | 조건부 | 하나만 설정 | DATABASE §3.52 | - |
+| product_option_combinations | discount_price / discount_start_at / discount_end_at | 옵션별 할인 — 상품 차원 타임세일과 정책 통합 필요 여부 미확정(O-185) | decimal/timestamp | N | N | Y | 미정 | DATABASE §3.52 | - |
+| product_option_combinations | is_active | 옵션별 판매중지 | boolean | N | N | N | 미정 | DATABASE §3.52 | BR-046 |
+| product_option_combinations | shipping_fee_override | 옵션별 배송비 예외 — `shipping_fee_policies` 기본 정책에 대한 예외 | decimal | N | N | Y | 미정 | DATABASE §3.52 | - |
+| product_images | product_option_combination_id | 옵션별 이미지 연결(신규) | uuid | N | product_option_combinations.id | Y | 미정 | DATABASE §3.52 | - |
+| inventory_ledger | type(변동유형) 신규 값 | 입고예정/재고조정/창고간 이동 | enum | N | N | N | INBOUND_EXPECTED/ADJUSTMENT/TRANSFER_OUT/TRANSFER_IN | DATABASE §3.53 | BR-047 |
+| inventory_lots | warehouse_id | 대상 창고 | uuid | 미정 | warehouses.id | N | 미정 | DATABASE §3.53 | - |
+| inventory_lots | product_option_combination_id 또는 sku_code | 대상 SKU(O-176 해소 후 확정) | uuid/string | 미정 | product_option_combinations.id | N | 연결모델 미확정(O-176) | DATABASE §3.53 | - |
+| inventory_lots | lot_number | 로트 번호 | string | N | N | N | 미정 | DATABASE §3.53 | BR-048 |
+| inventory_lots | manufactured_at / expires_at | 제조일/유통기한 | timestamp | N | N | 미정 | LOT 도입 자체 미확정(O-177) | DATABASE §3.53 | BR-048 |
+| inventory_lots | quantity | 로트 단위 수량 | integer | N | N | N | 미정 | DATABASE §3.53 | - |
+| order_admin_notes | order_id | 대상 주문 | uuid | 미정 | orders.id | N | 미정 | DATABASE §3.53 | - |
+| order_admin_notes | related_ticket_id | CS Center 티켓 참조(중복 메모 방지) | uuid | N | tickets.id | Y | 미정 | DATABASE §3.53 | - |
+| shipment_change_logs | shipment_id | 대상 배송 | uuid | 미정 | shipments.id | N | 미정 | DATABASE §3.53 | - |
+| order_merge_logs / order_split_logs | order_id 관련 참조 | 주문 병합/분리 로그 — 매출 합계 일치 규칙, 허용 범위 미확정(O-179) | uuid | 미정 | orders.id | N | 미정 | DATABASE §3.53 | BR-049 |
+| exchange_requests / exchange_items | order_id 관련 참조 | 부분교환 — 반품(returns)과 통합 여부 미확정(O-180) | uuid | 미정 | orders.id / returns.id | N | 미정 | DATABASE §3.53 | BR-050 |
+| order_payment_attempts | order_id / attempt_no / pg_code / status / failure_reason | 일반 주문 PG 실패/재결제 시도 로그 | uuid/integer/string/enum/text | 미정 | orders.id | N | 미정 | DATABASE §3.53 | - |
+| virtual_account_issuances / bank_transfer_payments | (도입 시 정의) | 가상계좌 발급/무통장입금 매칭 — 도입 여부 자체 미확정 | 미정 | 미정 | 미정 | 도입 미확정(O-181) | DATABASE §3.53 | - |
+| order_payment_splits | order_id 관련 참조 | 복합결제(포인트+카드 등) 분할 내역 — 부분실패 처리 정책 미확정(O-182) | uuid | 미정 | orders.id | N | 미정 | DATABASE §3.53 | - |
+| point_transactions | transaction_type 신규 값 | 포인트의 결제수단화 | enum | N | N | N | PAYMENT_USE | DATABASE §3.53 | - |
+| shipments | bundle_group_id | 묶음배송 그룹 | uuid | N | N | Y | 미정 | DATABASE §3.53 | - |
+| shipments | scheduled_dispatch_at | 예약배송 시각 | timestamp | N | N | Y | 미정 | DATABASE §3.53 | - |
+| shipments | hold_reason / hold_at | 출고보류 사유/시각 | text/timestamp | N | N | Y | 미정 | DATABASE §3.53 | - |
+| shipping_fee_settlements | (배송비 정산 실행/내역) | `shipping_fee_policies`는 요율 정책만 정의, 실행 기록 신설 | 미정 | 미정 | 미정 | 도입 미확정(O-184) | DATABASE §3.53 | BR-051 |
+| product_reviews | video_url | 리뷰 동영상 | string | N | N | Y | 미정 | DATABASE §3.54 | - |
+| product_reviews | admin_reply / admin_replied_at / admin_replied_by | 관리자 답변 — 컬럼형 vs 스레드형 미확정 | text/timestamp/uuid | N | N | Y | 스레드 확장 여부 미확정(O-186) | DATABASE §3.54 | - |
+| product_reviews | is_best / best_selected_at / best_selected_by | 베스트 리뷰 — 선정기준 미확정 | boolean/timestamp/uuid | N | N | Y | 선정기준 미확정(O-187) | DATABASE §3.54 | - |
+| product_comparisons | member_id | 비교 등록 회원 — 비회원 처리(서버/클라이언트) 미확정 | uuid | 미정 | members.id | Y | 비회원 처리 미확정(O-188) | DATABASE §3.54 | - |
+| product_comparisons | product_id / added_at | 비교 대상 상품/등록 시각 | uuid/timestamp | 미정 | products.id | N | 미정 | DATABASE §3.54 | - |
+| product_bundles / product_bundle_items | (번들 구성) | One+One/Bundle 묶음판매 — MLM `packages`와 명확히 별개 | 미정 | products.id | N | 쿠폰 중복적용 미확정(O-191) | DATABASE §3.54 | - |
+| product_seo | product_id | PK 겸 FK, products 1:1 | uuid | Y | products.id | N | 미정 | DATABASE §3.55 | - |
+| product_seo | seo_title / seo_description / seo_keywords | 미입력 시 자동생성 | string | N | N | Y | 자동생성 우선순위 BR-053 | DATABASE §3.55 | BR-053 |
+| product_seo | slug / canonical_url | 상품 고유 URL slug / 중복 URL 정규화 | string | N | N | Y | 미정 | DATABASE §3.55 | - |
+| product_seo | meta_robots | 검색엔진 노출 제어 | enum | N | N | Y | INDEX_FOLLOW/NOINDEX_FOLLOW 등 | DATABASE §3.55 | - |
+| product_seo | og_title / og_description / og_image_ref | 미입력 시 `products.thumbnail_image_ref` 자동 매핑 | string/ref | N | N | Y | BR-053 자동매핑 | DATABASE §3.55 | BR-053 |
+| product_seo | twitter_title / twitter_description / twitter_image_ref | OG와 별도 필드셋 | string/ref | N | N | Y | 미정 | DATABASE §3.55 | - |
+| product_seo | schema_brand_override / schema_enabled | Schema.org Product 구조화데이터 — 가격/재고/리뷰평점은 저장하지 않고 조회 시 실시간 조합 | boolean/string | N | N | Y | 실시간조합 vs 캐시 미확정(O-194) | DATABASE §3.55 | - |
+| tenant_settings | site_title | Site 단위 SEO 기본값 | string | N | tenants.id | Y | 미정 | DATABASE §3.55 | - |
+| tenant_settings | default_og_image_ref | SEO 미입력 시 최종 fallback | ref | N | tenants.id | Y | 미정 | DATABASE §3.55 | - |
+| tenant_settings | apple_touch_icon_ref | favicon(favicon_ref)과 별개 규격 | ref | N | tenants.id | Y | 미정 | DATABASE §3.55 | - |
+| tenant_settings | canonical_base_url | 멀티 도메인 운영 시 정규 도메인 | string | N | tenants.id | Y | 미정 | DATABASE §3.55 | - |
+| tenant_settings | default_robots_txt | 사이트 전역 robots.txt | text | N | tenants.id | Y | 미정 | DATABASE §3.55 | - |
+| tenant_share_images | tenant_id | 소속 테넌트 | uuid | 미정 | tenants.id | N | 미정 | DATABASE §3.55 | - |
+| tenant_share_images | share_type | 공유 이미지 용도 분류 | enum/string | N | N | N | KAKAO_DEFAULT/MAIN_URL_DEFAULT/PRODUCT_DEFAULT/EVENT_DEFAULT/PROMOTION_DEFAULT/BRAND_DEFAULT, 자유 확장 가능 | DATABASE §3.55 | BR-054 |
+| content_seo_metadata | related_entity_type / related_entity_id | 범용 polymorphic 참조 — File Manager(§3.39) 패턴 재사용 | string/uuid | N | 대상 콘텐츠 테이블 | N | 미정 | DATABASE §3.55 | - |
+| content_seo_metadata | seo_title / seo_description / og_image_ref / slug / canonical_url / meta_robots | product_seo와 동일 필드셋(상품 특화 Schema.org 필드 제외) | string/ref/enum | N | N | Y | 미정 | DATABASE §3.55 | - |
+
+## 8. Dictionary Gaps
 
 | 영역 | 현재 상태 |
 |---|---|
@@ -175,4 +234,7 @@
 | Nullable/Default | 대부분 구현 단계에서 확정 필요 |
 | 배송/반품 상태 enum | 기존 문서에 세부 상태머신 미정 |
 | CMS 콘텐츠 상태 enum | DRAFT/IN_REVIEW/SCHEDULED/PUBLISHED 도입 여부 미확정 |
+| 옵션↔SKU↔재고 연결모델 | `product_option_combinations.sku_code`와 `inventory_items`/`inventory_ledger`/`inventory_lots`의 최종 연결모델 미확정(O-176) — §3.52/§3.53 보강 전체의 전제조건 |
+| LOT(로트) 관리 도입 여부 | `inventory_lots` 신설 자체 및 적용 범위(유통기한 카테고리 한정 vs 전체) 미확정(O-177) |
+| SEO 테이블 구조 | `product_seo`/`content_seo_metadata`의 신규 테이블 분리 vs 각 콘텐츠 테이블 컬럼 직접 추가 최종 확정 미확정(O-193) |
 

@@ -1,6 +1,6 @@
 # BUSINESS-RULE-CATALOG.md — Business Rule Catalog
 
-> 상태: v0.4 (D-069 — 쇼핑몰 운영 고도화/SEO 보강: BR-045~BR-054 신규 추가, 모두 쇼핑몰·CMS 운영 규칙이며 MLM Rule 아님) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.5 (D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: §4 쇼핑몰/SEO Rule Cross Reference 신설(BR-045~054 × API-SPEC/ERD/DATA-DICTIONARY/ROLE-MATRIX/TEST-PLAN 동기화 반영). 신규 Business Rule 없음, 기존 BR 변경 없음. D-069 — BR-045~BR-054 신규 추가, 모두 쇼핑몰·CMS 운영 규칙이며 MLM Rule 아님) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 목적: PRD/DATABASE/COMPENSATION/SETTLEMENT/LEGAL/DECISIONS에 흩어진 Business Rule을 한곳에서 찾을 수 있게 정리한다. 본 문서는 새 정책을 만들지 않고, 기존 문서의 위치와 상태만 색인한다.
 
 ## 0. 작성 원칙
@@ -106,3 +106,22 @@
 > STATE-MACHINE.md에 페어보너스 대기열(PairCandidateQueued→PairBonusMatched/Expired) 전용 상태도가 아직 없다는 점이 본 표에서 드러난다 — 이는 [EVENT-CATALOG.md](EVENT-CATALOG.md)의 이벤트 정의로만 다뤄지고 있다. 신규 Rule이 아니므로 본 라운드에서 추가하지 않으며, 필요 시 별도 Change Request로 진행한다.
 
 > **관리자 설정 화면 단위로 그룹화한 BR 연결(Package Manager/Compensation Policy/Lifestyle Program 등)은 [WIREFRAME.md](WIREFRAME.md) §4.9 참조** — 본 표의 부분집합을 화면 관점으로 재정리한 것이며 중복 유지하지 않는다(가독성 보강, D-068).
+
+## 4. 쇼핑몰/SEO Rule Cross Reference (D-070, 가독성 보강 — 신규 Rule 없음)
+
+> BR-045~BR-054(D-069, 쇼핑몰·CMS 운영 규칙)에 한정해 §3과 동일한 형식으로 산출물 간 연결을 보여준다. 이번 라운드(D-070, "쇼핑몰 운영 Phase 2 및 문서 동기화")는 §2.21~§2.25(API-SPEC.md)/클러스터14(ERD.md)/§7(DATA-DICTIONARY.md)/§24~§25(ROLE-MATRIX.md)/§2.10(TEST-PLAN.md) 동기화를 반영해 갱신했을 뿐, **새 Business Rule은 추가하지 않았다.**
+
+| BR-ID | PRD.md | DATABASE.md | STATE-MACHINE.md | TEST-PLAN.md | API-SPEC.md | ERD.md | ROLE-MATRIX.md |
+|---|---|---|---|---|---|---|---|
+| BR-045 (sales_status 자동전이) | §5.45.1 | §3.52 | §15(상품 판매상태) | §2.10 | §2.21(Shop) | 클러스터14-A | §24 |
+| BR-046 (옵션 품절시 상품 노출 유지) | §5.45.1 | §3.52 | §15 | §2.10 | §2.21 | 클러스터14-A | §24 |
+| BR-047 (창고간 이동 쌍 일관성) | §5.45.2 | §3.53 | 없음 | §2.10 | §2.21 | 클러스터14-A | 없음(전용 화면 미정) |
+| BR-048 (LOT 우선출고 FEFO) | §5.45.2 | §3.53 | 없음 | §2.10 | §2.21 | 클러스터14-A | 없음 |
+| BR-049 (주문 병합/분리 매출 일치) | §5.45.2 | §3.53 | 없음 | §2.10 | §2.21 | 클러스터14-A | 없음 |
+| BR-050 (부분교환 단일 트랜잭션) | §5.45.2 | §3.53 | §16(반품/교환 통합, 권장안) | §2.10 | §2.21 | 클러스터14-A | 없음 |
+| BR-051 (배송비 정산 스냅샷 고정) | §5.45.2 | §3.53 | 없음 | §2.10 | §2.21 | 클러스터14-A | 없음 |
+| BR-052 (검색 오타교정 유사도/관리자 임계값) | §5.45.3 | §3.54 | 없음 | 없음(애플리케이션 레벨) | 없음(검색은 별도 모듈) | 클러스터14-B | 없음 |
+| BR-053 (SEO 자동생성 — 관리자 수동값 우선) | §5.46.1 | §3.55 | 없음 | §2.10 | §2.23(SEO) | 클러스터14-C | §24 |
+| BR-054 (SEO 이미지규격 UI안내, sitemap/robots 쿼리타임 파생) | §5.46.2 | §3.55 | 없음 | §2.10 | §2.23 | 클러스터14-C | §24 |
+
+**D-070에서 신설된 운영 기능(§5.47~§5.50)과 BR의 관계**: Digital Marketing 연동 관리(§5.47)/이미지 최적화 운영(§5.49)/상품 Feed 관리(§5.50)는 기존 구조(`external_api_connections`/File Manager/Scheduler Center/Bulk Action)를 재사용하는 **운영·인프라 설정**이며, 계산·판정 로직이 없어 Business Rule 영역에 해당하지 않는다 — **연결되는 BR이 없다는 것이 누락이 아니라 정확한 현황 기록이다.** SEO 운영 Dashboard(§5.48)는 표시 대상 데이터(`product_seo` 필드 채움 여부, 공유클릭 등)에 한해 BR-053과 간접적으로 연결되며, 신규 Open Decision은 O-195(검색엔진 지표 캐시 저장 여부) 하나만 추가되었다 — [DECISIONS.md](DECISIONS.md) D-070 참조.

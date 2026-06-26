@@ -1,6 +1,6 @@
 # ERD.md — Entity Relationship Diagram
 
-> 상태: 신규 v0.1 ([DECISIONS.md](DECISIONS.md) D-063 — 개발 착수 준비 문서 세트) · 최종 수정일: 2026-06-25 · 단계: 설계(Design)
+> 상태: v0.2 ([DECISIONS.md](DECISIONS.md) D-063 — 개발 착수 준비 문서 세트 / D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(§3.52~§3.56) 신규 테이블 18개를 ERD에 반영하는 동기화 작업, 클러스터 14 추가. D-070 자체는 신규 테이블을 추가하지 않음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [DATABASE.md](DATABASE.md)
 > 본 문서는 DATABASE.md §3의 텍스트 기반 엔터티 정의를 시각화한 것이며, 실제 마이그레이션 스키마를 대체하지 않는다.
 
@@ -1027,6 +1027,185 @@ erDiagram
 
 ---
 
+## 클러스터 14. 쇼핑몰 운영 Phase 2 / SEO / 공유이미지 (Shop Operations Phase 2 & SEO) — §3.52~§3.56
+
+D-069(쇼핑몰 운영 고도화 및 SEO/공유이미지 관리)에서 신규로 추가된 18개 테이블을 D-070(쇼핑몰 운영 Phase 2 및 문서 동기화) 시점에 ERD로 동기화한다. D-070 자체는 신규 테이블을 추가하지 않으며 기존 `external_api_connections`/Dashboard Builder/File Manager/Scheduler Center(클러스터 12)를 재사용한다(§3.56). §3.52의 `products`/`product_option_combinations`/`product_images` 컬럼 추가와 §3.54의 `product_reviews` 컬럼 추가, §3.55의 `tenant_settings` 컬럼 추가는 신규 테이블이 아니므로 다이어그램에 새 엔터티로 표시하지 않는다(해당 기존 엔터티는 클러스터 5/10/11에 이미 존재). 엔터티 수가 많아 3개 다이어그램으로 분할한다.
+
+### 14-A. 재고(LOT)/주문 운영/결제 운영/배송 운영 — §3.53
+
+```mermaid
+erDiagram
+    warehouses ||--o{ inventory_lots : "warehouse_id"
+    inventory_lots }o--o| product_option_combinations : "product_option_combination_id 또는 sku_code (연결모델 미확정, O-176/O-177)"
+    inventory_ledger }o--o| inventory_lots : "lot_id (nullable, FEFO 출고추적, BR-048)"
+    orders ||--o{ order_admin_notes : "order_id"
+    order_admin_notes }o--o| tickets : "related_ticket_id (nullable, CS Center 참조)"
+    shipments ||--o{ shipment_change_logs : "shipment_id"
+    orders ||--o{ order_merge_logs : "참조 (병합 허용범위 미확정, O-179)"
+    orders ||--o{ order_split_logs : "참조 (병합 허용범위 미확정, O-179)"
+    orders ||--o{ exchange_requests : "order_id"
+    exchange_requests ||--o{ exchange_items : "exchange_request_id"
+    exchange_requests }o--o| returns : "returns 통합/분리 미확정 (O-180)"
+    orders ||--o{ order_payment_attempts : "order_id"
+    order_payment_attempts ||--o| virtual_account_issuances : "(연결 미확정, O-181)"
+    order_payment_attempts ||--o| bank_transfer_payments : "(연결 미확정, O-181)"
+    orders ||--o{ order_payment_splits : "order_id"
+    shipping_fee_policies ||--o{ shipping_fee_settlements : "정산시점 정책버전 스냅샷 (BR-051)"
+
+    inventory_lots {
+        uuid id PK "추정"
+        uuid warehouse_id FK "warehouses 참조"
+        uuid product_option_combination_id FK "또는 sku_code, 연결모델 미확정(O-176)"
+        string lot_number
+        timestamp manufactured_at
+        timestamp expires_at
+        int quantity
+    }
+    order_admin_notes {
+        uuid id PK "추정"
+        uuid order_id FK
+        uuid related_ticket_id FK "nullable, tickets(§3.19) 참조"
+        string note "(컬럼명 미확정)"
+    }
+    shipment_change_logs {
+        uuid id PK "추정 (append-only)"
+        uuid shipment_id FK
+        string change_type "송장변경/배송사변경 (컬럼명 미확정)"
+    }
+    order_merge_logs {
+        uuid id PK "추정 (append-only)"
+        json source_order_ids "병합 대상 (다수→1, 컬럼명 미확정)"
+        uuid merged_order_id FK "(컬럼명 미확정)"
+    }
+    order_split_logs {
+        uuid id PK "추정 (append-only)"
+        uuid source_order_id FK "(컬럼명 미확정)"
+        json resulting_order_ids "분리 결과 (1→다수, 컬럼명 미확정)"
+    }
+    exchange_requests {
+        uuid id PK "추정"
+        uuid order_id FK
+        string status "(컬럼명 미확정)"
+    }
+    exchange_items {
+        uuid id PK "추정"
+        uuid exchange_request_id FK
+        uuid order_item_id FK "(컬럼명 미확정)"
+    }
+    order_payment_attempts {
+        uuid id PK "추정"
+        uuid order_id FK
+        int attempt_no
+        string pg_code
+        string status
+        string failure_reason
+    }
+    virtual_account_issuances {
+        uuid id PK "추정"
+        uuid order_payment_attempt_id FK "(연결 컬럼명 미확정, O-181)"
+    }
+    bank_transfer_payments {
+        uuid id PK "추정"
+        uuid order_payment_attempt_id FK "(연결 컬럼명 미확정, O-181)"
+    }
+    order_payment_splits {
+        uuid id PK "추정"
+        uuid order_id FK
+        string payment_type "포인트/카드 등 (컬럼명 미확정)"
+        decimal amount "(컬럼명 미확정)"
+    }
+    shipping_fee_settlements {
+        uuid id PK "추정"
+        uuid shipping_fee_policy_id FK "정산시점 정책버전 스냅샷 (컬럼명 미확정, BR-051)"
+        timestamp settled_at "(컬럼명 미확정)"
+    }
+```
+
+> 비고: `inventory_lots`는 도입 여부 자체가 미확정(O-177)이며, 대상 SKU 연결모델(`product_option_combination_id` 또는 `sku_code`)도 §3.52 O-176 해소 후 확정된다 — 두 후보 컬럼명을 모두 표기하고 관계선은 점선 개념으로 취급했다. `exchange_requests`/`exchange_items`는 `returns`(클러스터 6)와 통합할지 분리할지 미확정(O-180)이라 관계선을 옵션(`}o--o|`)으로 표시했다. `virtual_account_issuances`/`bank_transfer_payments`는 도입 자체가 O-181에 종속되며 `order_payment_attempts`와의 정확한 연결 컬럼명은 DATABASE.md §3.53 본문에 명시되지 않아 "(연결 미확정)"으로 표기했다. `shipments`/`shipment_items`(클러스터 6) 컬럼 추가분(`bundle_group_id`/`scheduled_dispatch_at`/`hold_reason`/`hold_at`)은 신규 테이블이 아니므로 다이어그램에 별도 엔터티로 표시하지 않는다.
+
+### 14-B. 리뷰/고객쇼핑/번들 — §3.54
+
+```mermaid
+erDiagram
+    members }o--o| product_comparisons : "member_id (nullable, 비회원 처리 미확정 O-188)"
+    products ||--o{ product_comparisons : "product_id"
+    product_bundles ||--o{ product_bundle_items : "bundle_id"
+    products ||--o{ product_bundle_items : "product_id"
+
+    product_comparisons {
+        uuid id PK "추정"
+        uuid member_id FK "nullable, O-188"
+        uuid product_id FK
+        timestamp added_at
+    }
+    product_bundles {
+        uuid id PK "추정"
+        string name "(컬럼명 미확정)"
+        string discount_rule "Bundle 할인, 쿠폰/회원할인 중복적용 규칙 미확정(O-191)"
+    }
+    product_bundle_items {
+        uuid bundle_id FK
+        uuid product_id FK
+    }
+```
+
+> 비고: `product_bundles`/`product_bundle_items`는 MLM 패키지 엔진(`packages`, 클러스터 3)과 명확히 별개의 일반 쇼핑몰 번들이다(보상플랜·페어보너스와 무관, DATABASE.md §3.54 명시). `product_reviews`(클러스터 10)의 `video_url`/`admin_reply*`/`is_best*` 컬럼 추가는 신규 테이블이 아니므로 본 다이어그램에 표시하지 않는다.
+
+### 14-C. SEO / 공유이미지 — §3.55
+
+```mermaid
+erDiagram
+    products ||--|| product_seo : "product_id (1:1)"
+    tenants ||--o{ tenant_share_images : "tenant_id"
+    content_seo_metadata }o--o{ cms_pages : "related_entity_type/related_entity_id (범용 참조, FK 비명시)"
+    content_seo_metadata }o--o{ marketing_programs : "related_entity_type/related_entity_id (범용 참조, FK 비명시)"
+    content_seo_metadata }o--o{ faq_categories : "related_entity_type/related_entity_id (범용 참조, FK 비명시)"
+
+    product_seo {
+        uuid product_id PK_FK "1:1"
+        string seo_title
+        string seo_description
+        string seo_keywords
+        string slug
+        string canonical_url
+        string meta_robots
+        string og_title
+        string og_description
+        string og_image_ref
+        string twitter_title
+        string twitter_description
+        string twitter_image_ref
+        bool schema_enabled
+        string schema_brand_override
+        int sitemap_priority
+        string sitemap_change_frequency
+    }
+    tenant_share_images {
+        uuid id PK "추정"
+        uuid tenant_id FK
+        string share_type "자유확장 분류값, marketing_programs.category와 동일 패턴"
+        string image_ref "File Manager(§3.39) 참조"
+        string label
+        bool is_active
+    }
+    content_seo_metadata {
+        uuid id PK "추정"
+        string related_entity_type "CMS_PAGE/MARKETING_PROGRAM/FAQ_CATEGORY 등, 범용 참조"
+        uuid related_entity_id "범용 참조"
+        string seo_title
+        string seo_description
+        string og_image_ref
+        string slug
+        string canonical_url
+        string meta_robots
+        bool is_indexable
+    }
+```
+
+> 비고: `content_seo_metadata`는 File Manager `files`(§3.39, 클러스터 12-A)와 동일한 `related_entity_type`/`related_entity_id` 다형 참조 패턴이라 특정 엔터티와의 FK 화살표 대신 텍스트로만 표시했다(고정 FK 없음). `product_seo`는 가격/재고/리뷰평점을 저장하지 않고 조회 시 `products.price`/`inventory_items`/`product_reviews`를 실시간 조합하므로(원장 중복 방지) 해당 테이블들과의 관계선은 그리지 않았다. `tenant_settings`(클러스터 11) 컬럼 추가(`site_title`/`default_og_image_ref`/`apple_touch_icon_ref`/`canonical_base_url`/`default_robots_txt`)는 신규 테이블이 아니므로 본 다이어그램에 표시하지 않는다. 최종 "신규 테이블 분리 vs 컬럼 추가" 확정은 여전히 미확정(O-193)이다.
+
+---
+
 ## 마스터 테이블
 
 전체 테이블/엔터티 목록. "append-only" 열은 DATABASE.md에서 명시적으로 append-only 원장으로 서술된 테이블만 "Y"로 표시한다(§4 설계원칙 1 적용 대상). PK/FK 컬럼명이 본문에 명시되지 않은 경우 "(미확정)"으로 표기했다.
@@ -1150,6 +1329,24 @@ erDiagram
 | `rule_versions` | 12-B. ERP Core | (미확정) | draft_id, simulation_result_id | — | N(도입여부 미확정) | §3.23 |
 | `rule_publish_history` | 12-B. ERP Core | (미확정) | rule_version_id | — | **Y(도입여부 미확정)** | §3.23 |
 | `audit_logs` | 13. 감사로그 | id(추정) | target_entity_type+target_entity_id(범용) | — | **Y(핵심 원장)** | §3.8 |
+| `inventory_lots` | 14-A. 쇼핑몰운영Phase2 | id(추정) | warehouse_id, product_option_combination_id(또는 sku_code, 미확정 O-176) | — | N(도입여부 미확정 O-177) | §3.53 |
+| `order_admin_notes` | 14-A. 쇼핑몰운영Phase2 | id(추정) | order_id, related_ticket_id(nullable) | — | N | §3.53 |
+| `shipment_change_logs` | 14-A. 쇼핑몰운영Phase2 | id(추정) | shipment_id | — | **Y** | §3.53 |
+| `order_merge_logs` | 14-A. 쇼핑몰운영Phase2 | id(추정) | source_order_ids(미확정), merged_order_id(미확정) | — | **Y** | §3.53 |
+| `order_split_logs` | 14-A. 쇼핑몰운영Phase2 | id(추정) | source_order_id(미확정), resulting_order_ids(미확정) | — | **Y** | §3.53 |
+| `exchange_requests` | 14-A. 쇼핑몰운영Phase2 | id(추정) | order_id | — | N(상태전이, returns 통합여부 미확정 O-180) | §3.53 |
+| `exchange_items` | 14-A. 쇼핑몰운영Phase2 | id(추정) | exchange_request_id, order_item_id(미확정) | — | N | §3.53 |
+| `order_payment_attempts` | 14-A. 쇼핑몰운영Phase2 | id(추정) | order_id | — | N(가상계좌/무통장 도입여부 미확정 O-181) | §3.53 |
+| `virtual_account_issuances` | 14-A. 쇼핑몰운영Phase2 | id(추정) | order_payment_attempt_id(연결 미확정 O-181) | — | N(도입여부 미확정 O-181) | §3.53 |
+| `bank_transfer_payments` | 14-A. 쇼핑몰운영Phase2 | id(추정) | order_payment_attempt_id(연결 미확정 O-181) | — | N(도입여부 미확정 O-181) | §3.53 |
+| `order_payment_splits` | 14-A. 쇼핑몰운영Phase2 | id(추정) | order_id | — | N(부분실패 처리정책 미확정 O-182) | §3.53 |
+| `shipping_fee_settlements` | 14-A. 쇼핑몰운영Phase2 | id(추정) | shipping_fee_policy_id(정책버전 스냅샷, BR-051) | — | N(도입여부/실행주기 미확정 O-184) | §3.53 |
+| `product_comparisons` | 14-B. 쇼핑몰운영Phase2 | id(추정) | member_id(nullable), product_id | — | N(비회원 처리 미확정 O-188) | §3.54 |
+| `product_bundles` | 14-B. 쇼핑몰운영Phase2 | id(추정) | — | — | N(할인중복 규칙 미확정 O-191) | §3.54 |
+| `product_bundle_items` | 14-B. 쇼핑몰운영Phase2 | (미확정) | bundle_id, product_id | — | N | §3.54 |
+| `product_seo` | 14-C. 쇼핑몰운영Phase2 | product_id(PK=FK, 1:1) | product_id | product_id(unique, 1:1) | N(신규테이블 vs 컬럼추가 미확정 O-193) | §3.55 |
+| `tenant_share_images` | 14-C. 쇼핑몰운영Phase2 | id(추정) | tenant_id | — | N | §3.55 |
+| `content_seo_metadata` | 14-C. 쇼핑몰운영Phase2 | id(추정) | related_entity_type+related_entity_id(범용) | — | N(신규테이블 vs 컬럼추가 미확정 O-193) | §3.55 |
 
 ### 폐기/일반화로 ERD에서 제외된 엔터티 (참고용)
 
@@ -1181,5 +1378,6 @@ erDiagram
 | 11 | Multi-Tenant 구조 준비 | §3.31, §3.31.1 | 1 |
 | 12 | ERP Core 공통 엔진 | §3.23, §3.37~§3.47 | 2 (12-A, 12-B) |
 | 13 | 감사로그 | §3.8 | 1 |
+| 14 | 쇼핑몰 운영 Phase 2/SEO/공유이미지 | §3.52~§3.56 | 3 (14-A, 14-B, 14-C) |
 
-**총 클러스터 13개, Mermaid `erDiagram` 다이어그램 15개, 마스터 테이블 수록 엔터티 117개**(폐기/일반화 제외 목록 6개는 별도 표).
+**총 클러스터 14개, Mermaid `erDiagram` 다이어그램 18개, 마스터 테이블 수록 엔터티 135개**(폐기/일반화 제외 목록 6개는 별도 표). 클러스터 14는 D-070(쇼핑몰 운영 Phase 2 및 문서 동기화) 시점에 D-069(§3.52~§3.56) 신규 테이블 18개를 동기화 반영한 것이다(이전 117개 + 18개 = 135개).

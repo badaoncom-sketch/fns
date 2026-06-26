@@ -1,6 +1,6 @@
 # TEST-PLAN.md — 테스트 전략
 
-> 상태: v0.2 (D-064 — 개발착수 전 최종 안정화: §2.8 ERP Core 엔진 테스트, §2.9 Multi-Tenant 격리 테스트 추가) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.3 (D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: §2.10 쇼핑몰 운영 Phase 2/SEO/Digital Marketing 테스트 추가, §3/§4 갱신. D-064 — 개발착수 전 최종 안정화: §2.8 ERP Core 엔진 테스트, §2.9 Multi-Tenant 격리 테스트 추가) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md), [ARCHITECTURE.md](ARCHITECTURE.md), [COMPENSATION-RULES.md](COMPENSATION-RULES.md), [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md), [DATABASE.md](DATABASE.md)
 
 ## 0. 문서의 목적과 범위
@@ -116,6 +116,14 @@
 | **왜** | [DECISIONS.md](DECISIONS.md) O-159(Multi-Tenant 활성화 시 Job 격리)·O-170(온보딩/모니터링/격리검증)이 아직 미확정이지만, "구조 준비, 활성화는 보류"(D-035) 원칙상 구조 자체는 이미 존재(`tenants`/`tenant_settings`, [DATABASE.md](DATABASE.md) §3.31) — 활성화 이전에도 데이터 격리 테스트 전략을 미리 정의해 두면 활성화 시점에 즉시 검증 가능하다 |
 | **어떻게(레벨)** | **Integration**: 테넌트 A의 토큰으로 테넌트 B의 리소스 ID를 직접 호출했을 때 403/404로 거부되는지(RLS 적용 여부와 무관하게 애플리케이션 레벨에서도 검증, O-020 RLS 범위 미확정과는 별개 방어선). **Integration**: 한 테넌트의 대량 배치(Bulk Action/대량 수당계산)가 다른 테넌트의 Job 큐 처리 지연을 유발하지 않는지(O-159 확정 후 구체화 가능 — 확정 전에는 "현재 단일 큐이므로 격리 보장 없음"을 명시적으로 아는 상태로 둔다). **주의**: O-159/O-170이 미확정이므로 본 절도 §2.7과 동일하게 "확정 후 구체화"가 필요한 명세 수준이다 |
 
+### 2.10 쇼핑몰 운영 Phase 2 / SEO / Digital Marketing 테스트 (D-070 신규)
+
+| 항목 | 내용 |
+|---|---|
+| **무엇을** | `product_seo`(DATABASE.md §3.55) 자동생성 규칙(BR-053)의 우선순위 처리, Schema.org 가격/재고/리뷰평점의 실시간 파생 여부, sitemap.xml/robots.txt의 쿼리타임 생성(BR-054), 카카오/SNS 공유 미리보기 및 Google/Naver Preview의 렌더링 정확성, OG 메타태그 정확성, 상품 Feed(Google Shopping/Facebook/Naver Shopping) 생성·자동갱신, Digital Marketing 연동(`external_api_connections`, PRD.md §5.47) 등록/상태 관리, SEO Dashboard(§5.48) 지표 표시 |
+| **왜** | D-069/D-070(쇼핑몰 운영 고도화 및 Phase 2)에서 추가된 기능은 모두 신규 Business Rule(BR-053/BR-054)이거나 기존 ERP Core 패턴(Dashboard Builder/Scheduler Center/External API Center) 재사용이다 — 회귀 위험은 "자동생성값과 관리자 수동값의 우선순위가 뒤바뀌는 것"(BR-053 위반)과 "캐시된 값이 즉시 반영되지 않는 것"(Schema.org 실시간 파생 원칙 위반)에 집중된다. [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md)가 강조하는 정산/MLM 계산만큼 금전적으로 치명적이지는 않지만, 검색엔진 노출·소셜 공유 품질에 직접 영향을 주므로 별도 영역으로 추적할 필요가 있다 |
+| **어떻게(레벨)** | **SEO 테스트(Unit)**: 관리자가 `product_seo` 필드를 직접 입력하지 않은 경우 상품명→Title/요약설명→Description/대표이미지→OG Image 자동매핑이 정확한지. **SEO 테스트(Integration)**: 관리자가 수동으로 값을 입력한 후에는 그 값이 항상 우선하고 자동생성 로직이 덮어쓰지 않는지(BR-053 핵심 회귀 포인트). **Schema 테스트(Integration)**: 가격/재고/리뷰평점 변경 직후 Schema.org 출력이 즉시 새 값을 반영하는지(저장된 캐시값이 노출되면 실패) — 저장 컬럼이 아니라 매 조회 시 `products`/`product_option_combinations`/리뷰 집계에서 파생되는지 확인. **자동 Sitemap 테스트(Integration)**: 신규 상품 등록/비공개 전환 직후 sitemap.xml에 즉시 반영(추가/제외)되는지, robots.txt가 별도 원장 없이 매 요청 시 동적 생성되는지(BR-054). **OG 테스트(Unit)**: og:title/og:description/og:image이 자동생성값 또는 관리자 입력값 중 BR-053 우선순위대로 정확히 채워지는지. **카카오 공유 테스트 / Google Preview 테스트(E2E, 프론트엔드 렌더링 레벨)**: `tenant_share_images`(§3.55) 업로드 값과 `product_seo` 입력값이 카카오톡/Google/Naver/Facebook/Twitter 미리보기 레이아웃에 정확히 반영되는지 — §5.46.4가 "순수 프론트엔드 렌더링, DB 영향 없음"이라고 명시하므로, 이 테스트는 렌더링 레벨에 한정하고 데이터 저장 레벨 검증과 명확히 분리한다. **Feed 테스트(Unit)**: Google Shopping/Facebook/Naver Shopping 포맷별 스펙 차이(필수 필드/형식)가 정확히 반영되는지. **Feed 테스트(Integration)**: Feed 생성 시 상품/SEO/가격/재고 데이터가 정확히 조합되는지, 자동 갱신 Job이 Scheduler Center 패턴(§2.8과 동일 원칙)대로 동작하는지. **Analytics 설정 테스트(Integration)**: `external_api_connections`에 GA4/GTM/Meta Pixel 등 category 값을 등록했을 때 연동 상태(TESTING/ACTIVE/INACTIVE)가 올바르게 전이하는지 — **실제 GA4/Meta 등으로의 데이터 전송 자체는 본 라운드 설계 범위가 아니므로(PRD.md §5.47, "실제 연동 구현 없음") 이 테스트는 연동 등록/상태 관리 레벨에 한정된다.** **SEO Dashboard 지표 테스트**: O-195(검색엔진 지표를 자체 캐시할지 실시간 API 호출할지)가 미확정이므로, §2.7/§2.9와 동일하게 **본 항목은 O-195 확정 후에야 구체화 가능한 명세 수준**으로 남긴다 |
+
 ## 3. 영역 간 우선순위 권고
 
 구현 착수 시 테스트 작성 우선순위는 다음 순서를 권고한다 — 모두 [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md)/[ARCHITECTURE.md](ARCHITECTURE.md)가 "위반 금지"로 명시한 영역일수록 우선한다.
@@ -129,6 +137,7 @@
 7. **쇼핑몰/주문**(§2.4) — 일반적인 CRUD/흐름 검증, 다른 영역보다 회귀위험이 상대적으로 낮음
 8. **ERP Core 의존성 역전 방지**(§2.8) — D-046 원칙이 깨지면 영향 범위가 넓지만, 발생 빈도는 낮은 구조적 리스크
 9. **Multi-Tenant 격리**(§2.9) — Multi-Tenant 활성화(O-090) 전까지는 우선순위가 낮음, 활성화 결정 시 1순위로 재배치
+10. **쇼핑몰 운영 Phase 2/SEO/Digital Marketing**(§2.10) — §2.4(쇼핑몰/주문)와 동일한 낮은~중간 우선순위 — 금전적 직접 영향은 없으나 검색엔진 노출/소셜 공유 품질에 영향을 주는 회귀(특히 BR-053 우선순위 위반)는 출시 전 점검 필요
 
 ## 4. Open Items (본 문서 범위에서 확정하지 못한 사항)
 
@@ -138,3 +147,4 @@
 - O-159/O-170(Multi-Tenant Job 격리/온보딩) 확정 전까지 §2.9는 "단일 테넌트 가정" 테스트만 작성 가능 — 활성화 결정 시 본 절을 구체화해야 한다.
 - 재고 예약(O-127)/카테고리 구조(O-128)/반품 상태머신(O-129)이 미확정이므로, §2.4 쇼핑몰 테스트의 재고·반품 관련 케이스는 해당 Open Decision 확정 후 추가한다.
 - O-078(실시간 캐시↔Postgres 정합화 Job 주기)이 확정되어야 §2.3의 drift 보정 테스트의 정확한 시간 윈도우를 정할 수 있다.
+- O-195(검색엔진 지표 캐시 저장 vs 실시간 API 호출)가 확정되어야 §2.10의 "SEO Dashboard 지표 테스트"를 구체화할 수 있다 — 확정 전에는 등록/상태 관리 레벨 테스트만 작성 가능하다.
