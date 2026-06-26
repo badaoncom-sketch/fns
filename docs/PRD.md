@@ -1,6 +1,6 @@
 # PRD.md — Product Requirements Document
 
-> 상태: Draft v0.27 (D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: §5.47~§5.50 신규(Digital Marketing 연동/SEO Dashboard/이미지 최적화/상품 Feed). 기존 쇼핑몰/MLM/정산/Database 구조 변경 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.28 (D-071 — 운영 완성도 향상 및 프로젝트 마무리: §5.51~§5.55 신규(Audit 운영보고/Tenant 운영/Feature Flag/System Health·Monitoring/License 관리). 신규 Business Rule 없음, Database/ERP Core/Workflow/MLM/정산 구조 변경 없음, 신규 Open Decision O-196 1건. **본 라운드로 설계를 종료한다.**) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md)
 
 ## 1. 제품 비전
@@ -1412,6 +1412,67 @@ Google 검색결과 미리보기, Naver 검색결과 미리보기, KakaoTalk 공
 - 본 절은 신규 Open Decision을 만들지 않는다 — Feed 자동 갱신 주기 기본값/실패 알림 방식은 Scheduler Center(§3.40)의 기존 "관리자가 켜고 끌 수 있다" 원칙을 그대로 따른다.
 
 > §5.47~§5.50 전체는 [DECISIONS.md](DECISIONS.md) D-070(쇼핑몰 운영 Phase 2 및 문서 동기화) 참조. 신규 Business Rule은 만들지 않았으며, 기존 BR/Open Decision과의 연결은 [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) §3 Cross Reference에 정리한다.
+
+### 5.51 Audit 운영 보고 (New Feature — [DECISIONS.md](DECISIONS.md) D-071, 조회/운영 기능만 — Audit 구조 변경 없음)
+
+> 기존 `audit_logs`(DATABASE.md §3.8)/Audit Center(§3.42, §5.35)는 그대로 유지하고, 그 위에 운영자가 쓰는 **조회·보고 레이어만** 추가한다. 신규 테이블을 만들지 않는다.
+
+| 기능 | 데이터 모델 |
+|---|---|
+| Audit Report | Report Builder(§5.37) 재사용 — `audit_logs` 집계를 보고서 형태로 산출, 별도 보고서 테이블 불필요 |
+| 사용자별/관리자별 변경 이력 | `audit_logs`의 기존 행위자(actor) 컬럼으로 필터 — 신규 컬럼 없음 |
+| 기간별 변경 이력 | `audit_logs`의 기존 시각 컬럼으로 필터 — 신규 컬럼 없음 |
+| 다운로드(PDF/Excel) | Report Builder의 기존 export 경로 재사용 — 별도 export 로직 신설 없음 |
+| 검색/필터 | `audit_logs`의 기존 행위자/모듈/행위/변경내용/시각 컬럼 — IP 컬럼 존재 여부는 이미 **O-110**으로 추적 중(재등록하지 않음) |
+
+- 본 절은 신규 Open Decision을 만들지 않는다 — Audit Center(§3.42)가 이미 "다운로드/감사보고는 Report Builder를 재사용한다"고 확정했으므로(D-052), 본 절은 그 운영 화면 구성만 구체화한 것이다.
+
+### 5.52 Tenant 운영 기능 (New Feature — [DECISIONS.md](DECISIONS.md) D-071, 운영 설계만 — 실제 Backup 시스템 미구현)
+
+> Multi-Tenant는 여전히 "구조 준비, 활성화는 보류"(D-035) 상태다. 본 절은 활성화 이후 운영에 필요할 항목의 방향성만 미리 기록하며, **신규 테이블/컬럼을 만들지 않는다.**
+
+| 기능 | 현황 / 데이터 모델 |
+|---|---|
+| Tenant Backup / Restore | Supabase 자동백업/PITR을 그대로 사용한다 — 테넌트 단위 분리 백업이 아니라 DB 전체 백업이며, RTO/RPO 목표·DR 절차는 이미 **O-144**(O-037 연계)로 미확정 추적 중. 재등록하지 않음 |
+| Tenant Export / Import | 기존 **O-126**(마스터데이터 대량 Import/Export 도입 여부)의 적용 범위를 테넌트 단위로 확장하는 것일 뿐 — 별도 메커니즘 아님. Multi-Tenant 활성화 전에는 "테넌트"가 사실상 FNS 단일 행이라 의미가 제한적 |
+| Tenant Clone | DATABASE.md §3.31이 이미 "테넌트 온보딩 플로우... 활성화 결정 후 별도 라운드"로 명시한 항목과 동일 선상 — 본 라운드에서 데이터 모델을 설계하지 않는다(클론 대상이 되는 두 번째 테넌트가 아직 존재하지 않음) |
+
+- 본 절은 신규 Open Decision을 만들지 않는다 — 모두 기존 O-037/O-144/O-126 및 D-035의 "활성화 시 별도 라운드" 원칙에 종속된다.
+
+### 5.53 Feature Flag (New Feature — [DECISIONS.md](DECISIONS.md) D-071)
+
+> 국가별 또는 Tenant별로 특정 기능(Google Feed/Facebook Feed/TikTok Pixel/Merchant Center/Analytics/SEO Dashboard/Bundle/정기배송 등)을 켜고 끄는 메커니즘이다. **기존에 이미 존재하는 개별 on/off**(예: `external_api_connections.is_enabled`, `scheduled_job_definitions.is_enabled`, `countries.status`)는 "그 연동/Job/국가 자체"의 활성화이며, 본 절이 다루는 "국가 X에서는 Bundle 기능 자체를 보이지 않게 한다"처럼 **기능 단위 × 스코프(국가/테넌트) 단위의 가시성 제어**는 현재 어떤 기존 테이블에도 명시적으로 들어있지 않다.
+
+- 후보 방식 A: 신규 범용 `feature_flags`형 테이블(기능 키 × 국가/테넌트 스코프 × on/off)
+- 후보 방식 B: 기존 `countries`/`tenant_settings`(D-035, 활성화 보류) 확장으로 흡수
+- **본 라운드는 Database 구조를 변경하지 않으므로 둘 중 하나를 확정하지 않는다.** 신규 Open Decision **O-196**(Feature Flag 저장 방식 — 신규 테이블 vs 기존 구조 확장, 최종 확정은 구현 단계)만 등록한다 — 최소화 원칙에 따른 본 라운드의 유일한 신규 Open Decision이다.
+
+### 5.54 System Health Dashboard / Monitoring (New Feature — [DECISIONS.md](DECISIONS.md) D-071)
+
+> 관리자가 시스템 상태(API/Worker/Scheduler/Redis/Database/Storage/Notification/Queue)를 한눈에 보는 Dashboard다. Dashboard Builder(§5.36)를 재사용하며, **모니터링 데이터를 수집하는 도구·메커니즘 자체는 신규 설계 대상이 아니다.**
+
+| 기능 | 데이터 모델 / 기존 추적 |
+|---|---|
+| API/Worker/Scheduler/Redis/Database/Storage 상태 표시 | Dashboard Builder(§3.43) `data_source`에 "시스템 상태" 위젯 후보 추가 — 실제 헬스체크 수집 도구 선정은 **O-025**(모니터링/로깅 도구 선정)에 이미 종속 |
+| 서비스 상태 페이지(공개/내부) | 이미 **O-173**(서비스 상태 페이지 및 장애 공지 메커니즘 도입 여부)로 추적 중 |
+| Queue 상태 / 실패 Job / Retry 현황 | `scheduled_job_run_logs`(§3.40)의 기존 상태/실패사유 컬럼 조회 — Redis 장애 시 DLQ 재처리 정책은 이미 **O-161**로 추적 중 |
+| Notification Queue 상태 | Notification Center(§3.41) `notification_logs`의 기존 실패/재시도 컬럼 조회 |
+
+- 본 절은 신규 Open Decision을 만들지 않는다 — "무엇을 보여줄지"(Dashboard 구성)만 설계하고, "어떻게 수집할지"는 O-025/O-161/O-173이 이미 미확정 상태로 보유하고 있다.
+
+### 5.55 License 관리 (New Feature — [DECISIONS.md](DECISIONS.md) D-071)
+
+> Multi-Tenant 운영을 위한 Tenant Plan/License Expire/사용량(Storage/API/회원수) 조회 기능이다. **DATABASE.md §3.31이 이미 "테넌트별 과금/구독 모델은 활성화 결정 후 별도 라운드"로 명시한 영역과 동일하다** — 본 절은 그 방향성(조회 항목 후보)만 미리 기록하며 스키마를 확정하지 않는다.
+
+| 기능 | 기존 추적 |
+|---|---|
+| Tenant Plan / License Expire | D-035 "활성화 시 추가로 필요한 것"(테넌트별 과금/구독 모델)에 이미 포함된 영역 — 본 라운드에서 신규로 만들지 않음 |
+| 사용량 — Storage/회원수 | **O-170**(Multi-Tenant 활성화 시 테넌트별 사용량 모니터링 대시보드)이 이미 동일 항목을 다룸 — 재등록하지 않음 |
+| 사용량 — API 호출량 | **O-146**(API Center 외부연동별 호출 쿼터/Rate Limit 추적)과 연계 |
+
+- 본 절은 신규 Open Decision을 만들지 않는다.
+
+> §5.51~§5.55 전체는 [DECISIONS.md](DECISIONS.md) D-071(운영 완성도 향상 및 프로젝트 마무리) 참조. 신규 Business Rule 없음, Database/ERP Core/Workflow/MLM/정산 구조 변경 없음. 신규 Open Decision은 §5.53의 **O-196 1건**뿐이다.
 
 ## 6. 비기능 요구사항
 

@@ -1,20 +1,20 @@
 # IMPLEMENTATION-GUIDE.md — 구현 착수 전 문서 읽기 순서
 
-> 상태: 신규 v0.1 ([DECISIONS.md](DECISIONS.md) D-066 — Development Kickoff 준비) · 작성일: 2026-06-26 · 단계: Design Freeze 완료 → 개발 착수
+> 상태: v0.2 ([DECISIONS.md](DECISIONS.md) D-066 — Development Kickoff 준비 / D-071 — 운영 완성도 향상 및 프로젝트 마무리: 문서 수/PRD 절 범위/엔터티 수/BR 범위 등 stale 수치 갱신, 신규 내용 추가 없음) · 작성일: 2026-06-26 · 단계: Design Freeze 완료 → 개발 착수
 > 목적: 개발자(Codex 포함)가 구현에 착수하기 전 **반드시 읽어야 하는 문서 순서**를 정의한다. 본 문서가 "읽는 순서"의 단일 출처다 — [MASTER-INDEX.md](MASTER-INDEX.md) §4는 더 이상 별도의 순서를 나열하지 않고 본 문서를 참조한다(D-064에서 겪었던 "Blocker 목록 중복 나열" 문제를 다시 반복하지 않기 위함).
 
 ## 1. 핵심 16단계 (모든 개발자 공통, 착수 전 1회)
 
 | # | 문서 | 왜 이 순서인지 / 무엇을 확인할지 |
 |---|---|---|
-| 1 | [MASTER-INDEX.md](MASTER-INDEX.md) | 전체 31개 문서의 지도. 본인 역할에 추가로 필요한 문서는 §2.2의 "역할별 보강 문서"에서 확인 |
+| 1 | [MASTER-INDEX.md](MASTER-INDEX.md) | 전체 34개 문서의 지도. 본인 역할에 추가로 필요한 문서는 §2.2의 "역할별 보강 문서"에서 확인 |
 | 2 | [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) | FNS가 무엇인지, Multi-Tenant MLM ERP Platform이라는 목표, 모듈 구조 |
-| 3 | [PRD.md](PRD.md) | 기능 요구사항 전체(§5.1~§5.44) — 본인이 맡을 모듈 절을 미리 표시해 둘 것 |
+| 3 | [PRD.md](PRD.md) | 기능 요구사항 전체(§5.1~§5.55) — 본인이 맡을 모듈 절을 미리 표시해 둘 것 |
 | 4 | [ARCHITECTURE.md](ARCHITECTURE.md) | 5서비스 구조(web/api/worker/scheduler/redis)와 **"계산은 worker만 수행한다"** 원칙(§1.1) — 이 프로젝트에서 가장 위반하기 쉬운 원칙이므로 가장 먼저 각인 |
-| 5 | [DATABASE.md](DATABASE.md) | 데이터 모델 개념 정의(§3, 117개+ 엔터티). 전체를 외울 필요는 없고 구조와 §4 설계원칙(append-only 등)을 이해 |
+| 5 | [DATABASE.md](DATABASE.md) | 데이터 모델 개념 정의(§3, 135개+ 엔터티). 전체를 외울 필요는 없고 구조와 §4 설계원칙(append-only 등)을 이해 |
 | 6 | [ERD.md](ERD.md) | DATABASE.md를 Mermaid로 시각화한 것 — 본인이 다룰 도메인 클러스터의 다이어그램을 확인 |
 | 7 | [API-SPEC.md](API-SPEC.md) | §1 전역 컨벤션(페이지네이션/에러포맷/비동기 Job 패턴)은 전원 필수, §2 모듈별 표는 본인 모듈만 |
-| 8 | [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) | BR-001~BR-044 — 본인 모듈과 관련된 Rule의 "정식 정의가 어디 있는지" 색인. 여기서 설명을 다시 찾지 말고 원본 문서로 이동 |
+| 8 | [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) | BR-001~BR-054 — 본인 모듈과 관련된 Rule의 "정식 정의가 어디 있는지" 색인. 여기서 설명을 다시 찾지 말고 원본 문서로 이동 |
 | 9 | [STATE-MACHINE.md](STATE-MACHINE.md) | 본인이 다룰 엔터티(회원/주문/정산/Workflow 등)의 상태 전이 다이어그램 — 어떤 상태값이 확정/미확정인지 구분해서 볼 것 |
 | 10 | [ROLE-MATRIX.md](ROLE-MATRIX.md) | 본인 모듈에서 어떤 역할이 어떤 액션을 할 수 있는지 — 미확정 셀(O-042/O-066)은 BLOCKER이므로 먼저 확인 |
 | 11 | [SITEMAP.md](SITEMAP.md) | 본인이 만들 화면이 전체 메뉴 트리에서 어디에 위치하는지 |

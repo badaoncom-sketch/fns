@@ -3,6 +3,32 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v1.7.0] - 2026-06-26 (운영 완성도 향상 및 프로젝트 마무리 — 설계 최종 종료)
+
+> 사용자 요청: "프로젝트의 마지막 보강 작업... 실제 운영 시 필요한 운영 편의성과 유지보수성을 높이는 수준만 보강한다... 이번 작업 이후에는 Design Freeze를 유지한다." [DECISIONS.md](DECISIONS.md) D-071. **새 기능 추가가 목적이 아님. 신규 Business Rule 없음(기존 BR 변경 없음), MLM/정산/ERP Core/Workflow/Database 구조 변경 없음, Open Decision 삭제 없음.** 신규 Open Decision은 O-196 1건만 추가(최소화 원칙, "정말 필요한 경우에만"). 코드는 생성하지 않음. **본 라운드를 끝으로 설계 단계를 최종 종료하며, 이후 신규 요구사항은 Change Request(CR)로만 관리한다.**
+
+### Added
+
+- [PRD.md](PRD.md) §5.51(Audit 운영 보고) — Report Builder 재사용, `audit_logs` 기존 컬럼으로 사용자별/관리자별/기간별 검색·필터·PDF/Excel 다운로드. IP 컬럼 확인은 기존 O-110 재사용
+- [PRD.md](PRD.md) §5.52(Tenant 운영 기능: Backup/Restore/Clone/Export/Import) — Supabase 자동백업/PITR(O-037/O-144), 대량 Import/Export(O-126) 재사용. Tenant Clone은 DATABASE.md §3.31이 이미 "활성화 결정 후 별도 라운드"로 명시한 항목이라 본 라운드에서 설계하지 않음. 실제 Backup 시스템 미구현
+- [PRD.md](PRD.md) §5.53(Feature Flag, 국가별/Tenant별 기능 ON/OFF) — [DECISIONS.md](DECISIONS.md) **O-196**(저장 방식 — 신규 테이블 vs 기존 구조 확장) 등록. 본 라운드의 유일한 신규 Open Decision
+- [PRD.md](PRD.md) §5.54(System Health Dashboard / Monitoring) — Dashboard Builder 재사용. 수집 도구·DLQ·상태페이지는 기존 O-025/O-161/O-173 재사용
+- [PRD.md](PRD.md) §5.55(License 관리: Plan/License Expire/사용량) — D-035 "활성화 결정 후 별도 라운드" 원칙 + 기존 O-090/O-146/O-170 재사용
+
+### Changed
+
+- [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md) §1 — 문서 수(31→34)/PRD 절 범위(§5.1~§5.44→§5.1~§5.55)/DATABASE 엔터티 수(117개+→135개+)/BR 범위(BR-001~044→BR-001~054) 등 stale 수치를 현재 상태와 일치시킴 — 신규 내용 추가 없음
+- [MASTER-INDEX.md](MASTER-INDEX.md) §1/§5/§6 — PRD/DECISIONS/CHANGELOG/IMPLEMENTATION-GUIDE/MASTER-INDEX 행 갱신, 운영 준비도 평가 상향, "운영 준비 설계 완료" 체크 추가, "D-071이 마지막 라운드" 명시로 갱신
+- README.md — Open Decision 범위(O-002~O-196), "현재 단계"에 운영 완성도 항목 추가, "운영 완성도 보강(D-071)" 절 신설
+
+### 비고 — 최종 품질 검증(§9) 결과
+
+- DATABASE.md/COMPENSATION-RULES.md/SETTLEMENT-RULES.md/ARCHITECTURE.md는 D-069 이후 어느 라운드에서도 수정되지 않았다(본 라운드 포함) — Database/MLM/정산/ERP Core 구조 무변경 확인
+- BUSINESS-RULE-CATALOG.md BR 총 54개로 변동 없음(신규 BR 없음) — 본 라운드는 BUSINESS-RULE-CATALOG.md 자체를 수정하지 않음
+- Open Decision 총 192건(O-002~O-196, 활성), 기존 항목 삭제 없음
+- MASTER-INDEX.md §4(읽는 순서)는 IMPLEMENTATION-GUIDE.md를 단일 출처로 유지 — 중복 나열 재발 없음 확인
+- DEVELOPMENT-KICKOFF.md는 점검 결과 중복/충돌 없어 수정하지 않음(Design Freeze 시점 "31개 문서" 인용은 역사적 스냅샷이므로 보존)
+
 ## [v1.6.0] - 2026-06-26 (쇼핑몰 운영 Phase 2 및 문서 동기화 — 설계 마지막 라운드)
 
 > 사용자 요청: "프로젝트의 마지막 설계 보강 작업... 쇼핑몰 운영 기능을 실제 상용 ERP 수준까지 보강하고 문서 간 동기화를 완료한다." [DECISIONS.md](DECISIONS.md) D-070. **신규 Business Rule 없음(기존 BR 변경 없음), MLM 정책/Database 구조/ERP Core/Workflow 변경 없음, Open Decision 삭제 없음.** 신규 Open Decision은 O-195 1건만 추가(최소화 원칙). 코드는 생성하지 않음. **본 라운드를 끝으로 설계 단계를 종료하며, 이후 신규 기능은 Change Request(CR)로만 관리한다.**
