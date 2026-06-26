@@ -3,6 +3,20 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v1.4.0] - 2026-06-26 (마케팅 관리자 설정 예시 추가 — 신규 Business Rule 없음)
+
+> 사용자 요청: "운영자가 관리자 화면을 보고 패키지/유니레벨/제품 판매수익/페어보너스/Lifestyle Program/국가별 마케팅을 실제 어떻게 설정하는지 5분 안에 이해할 수 있도록 운영 예시를 추가한다." [DECISIONS.md](DECISIONS.md) D-068. Business Rule 변경 없음, 새 정책 없음. MLM/Database/API/쇼핑몰/Open Decision 구조 변경 없음. 코드는 생성하지 않음.
+
+### Added
+
+- [WIREFRAME.md](WIREFRAME.md) §4 — 관리자 설정 예시: §4.1 패키지("Starter Package" 샘플 입력값), §4.2 유니레벨(확정값 3/3/3/4/5%), §4.3 제품 판매수익, §4.4 페어보너스(Mermaid 2건), §4.5 Lifestyle Bonus(Travel/Car/Education 보상연동 vs Golf 일반프로그램 구분), §4.6 국가별 마케팅(KR), §4.7 관리자 화면 흐름도(Mermaid, 화면명은 예시·미정 명시), §4.8 패키지 신규등록 체크리스트, §4.9 화면별 Business Rule 연결
+
+### Changed
+
+- [PRD.md](PRD.md) §5.1.4 — WIREFRAME.md §4 운영 예시로의 교차참조 추가
+- [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §11 — WIREFRAME.md §4 교차참조 추가
+- [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) §3 — WIREFRAME.md §4.9(화면단위 BR 연결)로의 교차참조 추가
+
 ## [v1.3.0] - 2026-06-26 (마케팅 플랜 가독성 보강 — 신규 Business Rule 없음)
 
 > 사용자 요청: "신규 개발자나 운영자가 5분 안에 마케팅 구조를 이해할 수 있도록 가독성을 높인다." [DECISIONS.md](DECISIONS.md) D-067. Business Rule 변경 없음, 새 정책 없음. MLM/정산/쇼핑몰/Database/API/Open Decision 구조 변경 없음. 코드는 생성하지 않음.

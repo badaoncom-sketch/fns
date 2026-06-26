@@ -1,6 +1,6 @@
 # MASTER-INDEX.md — 전체 문서 색인
 
-> 상태: v0.7 ([DECISIONS.md](DECISIONS.md) D-067 — 마케팅 플랜 가독성 보강: COMPENSATION-RULES.md/PRD.md/BUSINESS-RULE-CATALOG.md/README.md에 흐름도·자격비교표·Worked Example·Cross Reference 추가, 신규 Business Rule 없음) · 최종 수정일: 2026-06-26 · 단계: **Design Freeze 완료 → 개발 착수**
+> 상태: v0.8 ([DECISIONS.md](DECISIONS.md) D-068 — 마케팅 관리자 설정 예시 보강: WIREFRAME.md §4에 패키지/유니레벨/제품판매수익/페어보너스/Lifestyle/국가별 설정 샘플 + 흐름도 + 체크리스트 + BR 연결 추가, 신규 Business Rule/화면/필드 없음) · 최종 수정일: 2026-06-26 · 단계: **Design Freeze 완료 → 개발 착수**
 > 목적: `docs/` 34개 문서가 많아져 전체를 한 번에 파악하기 어려워졌다. 본 문서는 프로젝트 전체를 관리하는 최상위 색인이며, 각 문서의 목적·상태·의존관계·읽는 순서·현재 개발 준비도를 한곳에 모은다.
 
 ## 0. 프로젝트 개요
@@ -12,10 +12,10 @@
 | 문서 | 목적 | 상태 | 마지막 변경 |
 |---|---|---|---|
 | [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) | 프로젝트 전체 맥락(도메인/목표/모듈구조)의 최상위 전제 문서 | Draft v0.18 | D-046 |
-| [PRD.md](PRD.md) | 기능 요구사항(§5.1~§5.44, 44개 절) | Draft v0.24 | D-067 |
+| [PRD.md](PRD.md) | 기능 요구사항(§5.1~§5.44, 44개 절) | Draft v0.25 | D-068 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 시스템 아키텍처(5서비스 구조, API 설계원칙, 컴플라이언스 엔진) | Draft v0.16 | D-062 |
 | [DATABASE.md](DATABASE.md) | 데이터 모델 개념 설계(§3, 117개+ 엔터티) | Draft v0.24 | D-062 |
-| [COMPENSATION-RULES.md](COMPENSATION-RULES.md) | 후원수당(보상플랜) 산정 규정 — §9~§11에 회원성장흐름도/자격비교표/Worked Example 보강 | Draft v0.17 | D-067 |
+| [COMPENSATION-RULES.md](COMPENSATION-RULES.md) | 후원수당(보상플랜) 산정 규정 — §9~§11에 회원성장흐름도/자격비교표/Worked Example 보강 | Draft v0.18 | D-068 |
 | [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md) | 정산(지급) 규정 | Draft v0.7 | D-062 |
 | [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md) | 법적 준수 체크리스트(방문판매법 등) | Draft v0.14 | D-062 |
 | [PROMOTION-RULES.md](PROMOTION-RULES.md) | ~~직급 승급/유지/강급 규정~~ — **폐기됨** | Deprecated | D-030 |
@@ -28,13 +28,13 @@
 | [ROLE-MATRIX.md](ROLE-MATRIX.md) | 역할×액션×모듈 권한 매트릭스 | 신규 v0.1 | D-063 |
 | [ERD.md](ERD.md) | DATABASE.md의 시각화(Mermaid ER 다이어그램) | 신규 v0.1 | D-063 |
 | [API-SPEC.md](API-SPEC.md) | REST API 명세(전역 컨벤션 + 모듈별 엔드포인트) | 신규 v0.1 | D-063 |
-| [WIREFRAME.md](WIREFRAME.md) | 화면 레이아웃 아키타입 및 모듈별 매핑 | 신규 v0.1 | D-063 |
+| [WIREFRAME.md](WIREFRAME.md) | 화면 레이아웃 아키타입 및 모듈별 매핑 + §4 관리자 설정 운영 예시 | v0.2 | D-068 |
 | [UI-GUIDELINE.md](UI-GUIDELINE.md) | 시각 디자인 가이드(타이포/컬러/스페이싱/접근성) | 신규 v0.1 | D-063 |
 | [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) | 공통 컴포넌트 라이브러리(30종) | 신규 v0.1 | D-063 |
 | [CODING-STANDARD.md](CODING-STANDARD.md) | 개발 표준(폴더구조/네이밍/NestJS·Next.js 규칙) | 신규 v0.1 | D-063 |
 | [TEST-PLAN.md](TEST-PLAN.md) | 테스트 전략(Unit/Integration/E2E + 7개 핵심 영역) | 신규 v0.1 | D-063 |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | 배포/운영 절차(환경/마이그레이션/롤백/백업/모니터링) | 신규 v0.1 | D-063 |
-| [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) | 기존 문서에 흩어진 Business Rule의 Source Locator + §3 MLM Rule Cross Reference | v0.2 | D-067 |
+| [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) | 기존 문서에 흩어진 Business Rule의 Source Locator + §3 MLM Rule Cross Reference | v0.3 | D-068 |
 | [EVENT-CATALOG.md](EVENT-CATALOG.md) | 기존 요청/승인/Job/발송 흐름의 Event 관점 색인 | 신규 v0.1 | D-064 |
 | [ERROR-CODE.md](ERROR-CODE.md) | ERP 전체 Error Code prefix와 코드 체계 표준 | 신규 v0.1 | D-064 |
 | [STATE-MACHINE.md](STATE-MACHINE.md) | 기존 문서에 정의된 상태값과 전이 다이어그램 | 신규 v0.1 | D-064 |

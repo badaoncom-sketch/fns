@@ -1,6 +1,6 @@
 # COMPENSATION-RULES.md — 후원수당(보상플랜) 규정 (ERP "MLM" 모듈, [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) §1.1)
 
-> 상태: Draft v0.17 (D-067 — 가독성 보강: §9 Member Growth Flow, §10 회원 자격 비교표, §11 Worked Examples 8건 추가. Business Rule/수치 변경 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.18 (D-068 — 가독성 보강: §11 끝에 [WIREFRAME.md](WIREFRAME.md) §4 관리자 설정 예시 교차참조 추가. Business Rule/수치 변경 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md), [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md)
 >
 > ⚠️ **본 문서는 회사의 실제 자금이 지급되는 핵심 비즈니스 로직을 정의한다.** 아래 "확정"으로 표시된 항목 외에는 모두 **사업팀 확정이 필요한 초안/예시**이며, 임의로 코드에 반영해서는 안 된다 ([DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) 참조). 확정되는 즉시 본 문서를 갱신하고 [DECISIONS.md](DECISIONS.md)에 기록한다.
@@ -373,3 +373,5 @@ A 구매 후 35일이 지난 뒤에야 B가 같은 패키지를 구매 → **Pai
 
 **Case 8 — 패키지 구매 후 다음 달 유지구매 미실시**
 본인이 패키지를 구매해 제품판매수익·페어보너스 자격을 영구 획득(§3.5.5)했지만, 다음 달에는 5만원 이상 구매를 하지 않음 → **그 달의 유니레벨 후원수당 자격은 상실**(§3.5.2, 매월 재판정)되지만, **제품판매수익·페어보너스 자격은 그대로 유지**된다(1회 충족 영구 원칙) — 두 자격이 독립적이라는 것을 보여주는 핵심 사례다.
+
+> 위 사례들이 실제 관리자 설정 화면에서 어떤 값으로 입력되는지(패키지/유니레벨/제품판매수익/페어보너스/Lifestyle Bonus/국가별 설정 샘플)는 [WIREFRAME.md](WIREFRAME.md) §4 참조(가독성 보강, D-068).

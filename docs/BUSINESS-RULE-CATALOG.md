@@ -1,6 +1,6 @@
 # BUSINESS-RULE-CATALOG.md — Business Rule Catalog
 
-> 상태: v0.2 (D-067 — 가독성 보강: §3 MLM/마케팅 플랜 Rule Cross Reference 추가, 신규 BR 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.3 (D-068 — 가독성 보강: [WIREFRAME.md](WIREFRAME.md) §4.9 화면단위 BR 연결로 교차참조 추가, 신규 BR 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 목적: PRD/DATABASE/COMPENSATION/SETTLEMENT/LEGAL/DECISIONS에 흩어진 Business Rule을 한곳에서 찾을 수 있게 정리한다. 본 문서는 새 정책을 만들지 않고, 기존 문서의 위치와 상태만 색인한다.
 
 ## 0. 작성 원칙
@@ -94,3 +94,5 @@
 | BR-021 (35% Hard Gate) | §5.18 | — | §7 | §2.3 | §2.8 | 클러스터4 |
 
 > STATE-MACHINE.md에 페어보너스 대기열(PairCandidateQueued→PairBonusMatched/Expired) 전용 상태도가 아직 없다는 점이 본 표에서 드러난다 — 이는 [EVENT-CATALOG.md](EVENT-CATALOG.md)의 이벤트 정의로만 다뤄지고 있다. 신규 Rule이 아니므로 본 라운드에서 추가하지 않으며, 필요 시 별도 Change Request로 진행한다.
+
+> **관리자 설정 화면 단위로 그룹화한 BR 연결(Package Manager/Compensation Policy/Lifestyle Program 등)은 [WIREFRAME.md](WIREFRAME.md) §4.9 참조** — 본 표의 부분집합을 화면 관점으로 재정리한 것이며 중복 유지하지 않는다(가독성 보강, D-068).

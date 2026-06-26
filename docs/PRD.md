@@ -1,6 +1,6 @@
 # PRD.md — Product Requirements Document
 
-> 상태: Draft v0.24 (D-067 — 가독성 보강: §5.1.4에 패키지 관리자 설정 연결도 추가, 신규 필드/화면 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.25 (D-068 — 가독성 보강: §5.1.4에 [WIREFRAME.md](WIREFRAME.md) §4 운영 설정 예시 교차참조 추가, 신규 필드/화면 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md)
 
 ## 1. 제품 비전
@@ -171,6 +171,8 @@ flowchart LR
 ```
 
 텍스트 버전: 패키지 목록/생성 화면 → 패키지명·판매가 → 제품 판매수익 설정 → 페어보너스 설정 → 유니레벨 포함 여부 → 유지구매 인정 여부 → 자격 부여 여부 → 활성 여부/판매기간 → 국가별 사용 여부 → 저장(`packages`/`package_commission_policies`). 각 항목의 정의는 본 절(§5.1.4) 위 표와 [DATABASE.md](DATABASE.md) §3.24.1을 따른다.
+
+> **실제 샘플 값을 채운 운영 예시("Starter Package")는 [WIREFRAME.md](WIREFRAME.md) §4.1 참조** — 유니레벨/제품판매수익/페어보너스/Lifestyle Bonus/국가별 설정 예시도 같은 절(§4.2~§4.6)에 함께 정리되어 있다(가독성 보강, D-068, 신규 화면/필드 없음).
 
 ### 5.1.5 Lifestyle Program — 쇼핑몰 마케팅 노출 구조 (신규 — [DECISIONS.md](DECISIONS.md) D-036)
 

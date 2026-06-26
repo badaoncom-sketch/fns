@@ -1,6 +1,6 @@
 # WIREFRAME.md — 화면 레이아웃 구조
 
-> 상태: 신규 v0.1 ([DECISIONS.md](DECISIONS.md) D-063 — 개발 착수 준비 문서 세트) · 최종 수정일: 2026-06-25 · 단계: 설계(Design)
+> 상태: v0.2 ([DECISIONS.md](DECISIONS.md) D-068 — 가독성 보강: §4 관리자 설정 예시(패키지/유니레벨/제품판매수익/페어보너스/Lifestyle/국가별 설정 + 흐름도 + 체크리스트 + BR 연결) 추가, 신규 화면/필드 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [PRD.md](PRD.md), [PRD.md](PRD.md) §5.44(ERP UX Standard)
 > 본 문서는 픽셀 단위 시각 디자인이 아니라 레이아웃 구조(영역 배치)를 정의한다. 시각적 스타일은 [UI-GUIDELINE.md](UI-GUIDELINE.md)/[DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) 참조(다른 작업에서 별도 생성 중).
 
@@ -271,3 +271,135 @@
 | ImageUploader/FileUploader/ImagePreview/ProgressBar | A3 | 이미지/파일 업로드 섹션 |
 
 본 매핑은 [PRD.md](PRD.md) §5.44.12의 "동일 UX·동일 Button·동일 Dialog·동일 Toast" 원칙을 레이아웃 차원에서 재확인한 것이며, 화면별 변형이 필요해지면 §5.44 자체를 갱신하고 [DECISIONS.md](DECISIONS.md)에 기록한 뒤 본 문서도 함께 갱신한다.
+
+## 4. 관리자 설정 예시 (Marketing Administration Configuration Examples, 가독성 보강 — 신규)
+
+> **본 절은 새로운 화면/필드/Business Rule을 만들지 않는다.** 이미 정의된 관리자 설정 항목([PRD.md](PRD.md) §5.1.4, [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4, [DATABASE.md](DATABASE.md) §3.13/§3.24.1)에 운영자가 실제로 입력할 법한 **샘플 값**을 채워 넣은 예시일 뿐이다. 모든 샘플 값은 자유롭게 변경 가능한 예시이며, 패키지명·금액 등은 시스템이 강제하지 않는다.
+
+### 4.1 패키지 설정 예시 — "Starter Package"
+
+기존 "패키지 관리(§5.1.4)" 화면(A1+A3, §2 매핑표)의 등록 Form에 아래와 같이 입력하는 예시다.
+
+| 필드 | 샘플 값 | 비고 |
+|---|---|---|
+| 패키지명 | Starter | **예시 — 자유 입력** |
+| 판매금액 | 4,000,000원 | 예시값([COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.1.1 "illustrative") |
+| 제품 판매수익(추천수당 비율) | 25% | 예시값 |
+| 페어보너스(금액) | 2,000,000원 | 예시값 |
+| 유니레벨 포함 여부 | NO(기본값) | 기본값 NO 권고(§4.1.1 주석) — YES로 바꾸면 이 패키지 매출이 업라인 라인매출에 합산됨 |
+| 패키지 자격 부여(`grants_qualification`) | YES | YES일 때만 본인이 §3.5.5 자격을 얻음 |
+| 노출 여부(활성) | YES | |
+| 판매 시작일 / 판매 종료일 | (운영자 입력) | 상시 판매 시 종료일 비움 |
+| 국가 | KR | 패키지별 국가 범위 설정 |
+
+> 위 표의 모든 수치는 **예시일 뿐이며, 실제 운영값은 관리자가 패키지마다 자유롭게 다르게 설정할 수 있다**([COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.1.0 "시스템이 강제하는 패키지 종류·개수·정책 조합은 없다").
+
+### 4.2 유니레벨 설정 예시
+
+유니레벨(조직수당) 비율은 패키지가 아니라 **국가별 마케팅 플랜 버전**(`marketing_plan_versions.plan_definition.unilevel`, [DATABASE.md](DATABASE.md) §3.13)에서 설정한다 — 패키지 설정 화면과는 다른 화면/데이터다.
+
+| 항목 | 값 | 비고 |
+|---|---|---|
+| 라인 최대 깊이 | 5 Line(LINE1~5) | **확정값**(D-008/D-018) — 예시가 아님 |
+| LINE1~3 도달 시 비율 | 3% | **확정값**(D-018, KR 현재 버전) |
+| LINE4 도달 시 비율 | 4% | **확정값**(D-018) |
+| LINE5 도달 시 비율 | 5% | **확정값**(D-018) |
+| 유지구매 기준액 | 50,000원 | **확정값**(§3.5.2, 매월 기준) |
+| 매월 재판정 | YES | 자동 회복/상실, 별도 신청 불필요(§3.5.2) |
+
+> ⚠️ 위 비율(3/3/3/4/5%)은 패키지 예시값과 달리 **현재 KR 버전의 실제 확정 수치**다(D-018) — 다만 구조상 `plan_definition.unilevel.line_rates`는 국가·시점별 버전 관리되므로, 새 국가 출시 시 다른 비율로 새 버전을 추가하는 것은 가능하다(코드 변경 없음).
+
+### 4.3 제품 판매수익 설정 예시
+
+```mermaid
+flowchart LR
+    A["패키지: Starter"] --> B["판매수익 비율: 25%"]
+    B --> C["직추천만 지급: YES"]
+    C --> D["지급시점: 패키지 구매 확정 즉시(이벤트 기반)"]
+    D --> E["월정산 포함: YES (세금처리 후 지급)"]
+```
+
+각 항목의 정식 정의: 비율/직추천 한정은 [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.1.2, 지급시점(이벤트 기반, 배치 아님)은 동일 절 3번째 항목, 월정산 연계는 §5 6번째 항목.
+
+### 4.4 페어보너스 설정 예시
+
+```mermaid
+flowchart LR
+    A["패키지: Starter"] --> B["페어금액: 2,000,000원"]
+    B --> C["페어기간(Pair Window): 30일"]
+    C --> D["자동이월: NO"]
+    D --> E["자동재사용: NO"]
+    E --> F["윈도우 만료 시: 자동 종료(closed)"]
+```
+
+정식 정의: [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.1.3 "Pair 실패 규칙"(D-026) — 만료된 대기 후보는 재사용·이월·재매칭하지 않는다는 원칙을 그대로 시각화한 것이다.
+
+### 4.5 Lifestyle Bonus 설정 예시
+
+> ⚠️ **중요한 구분**: MLM 보상("+알파")과 연결되는 Lifestyle Bonus 프로그램은 원본 문서 기준 **Travel/Car/자기계발(Self-development) 3종으로 한정**된다([COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.2, D-039). Education/Golf 등은 Marketing Program Engine의 **일반 마케팅 프로그램**일 뿐 `links_to_compensation=false`이며 포인트·보상과 연결되지 않는다([PRD.md](PRD.md) §5.20.1, D-039) — 아래 예시에서 이 둘을 명확히 구분한다.
+
+| Program | MLM 보상 연결(`links_to_compensation`) | 포인트 적립 | 자동 지급 | 관리자 승인 |
+|---|---|---|---|---|
+| Travel | YES | YES(0.1~0.5%, 미확정) | NO | YES |
+| Car | YES | YES(0.2%, 미확정) | NO | YES |
+| Education(자기계발) | YES | YES(0.2%, 미확정) | NO | YES |
+| Golf | **NO**(일반 마케팅 프로그램) | 해당없음(보상 미연동) | — | — |
+
+> 적립률은 [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.2에 "세부 수치 미확정"으로 명시된 원본 placeholder 그대로다 — 본 절에서 확정하지 않는다. "자동 지급 NO/관리자 승인 YES"는 §4.2 "적립 후 실제 지급 방식은 미확정"을 반영해 보수적으로 표기한 것이며, 확정값이 아니다.
+
+### 4.6 국가별 마케팅 설정 예시 — "KR"
+
+| 항목 | 값 | 비고 |
+|---|---|---|
+| Country | KR | `countries.status = ACTIVE`([DATABASE.md](DATABASE.md) §3.13) |
+| 마케팅 플랜 버전 | "KR v1" | `marketing_plan_versions.version_label` 예시 |
+| 세금(원천징수) | 3.3%(사업소득세 3%+지방소득세 0.3%) | **확정값**([SETTLEMENT-RULES.md](SETTLEMENT-RULES.md) §4) |
+| 정산 주기 | 월정산 | **확정값**(D-029) |
+| 35% 한도 | 적용(주의 30% / 경고 33% / 차단 35%) | **확정값 구조**(D-027) — 단순 YES/NO가 아니라 `compliance_thresholds`의 3단계 임계치 |
+| 언어 | 한국어 | `default_language` |
+| 통화 | KRW | |
+
+> TH/JP/US는 지원 대상 국가로 확정되어 있으나(D-011/D-023) 각국의 실제 세금/마케팅 플랜 수치는 **미확정**(O-045) — 위 표는 KR 한 곳만의 실제 예시다.
+
+### 4.7 관리자 화면 흐름도 (가독성 보강, 신규)
+
+> ⚠️ 아래 화면명은 **설정 항목들이 논리적으로 어떻게 연결되는지를 보여주는 예시 내비게이션**이며, 확정된 화면 구조가 아니다 — 패키지 관리(§5.1.4)만 화면명이 확정되어 있고, 나머지(유니레벨/제품판매수익/페어보너스/Lifestyle/국가별 설정)는 현재 데이터 구조([DATABASE.md](DATABASE.md) §3.13/§3.24.1)로만 정의되어 있으며 전용 화면명은 **미정**([PRD.md](PRD.md) §5.8 "검토 항목"). 실제 화면 통합/분리 방식은 구현 단계에서 확정한다.
+
+```mermaid
+flowchart TD
+    A["Marketing Settings (진입점, 화면명 예시)"] --> B["Package Manager (§5.1.4, 확정)"]
+    B --> C["Package Policy (제품판매수익/페어보너스 설정 섹션)"]
+    C --> D["Compensation Policy (유니레벨 비율 — plan_definition.unilevel, 화면명 미정)"]
+    D --> E["Pair Policy (페어 설정 — package_commission_policies, 화면명 미정)"]
+    E --> F["Lifestyle Program (Marketing Program Engine §5.20, category=Lifestyle)"]
+    F --> G["Country Settings (국가별 마케팅 플랜 — §5.8, 화면명 미정)"]
+    G --> H["Save"]
+```
+
+### 4.8 관리자 체크리스트 — 패키지 신규 등록 시 확인 항목
+
+운영자가 패키지를 새로 등록할 때 빠뜨리기 쉬운 항목을 확인 순서대로 정리한다 — 모두 §4.1 표/[PRD.md](PRD.md) §5.1.4에 이미 정의된 필드이며 새 필드를 추가하지 않는다.
+
+- [ ] 패키지명을 입력했는가
+- [ ] 가격(판매금액)을 입력했는가
+- [ ] 제품 판매수익(추천수당) 사용 여부와 비율/금액을 설정했는가
+- [ ] 페어보너스 사용 여부와 금액/기간(Pair Window)을 설정했는가
+- [ ] 유니레벨 포함 여부(`counts_toward_unilevel_line_revenue`)를 의도한 대로 설정했는가 — 기본값은 NO
+- [ ] 자격 부여 여부(`grants_qualification`)를 설정했는가 — NO로 두면 이 패키지만 구매한 회원은 §3.5.5 자격을 얻지 못함
+- [ ] 적용 국가를 설정했는가
+- [ ] 노출(활성) 여부를 설정했는가
+- [ ] 판매기간(시작일/종료일)을 설정했는가
+- [ ] (해당 시) 결재/승인 절차를 거쳤는가 — 정책 변경 승인 절차 자체는 [DECISIONS.md](DECISIONS.md) §2.3 POST v1 범위로 별도 확정 필요
+
+### 4.9 Business Rule 연결 (가독성 보강, 신규)
+
+각 설정 화면이 어떤 Business Rule과 연결되는지 — 전체 Cross Reference는 [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) §3 참조, 본 절은 화면 단위로 그룹화한 요약이다.
+
+| 설정 화면(예시) | 관련 BR |
+|---|---|
+| Package Manager(§4.1) | BR-010(패키지 엔진 일반화) |
+| Package Policy — 제품 판매수익(§4.3) | BR-011(제품판매수익 산정), BR-009(자격) |
+| Package Policy — 페어보너스(§4.4) | BR-012(페어보너스 산정), BR-009(자격) |
+| Compensation Policy — 유니레벨(§4.2) | BR-005(Unilevel Sponsor Plan), BR-006(LINE 깊이제한), BR-007(라인 단일비율), BR-008(유니레벨 자격) |
+| Lifestyle Program(§4.5) | BR-013(+알파/Lifestyle Bonus) |
+| Country Settings(§4.6) | BR-004(지원국가), BR-014(월단위 산정), BR-015(월정산 단일주기), BR-016(세금 원천징수), BR-019~BR-021(35% 한도) |
