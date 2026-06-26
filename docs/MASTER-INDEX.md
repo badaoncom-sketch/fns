@@ -1,7 +1,7 @@
 # MASTER-INDEX.md — 전체 문서 색인
 
-> 상태: v0.5 ([DECISIONS.md](DECISIONS.md) D-066 — Development Kickoff 준비, [DEVELOPMENT-KICKOFF.md](DEVELOPMENT-KICKOFF.md)/[IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md) 신설) · 최종 수정일: 2026-06-26 · 단계: **Design Freeze 완료 → 개발 착수**
-> 목적: `docs/` 33개 문서가 많아져 전체를 한 번에 파악하기 어려워졌다. 본 문서는 프로젝트 전체를 관리하는 최상위 색인이며, 각 문서의 목적·상태·의존관계·읽는 순서·현재 개발 준비도를 한곳에 모은다.
+> 상태: v0.7 ([DECISIONS.md](DECISIONS.md) D-067 — 마케팅 플랜 가독성 보강: COMPENSATION-RULES.md/PRD.md/BUSINESS-RULE-CATALOG.md/README.md에 흐름도·자격비교표·Worked Example·Cross Reference 추가, 신규 Business Rule 없음) · 최종 수정일: 2026-06-26 · 단계: **Design Freeze 완료 → 개발 착수**
+> 목적: `docs/` 34개 문서가 많아져 전체를 한 번에 파악하기 어려워졌다. 본 문서는 프로젝트 전체를 관리하는 최상위 색인이며, 각 문서의 목적·상태·의존관계·읽는 순서·현재 개발 준비도를 한곳에 모은다.
 
 ## 0. 프로젝트 개요
 
@@ -12,17 +12,17 @@
 | 문서 | 목적 | 상태 | 마지막 변경 |
 |---|---|---|---|
 | [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) | 프로젝트 전체 맥락(도메인/목표/모듈구조)의 최상위 전제 문서 | Draft v0.18 | D-046 |
-| [PRD.md](PRD.md) | 기능 요구사항(§5.1~§5.44, 44개 절) | Draft v0.23 | D-061 |
+| [PRD.md](PRD.md) | 기능 요구사항(§5.1~§5.44, 44개 절) | Draft v0.24 | D-067 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 시스템 아키텍처(5서비스 구조, API 설계원칙, 컴플라이언스 엔진) | Draft v0.16 | D-062 |
 | [DATABASE.md](DATABASE.md) | 데이터 모델 개념 설계(§3, 117개+ 엔터티) | Draft v0.24 | D-062 |
-| [COMPENSATION-RULES.md](COMPENSATION-RULES.md) | 후원수당(보상플랜) 산정 규정 | Draft v0.16 | D-039 |
+| [COMPENSATION-RULES.md](COMPENSATION-RULES.md) | 후원수당(보상플랜) 산정 규정 — §9~§11에 회원성장흐름도/자격비교표/Worked Example 보강 | Draft v0.17 | D-067 |
 | [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md) | 정산(지급) 규정 | Draft v0.7 | D-062 |
 | [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md) | 법적 준수 체크리스트(방문판매법 등) | Draft v0.14 | D-062 |
 | [PROMOTION-RULES.md](PROMOTION-RULES.md) | ~~직급 승급/유지/강급 규정~~ — **폐기됨** | Deprecated | D-030 |
 | [TASK-SPEC.md](TASK-SPEC.md) | AI(Claude Code/Codex) 작업 지시서 표준 형식 | Draft v0.3 | D-061 |
 | [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) | 절대 임의 변경 금지 대상(가드레일) | Draft v0.5 | D-061 |
 | [DECISIONS.md](DECISIONS.md) | 의사결정 기록 — 확정(D-001~D-064) + Open Decision(O-002~O-175) + 개발 Blocker 목록(§2.2) | Living document | D-064 |
-| [CHANGELOG.md](CHANGELOG.md) | 문서 체계 변경 이력(Keep a Changelog 형식) | Living document | v0.30.0 |
+| [CHANGELOG.md](CHANGELOG.md) | 문서 체계 변경 이력(Keep a Changelog 형식) | Living document | v1.2.0 |
 | [GAP-ANALYSIS.md](GAP-ANALYSIS.md) | 상용 ERP 대비 Gap Analysis, 영향도/난이도/개발시점 평가 | 3차 보강 완료 | D-062~D-064 |
 | [SITEMAP.md](SITEMAP.md) | 전체 메뉴/사이트 구조(1~3Depth) | 신규 v0.1 | D-063 |
 | [ROLE-MATRIX.md](ROLE-MATRIX.md) | 역할×액션×모듈 권한 매트릭스 | 신규 v0.1 | D-063 |
@@ -34,16 +34,17 @@
 | [CODING-STANDARD.md](CODING-STANDARD.md) | 개발 표준(폴더구조/네이밍/NestJS·Next.js 규칙) | 신규 v0.1 | D-063 |
 | [TEST-PLAN.md](TEST-PLAN.md) | 테스트 전략(Unit/Integration/E2E + 7개 핵심 영역) | 신규 v0.1 | D-063 |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | 배포/운영 절차(환경/마이그레이션/롤백/백업/모니터링) | 신규 v0.1 | D-063 |
-| [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) | 기존 문서에 흩어진 Business Rule의 Source Locator | 신규 v0.1 | D-064 |
+| [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) | 기존 문서에 흩어진 Business Rule의 Source Locator + §3 MLM Rule Cross Reference | v0.2 | D-067 |
 | [EVENT-CATALOG.md](EVENT-CATALOG.md) | 기존 요청/승인/Job/발송 흐름의 Event 관점 색인 | 신규 v0.1 | D-064 |
 | [ERROR-CODE.md](ERROR-CODE.md) | ERP 전체 Error Code prefix와 코드 체계 표준 | 신규 v0.1 | D-064 |
 | [STATE-MACHINE.md](STATE-MACHINE.md) | 기존 문서에 정의된 상태값과 전이 다이어그램 | 신규 v0.1 | D-064 |
 | [DATA-DICTIONARY.md](DATA-DICTIONARY.md) | DATABASE.md 기반 컬럼 사전 | 신규 v0.1 | D-064 |
-| [MASTER-INDEX.md](MASTER-INDEX.md) | 전체 문서 색인(문서 목적·상태·의존관계·읽는 순서·개발 준비도) | v0.4 | D-065 |
+| [MASTER-INDEX.md](MASTER-INDEX.md) | 전체 문서 색인(문서 목적·상태·의존관계·읽는 순서·개발 준비도) | v0.6 | GitHub Workflow 추가 |
 | [DESIGN-FREEZE.md](DESIGN-FREEZE.md) | 설계 종료 선언 — Scope/Freeze 대상/변경금지·허용/Bug·CR·New Feature 처리원칙 | **Frozen** | D-065 |
 | [RELEASE-ROADMAP.md](RELEASE-ROADMAP.md) | v1.0/v1.1/v2.0 릴리스 범위 | 신규 v0.1 | D-065 |
 | [DEVELOPMENT-KICKOFF.md](DEVELOPMENT-KICKOFF.md) | 개발 착수 기준(Freeze 버전/Git Tag/SoT/원칙) + Phase 1~5 구현 순서 | 신규 v0.1 | D-066 |
 | [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md) | 구현 착수 전 문서 읽기 순서(핵심 16단계 + 역할별 보강) — "읽는 순서"의 단일 출처 | 신규 v0.1 | D-066 |
+| [GIT-WORKFLOW.md](GIT-WORKFLOW.md) | GitHub Issue/Project/Branch/PR/Review/Release 운영 절차 | 신규 v0.1 | GitHub 운영 환경 |
 
 ## 2. 문서 분류
 
@@ -57,7 +58,7 @@
 
 ### 2.3 운영 문서 (가드레일·검증·배포 — 운영/QA가 주로 보는 문서)
 
-[DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) · [TEST-PLAN.md](TEST-PLAN.md) · [DEPLOYMENT.md](DEPLOYMENT.md)
+[DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) · [TEST-PLAN.md](TEST-PLAN.md) · [DEPLOYMENT.md](DEPLOYMENT.md) · [GIT-WORKFLOW.md](GIT-WORKFLOW.md)
 
 ### 2.4 표준화 카탈로그 (Single Source of Truth 탐색용 색인)
 
@@ -112,6 +113,9 @@ graph TD
     CS --> TEST[TEST-PLAN.md]
     CR --> TEST
     SR --> TEST
+    DK[DEVELOPMENT-KICKOFF.md] --> GIT[GIT-WORKFLOW.md]
+    IG[IMPLEMENTATION-GUIDE.md] --> GIT
+    DNT --> GIT
 
     DNT[DO-NOT-TOUCH.md<br/>가드레일] -.->|제약| ARCH
     DNT -.->|제약| CS

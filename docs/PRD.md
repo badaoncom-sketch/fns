@@ -1,6 +1,6 @@
 # PRD.md — Product Requirements Document
 
-> 상태: Draft v0.23 (D-061 — ERP UX Standard 신설: §5.44 Confirm/Warning Dialog·Toast·Button·Loading·Unsaved Guard·Bulk Action·Undo·Activity Log/Notification 연계·공통 Component Library) · 최종 수정일: 2026-06-25 · 단계: 설계(Design)
+> 상태: Draft v0.24 (D-067 — 가독성 보강: §5.1.4에 패키지 관리자 설정 연결도 추가, 신규 필드/화면 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md)
 
 ## 1. 제품 비전
@@ -152,6 +152,25 @@
 - **FNS 현재 운영 패키지(1종, 명칭 미정)의 정책값은 변경되지 않는다** — 가격 400만원, 추천수당비율 25%(100만원), 페어보너스 200만원, 페어기간 30일은 D-024로 확정된 실제 사업 수치이며, 이번 일반화는 이 값을 그대로 **첫 번째 `packages`/`package_commission_policies` 행**으로 옮기는 것이다. "400만원 패키지"라는 구조 자체가 사라지는 것이 아니라, "그 패키지 하나만 존재할 수 있다"는 제약이 사라지는 것이다.
 - 관리자는 신규 패키지를 추가·수정·비활성화할 때 **MLM 엔진(수당 계산 코드)을 변경하지 않는다** — 모든 패키지가 동일한 일반화된 산정 로직(해당 패키지의 `package_commission_policies` 값을 읽어 계산)을 공유한다([COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.1.0, D-033).
 - 관리자 화면(신규, 화면명 미확정): 패키지 목록/생성/수정, 패키지별 정책 설정, 패키지별 판매 통계.
+
+#### 관리자 설정 연결도 (가독성 보강, 신규 — 기존 §5.1.4/[DATABASE.md](DATABASE.md) §3.24.1 구조를 시각화, 신규 화면/필드 없음)
+
+위 관리자 화면에서 패키지 하나를 등록할 때 거치는 설정 순서를 시각화한 것이다 — 화면명·필드는 모두 위에서 이미 정의된 것과 동일하며, 본 다이어그램은 새 화면이나 필드를 추가하지 않는다.
+
+```mermaid
+flowchart LR
+    A["패키지 목록/생성 화면"] --> B["패키지명·판매가 입력"]
+    B --> C["제품 판매수익 설정<br/>(사용여부/비율 또는 고정금액)"]
+    C --> D["페어보너스 설정<br/>(사용여부/금액/Pair Window)"]
+    D --> E["유니레벨 포함 여부<br/>(counts_toward_unilevel_line_revenue)"]
+    E --> F["유지구매 인정 여부"]
+    F --> G["자격 부여 여부<br/>(grants_qualification)"]
+    G --> H["활성 여부 / 판매기간"]
+    H --> I["국가별 사용 여부"]
+    I --> J["저장 → packages + package_commission_policies"]
+```
+
+텍스트 버전: 패키지 목록/생성 화면 → 패키지명·판매가 → 제품 판매수익 설정 → 페어보너스 설정 → 유니레벨 포함 여부 → 유지구매 인정 여부 → 자격 부여 여부 → 활성 여부/판매기간 → 국가별 사용 여부 → 저장(`packages`/`package_commission_policies`). 각 항목의 정의는 본 절(§5.1.4) 위 표와 [DATABASE.md](DATABASE.md) §3.24.1을 따른다.
 
 ### 5.1.5 Lifestyle Program — 쇼핑몰 마케팅 노출 구조 (신규 — [DECISIONS.md](DECISIONS.md) D-036)
 

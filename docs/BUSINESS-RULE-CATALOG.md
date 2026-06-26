@@ -1,6 +1,6 @@
 # BUSINESS-RULE-CATALOG.md — Business Rule Catalog
 
-> 상태: 신규 v0.1 (문서 표준화 — 기존 24개 문서의 Business Rule 색인) · 최종 수정일: 2026-06-25 · 단계: 설계(Design)
+> 상태: v0.2 (D-067 — 가독성 보강: §3 MLM/마케팅 플랜 Rule Cross Reference 추가, 신규 BR 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 목적: PRD/DATABASE/COMPENSATION/SETTLEMENT/LEGAL/DECISIONS에 흩어진 Business Rule을 한곳에서 찾을 수 있게 정리한다. 본 문서는 새 정책을 만들지 않고, 기존 문서의 위치와 상태만 색인한다.
 
 ## 0. 작성 원칙
@@ -67,3 +67,30 @@
 | BR-031 | 정기배송 결제 재시도 정책 | [PRD.md](PRD.md) §5.27, [DECISIONS.md](DECISIONS.md) O-104 |
 | BR-043 | 기능별 관리자 권한 매핑 | [ROLE-MATRIX.md](ROLE-MATRIX.md), [DECISIONS.md](DECISIONS.md) O-042/O-066 |
 
+
+## 3. MLM/마케팅 플랜 Rule Cross Reference (가독성 보강, 신규)
+
+> 마케팅 플랜(BR-001~BR-021)에 한정해, 각 Rule이 다른 산출물 어디에 반영되어 있는지 한 번에 보여준다. "없음"은 해당 문서에 그 Rule을 다루는 전용 절이 아직 없다는 뜻이며(누락이 아니라 현재 상태의 정확한 기록), 새 절을 만들지 않는다 — 필요해지면 별도 라운드에서 채운다.
+
+| BR-ID | PRD.md | DATABASE.md | STATE-MACHINE.md | TEST-PLAN.md | API-SPEC.md | ERD.md |
+|---|---|---|---|---|---|---|
+| BR-001 (무료회원가입) | §5.1/§5.6 | §3.1/§3.12 | §1(회원상태) | 없음(일반 CRUD) | §2.2(Member) | 클러스터1 |
+| BR-005 (Unilevel Sponsor Plan) | §5.1/§5.16 | §3.1/§3.9 | 없음(트리 구조, 상태전이 아님) | §2.1 | §2.2/§2.7 | 클러스터1/3 |
+| BR-006 (LINE1~5 깊이제한) | §5.1.1 | §3.5/§3.11 | 없음 | §2.1 | §2.5 | 클러스터3 |
+| BR-007 (라인 단일비율 산정, D-018) | §5.1.1 | §3.5 | 없음 | §2.1 | §2.5 | 클러스터3 |
+| BR-008 (유니레벨 자격) | §5.1.2 | §3.27.1 | 없음(자격은 derived flag) | §2.1 | §2.5 | 클러스터3 |
+| BR-009 (제품판매수익·페어보너스 자격) | §5.1.2 | §3.24/§3.27.2 | 없음 | §2.1 | §2.5 | 클러스터3 |
+| BR-010 (패키지 엔진 일반화) | §5.1.4 | §3.24.1 | 없음 | §2.1 | §2.3/§2.5 | 클러스터3 |
+| BR-011 (제품판매수익 산정) | §5.1.2 | §3.24 | 없음(이벤트는 [EVENT-CATALOG.md](EVENT-CATALOG.md) PackagePurchased) | §2.1/§2.3 | §2.5 | 클러스터3 |
+| BR-012 (페어보너스 산정) | §5.1.2 | §3.24 | 없음(이벤트는 [EVENT-CATALOG.md](EVENT-CATALOG.md) PairBonusMatched) | §2.1 | §2.5 | 클러스터3 |
+| BR-013 (+알파/Lifestyle Bonus) | §5.1.5 | §3.25/§3.36 | §10(Point Transaction, 부분) | 없음(전용 테스트 절 없음) | §2.20(Point) | 클러스터9 |
+| BR-014 (월 단위 산정) | §5.1.1 | §3.5 | §6(정산 배치, 부분) | §2.1 | §2.5 | 클러스터3/4 |
+| BR-015 (월정산 단일주기) | §5.7 | §3.6 | §6(정산 배치) | §2.2 | §2.5 | 클러스터4 |
+| BR-016 (세금 원천징수) | — | §3.7 | 없음 | §2.2 | §2.5 | 클러스터4 |
+| BR-017 (정산승인 전용구조 유지) | §5.30.3 | §3.6/§3.37 | §6/§11(Workflow) | §2.5 | §2.5 | 클러스터4/12 |
+| BR-018 (append-only 정정) | — | §3.6 | 없음 | §2.2 | §1.7(Job 패턴) | 클러스터4 |
+| BR-019 (35% 법적 한도) | §5.18 | §3.29 | §7(Compliance Ratio) | §2.3 | §2.8(Compliance) | 클러스터4 |
+| BR-020 (35% 임계치 KR 30/33/35) | §5.18 | §3.29 | §7 | §2.3 | §2.8 | 클러스터4 |
+| BR-021 (35% Hard Gate) | §5.18 | — | §7 | §2.3 | §2.8 | 클러스터4 |
+
+> STATE-MACHINE.md에 페어보너스 대기열(PairCandidateQueued→PairBonusMatched/Expired) 전용 상태도가 아직 없다는 점이 본 표에서 드러난다 — 이는 [EVENT-CATALOG.md](EVENT-CATALOG.md)의 이벤트 정의로만 다뤄지고 있다. 신규 Rule이 아니므로 본 라운드에서 추가하지 않으며, 필요 시 별도 Change Request로 진행한다.

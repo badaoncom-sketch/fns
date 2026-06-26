@@ -8,6 +8,14 @@
 
 MLM(다단계/네트워크 마케팅) 보상플랜·정산은 이 ERP의 **모듈 중 하나**일 뿐이며, 전체 시스템은 일반 이커머스 ERP가 갖춰야 할 쇼핑몰·회원관리·주문·결제·배송·재고·CRM·CMS·마케팅·통계 기능과, 그 모든 모듈이 공유하는 ERP Core(Workflow Engine/API Center/File Manager/Scheduler/Dashboard·Report·Form Builder/System Settings/Audit) 엔진 계층을 포함한다. 자세한 배경은 [docs/PROJECT-CONTEXT.md](docs/PROJECT-CONTEXT.md) 참조.
 
+## FNS 마케팅 플랜 한눈에 보기
+
+1. 회원은 **무료로 가입**하고, 추천인 링크로 추천조직(LINE1~5)에 연결된다.
+2. 매월 5만원 이상 구매하면 그 달의 **유니레벨 후원수당** 자격이 생긴다(매월 재판정).
+3. 한 번이라도 패키지를 구매하면 **제품 판매수익·페어보너스** 자격을 영구히 얻는다(이후 직추천 회원의 구매·페어 성립마다 지급).
+4. 두 자격은 서로 완전히 독립적이며, 모든 산정 결과는 35% 법적 한도 검증을 거쳐 **월정산**으로 지급된다.
+5. 상세 흐름도/자격 비교표/실제 예시는 [docs/COMPENSATION-RULES.md](docs/COMPENSATION-RULES.md) §9~§11, 보상플랜 전체 규정은 §1~§8 참조.
+
 ## ERP 구조
 
 ```
@@ -63,7 +71,7 @@ fns/
 
 ## 문서 구조
 
-`docs/` 33개 문서의 목적·상태·읽는 순서·의존관계는 **[docs/MASTER-INDEX.md](docs/MASTER-INDEX.md)** 에 모두 정리되어 있다. 빠른 링크:
+`docs/` 34개 문서의 목적·상태·읽는 순서·의존관계는 **[docs/MASTER-INDEX.md](docs/MASTER-INDEX.md)** 에 모두 정리되어 있다. 빠른 링크:
 
 - **설계 종료**: [DESIGN-FREEZE.md](docs/DESIGN-FREEZE.md)(Scope/변경원칙) · [RELEASE-ROADMAP.md](docs/RELEASE-ROADMAP.md)(v1.0/v1.1/v2.0)
 - **개발 착수**: [DEVELOPMENT-KICKOFF.md](docs/DEVELOPMENT-KICKOFF.md)(시작기준/Phase 1~5) · [IMPLEMENTATION-GUIDE.md](docs/IMPLEMENTATION-GUIDE.md)(문서 읽기 순서)
@@ -133,3 +141,7 @@ Design Freeze 이후 모든 설계 변경은 Bug / Change Request / New Feature 
 **구현 전 반드시 [docs/IMPLEMENTATION-GUIDE.md](docs/IMPLEMENTATION-GUIDE.md)를 먼저 읽는다.** 개발 시작 기준(Design Freeze 버전/Source of Truth/개발 원칙)과 Phase 1~5 구현 순서는 [docs/DEVELOPMENT-KICKOFF.md](docs/DEVELOPMENT-KICKOFF.md)에 정의되어 있다. 해당 Phase 착수 전 [DECISIONS.md](docs/DECISIONS.md) §2.2/§2.3의 BLOCKER 15건이 확정되어 있는지 먼저 확인한다.
 
 이 시점 이후 Claude의 역할은 Business Rule 관리·법률 검토·Change Request 영향분석·문서 관리·Release Note 작성으로 전환된다 — 실제 구현은 Codex가 담당한다.
+
+## GitHub 개발 Workflow
+
+Issue, Project, Branch, Pull Request, Review, Release 운영 절차는 [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md)를 따른다.

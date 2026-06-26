@@ -3,6 +3,27 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v1.3.0] - 2026-06-26 (마케팅 플랜 가독성 보강 — 신규 Business Rule 없음)
+
+> 사용자 요청: "신규 개발자나 운영자가 5분 안에 마케팅 구조를 이해할 수 있도록 가독성을 높인다." [DECISIONS.md](DECISIONS.md) D-067. Business Rule 변경 없음, 새 정책 없음. MLM/정산/쇼핑몰/Database/API/Open Decision 구조 변경 없음. 코드는 생성하지 않음.
+
+### Added
+
+- [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §9 — Member Growth Flow(회원 성장 흐름, Mermaid + 텍스트 다이어그램)
+- [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §10 — 회원 자격 비교표(무료회원/5만원구매/패키지구매 × 유니레벨/제품판매수익/페어보너스/+알파/월정산)
+- [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §11 — Worked Example 8건(기존 예시값 400만원/25%/200만원/30일 그대로 재사용, 자격 독립성·Pair 실패·자격 영구유지 등 핵심 케이스 포함)
+- [PRD.md](PRD.md) §5.1.4 — 패키지 관리자 설정 연결도(가독성 보강, 신규 화면/필드 없음)
+- [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) §3 — MLM/마케팅 플랜 Rule Cross Reference(BR-001~BR-021 × PRD/DATABASE/STATE-MACHINE/TEST-PLAN/API-SPEC/ERD, STATE-MACHINE 커버리지 공백도 정직하게 기록)
+- README.md — "FNS 마케팅 플랜 한눈에 보기" 5줄 요약 추가
+
+## [v1.2.0] - 2026-06-26 (GitHub 개발 Workflow 문서 추가)
+
+> GitHub 개발 프로젝트 운영을 위한 문서 추가. 코드/Repository 구조/설계/Business Rule/MLM/정산/Workflow/ERP Core 구조는 변경하지 않음.
+
+### Added
+
+- [GIT-WORKFLOW.md](GIT-WORKFLOW.md)(신규) — GitHub Issue/Project/Branch/Pull Request/Review/Release 운영 절차, Branch Strategy, Branch Protection 설정 안내
+
 ## [v1.1.0] - 2026-06-26 (Development Kickoff 준비 — 개발 착수 최종 준비 완료)
 
 > 사용자 요청: "Codex가 바로 개발에 착수할 수 있도록 최종 개발 준비 문서를 완성한다." [DECISIONS.md](DECISIONS.md) D-066. 새 기능/정책 없음. MLM/ERP Core/Database/쇼핑몰 구조 변경 없음. Repository/Monorepo/Next.js/NestJS/package.json/마이그레이션/Supabase/Railway/Redis/BullMQ 생성 없음(Codex 담당). 코드는 생성하지 않음.

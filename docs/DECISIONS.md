@@ -609,6 +609,13 @@
 - **근거**: 사용자(프로젝트 오너) 요청 — "Codex가 바로 개발에 착수할 수 있도록 최종 개발 준비 문서를 완성한다... 이번 작업이 끝나면 Claude의 설계 역할은 종료된다." 이후 Claude는 Business Rule/법률 검토/Change Request/문서 관리/Release Note만 담당하고, 실제 구현은 Codex가 담당한다.
 - **관련 문서**: [DEVELOPMENT-KICKOFF.md](DEVELOPMENT-KICKOFF.md), [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md), [MASTER-INDEX.md](MASTER-INDEX.md), README.md
 
+### D-067. 마케팅 플랜 가독성을 보강한다 — Business Rule 변경 없이 흐름도·자격비교표·Worked Example·Cross Reference만 추가
+
+- **날짜**: 2026-06-26
+- **결정**: 신규 개발자/운영자가 여러 문서를 오가지 않고도 마케팅 플랜(MLM 보상플랜)을 빠르게 이해할 수 있도록, 기존 §3/§4/§5 규칙을 그대로 시각화한 가독성 보강 자료를 추가한다. (1) [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §9 Member Growth Flow(Mermaid+텍스트), §10 회원 자격 비교표, §11 Worked Example 8건(기존 예시값 400만원/25%/200만원/30일 그대로 재사용). (2) [PRD.md](PRD.md) §5.1.4에 패키지 관리자 설정 연결도(신규 화면/필드 없음). (3) [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) §3에 BR-001~BR-021 × PRD/DATABASE/STATE-MACHINE/TEST-PLAN/API-SPEC/ERD Cross Reference(STATE-MACHINE 커버리지 공백도 정직하게 기록, 채우지 않음). (4) README.md에 "FNS 마케팅 플랜 한눈에 보기" 5줄 요약. **신규 Business Rule·정책·Open Decision을 만들지 않았고, MLM/정산/쇼핑몰/Database/API 구조와 기존 수치를 변경하지 않았다.** 추가된 모든 내용은 "본 절은 새로운 Rule이 아니다, 원문이 우선한다"는 명시적 disclaimer를 포함한다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "신규 개발자나 운영자가 5분 안에 마케팅 구조를 이해할 수 있는 수준으로 가독성을 높인다."
+- **관련 문서**: [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §9~§11, [PRD.md](PRD.md) §5.1.4, [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) §3, README.md
+
 ## 2. Open Decisions (미확정 — 사업팀/법무 확정 필요)
 
 | ID | 항목 | 관련 문서 | 비고 |
