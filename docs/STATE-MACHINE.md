@@ -1,6 +1,6 @@
 # STATE-MACHINE.md — State Machine Catalog
 
-> 상태: 신규 v0.1 (문서 표준화 — 기존 상태값 색인) · 최종 수정일: 2026-06-25 · 단계: 설계(Design)
+> 상태: v0.2 ([DECISIONS.md](DECISIONS.md) D-069 — §15 상품 판매상태, §16 반품/교환 통합 상태머신(권장안) 추가) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 목적: 기존 문서에 이미 정의된 상태값과 전이를 Mermaid 다이어그램으로 모아본다. 본 문서는 새로운 상태값을 만들지 않는다.
 
 ## 0. 작성 원칙
@@ -270,7 +270,58 @@ stateDiagram-v2
 | 영역 | 현재 문서 상태 |
 |---|---|
 | 배송 상세 상태 | 배송 상태/운송장/3PL 추적은 언급되어 있으나 표준 상태 enum 미확정 |
-| 반품/교환 상태머신 | Gap Analysis에서 갭으로 식별, 구체 상태 미확정 |
+| 반품/교환 상태머신 | §16에 권장 다이어그램 추가(D-069) — 반품/교환 통합 여부는 여전히 미확정(O-180) |
 | CMS 콘텐츠 상태 | DRAFT/IN_REVIEW/SCHEDULED/PUBLISHED 도입 여부 미확정(O-137) |
 | CRM 상담/예약 상태 | 진행중/완료/Follow-up필요 등 표기 있으나 상세 전이 미확정 |
 
+
+## 15. 상품 판매상태 (신규, D-069 — [DATABASE.md](DATABASE.md) §3.52, BR-045)
+
+Source: [PRD.md](PRD.md) §5.45.1, [DATABASE.md](DATABASE.md) §3.52 `products.sales_status`. **권장 상태값**이며 최종 확정은 아니다.
+
+```mermaid
+stateDiagram-v2
+    DRAFT: 작성중
+    ON_SALE: 판매중
+    SOLD_OUT: 품절
+    SUSPENDED: 판매중지
+    ENDED: 판매종료
+
+    [*] --> DRAFT: 상품 등록
+    DRAFT --> ON_SALE: 승인 완료(Workflow Engine, subject_type=PRODUCT_APPROVAL) + 노출 시작일 도달
+    ON_SALE --> SOLD_OUT: 재고 0(파생값, inventory_items 합) — 자동전이(BR-045)
+    SOLD_OUT --> ON_SALE: 재고 입고로 재고 > 0 — 자동전이
+    ON_SALE --> SUSPENDED: 관리자 수동 판매중지
+    SUSPENDED --> ON_SALE: 관리자 수동 재개
+    ON_SALE --> ENDED: 판매 종료일(publish_end_at) 도달 — 자동전이
+```
+
+> 옵션이 있는 상품은 일부 옵션조합만 품절되어도 상품 전체를 SOLD_OUT으로 전이하지 않는다 — 해당 옵션만 선택 불가 처리한다(BR-046). 옵션-재고 연결모델 자체는 미확정(O-176)이므로 이 전이 로직의 최종 구현은 그 결정에 종속된다.
+
+## 16. 반품/교환 통합 상태머신 (권장안, D-069 — [DATABASE.md](DATABASE.md) §3.53, O-129/O-180 미확정)
+
+Source: [DATABASE.md](DATABASE.md) §3.10 `returns`/`return_items`(반품), §3.53 `exchange_requests`/`exchange_items`(교환, 신규). **반품과 교환을 통합 상태머신으로 둘지 분리할지는 미확정(O-180)** — 아래는 통합을 가정한 권장 다이어그램이다.
+
+```mermaid
+stateDiagram-v2
+    REQUESTED: 접수
+    INSPECTING: 검수중
+    APPROVED: 검수승인
+    REJECTED: 검수반려
+    REFUNDING: 환불처리중(반품)
+    RESHIPPING: 재출고중(교환, BR-050 — 입고확인+신규출고 단일 트랜잭션)
+    COMPLETED: 완료
+    CANCELLED: 취소
+
+    [*] --> REQUESTED: 회원 신청(청약철회권 연계, LEGAL-CHECKLIST §4)
+    REQUESTED --> INSPECTING: 상품 입고
+    INSPECTING --> APPROVED: 검수 통과
+    INSPECTING --> REJECTED: 검수 불통과(사유 기록)
+    APPROVED --> REFUNDING: 반품인 경우
+    APPROVED --> RESHIPPING: 교환인 경우
+    REFUNDING --> COMPLETED: 환불 완료
+    RESHIPPING --> COMPLETED: 재출고 완료
+    REQUESTED --> CANCELLED: 회원 신청 취소(입고 전)
+```
+
+> 본 다이어그램은 권장안이며, O-129(반품 상태머신 세분화)·O-180(교환 통합 여부)이 확정되면 갱신한다.

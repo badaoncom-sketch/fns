@@ -1,6 +1,6 @@
 # DATABASE.md — 데이터 모델
 
-> 상태: Draft v0.24 (D-062 — 상용 ERP 수준 Gap Analysis: §7.7 신설, 데이터 모델 영향 항목 연계. 스키마 직접 변경 없음, 상세는 [GAP-ANALYSIS.md](GAP-ANALYSIS.md)) · 최종 수정일: 2026-06-25 · 단계: 설계(Design)
+> 상태: Draft v0.25 (D-069 — 쇼핑몰 운영 고도화 및 SEO/공유이미지 관리: §3.52~§3.56 신규(상품/옵션/재고/주문/결제/배송/리뷰/검색/프로모션/SEO 운영 보강). MLM/정산/Workflow/ERP Core 기존 구조 변경 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [COMPENSATION-RULES.md](COMPENSATION-RULES.md), [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md)
 > 본 문서는 테이블 구조의 **개념 설계**이며, 실제 마이그레이션 파일/스키마는 구현 단계에서 작성한다. 코드/마이그레이션은 생성하지 않는다.
 
@@ -1310,6 +1310,167 @@
 | 파일 업로드 진행률/형식·용량 검증 | 기존 `system_security_policies.file_upload_policy`(§3.46) 재사용 — 신규 정책 테이블 없음 |
 
 - 기존 5개 전용 승인 구조(조직이동/회원변경/프로그램신청/포인트사용/정산승인, D-046)의 승인 권한·순서·데이터 모델은 변경하지 않는다 — Confirm Dialog는 그 앞에 확인 단계를 추가할 뿐이다.
+
+### 3.52 쇼핑몰 운영 고도화 — 상품/옵션 ([PRD.md](PRD.md) §5.45, [DECISIONS.md](DECISIONS.md) D-069)
+
+> Design Freeze(D-065) 이후 New Feature 트랙으로 진행하는 쇼핑몰 운영 보강이다. MLM 패키지 엔진(§3.24.1)·정산·Workflow 기존 구조는 변경하지 않는다.
+
+**`products`(§3.3) 컬럼 추가**
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| publish_start_at / publish_end_at | 예약 공개/종료 — `packages.sales_start_at/sales_end_at`(§3.24.1)와 동일 패턴 |
+| sales_status | 판매상태(DRAFT/ON_SALE/SOLD_OUT/SUSPENDED/ENDED 등) — 자동전이 규칙은 BR-045 참조 |
+| display_order | 진열순서(수동 정렬값) |
+| search_boost_score | 검색 노출순위 가중치 |
+
+- 상품 복사·일괄 등록/수정/삭제·Import/Export(CSV/Excel)는 신규 테이블이 필요 없다 — 복사는 애플리케이션 레벨 행 복제, 대량 처리는 기존 **O-126**(마스터데이터 대량 Import/Export, PRD §5.28/§5.32)에 종속되며 본 라운드에서 재등록하지 않는다.
+- 상품 승인은 신규 전용 구조가 아니라 **Workflow Engine을 그대로 재사용**한다 — `workflow_instances.subject_type = 'PRODUCT_APPROVAL'`(§3.37)로 충분하다(D-047/BR-036 "범용 승인용"). 기존 5개 전용 승인 구조에는 추가하지 않는다.
+- 상품 변경이력은 신규 테이블 없이 **`audit_logs`(§3.8)를 재사용**한다.
+
+**`product_option_combinations`(§3.48) 컬럼 추가 — 핵심 갭**
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| sku_code | 옵션조합 SKU — **기존 설계 공백**: `inventory_items`/`inventory_ledger`는 개념상 SKU 단위 연결을 전제하나 옵션조합 테이블에 SKU 컬럼 자체가 없었다. 옵션-재고 연결모델 최종 확정은 미확정(O-176) |
+| barcode | 옵션별 바코드 |
+| price_delta 또는 price_override | 옵션별 가격(차액형/절대값형 중 택1 — `package_commission_policies`의 "비율형 또는 고정금액형, 하나만 설정" 패턴과 동일) |
+| discount_price / discount_start_at / discount_end_at | 옵션별 할인 — 상품 차원 타임세일(§3.54)과 정책 통합 필요 여부는 미확정(O-185) |
+| is_active | 옵션별 판매중지 |
+| shipping_fee_override | 옵션별 배송비 예외(nullable) — `shipping_fee_policies`(§3.48) 기본 정책에 대한 옵션 단위 예외 |
+
+**`product_images`(§3.50) 컬럼 추가**: `product_option_combination_id`(신규, nullable FK) — 옵션별 이미지. alt_text는 이미 존재하므로 재사용(중복 추가 없음).
+
+### 3.53 쇼핑몰 운영 고도화 — 재고/주문/결제/배송 ([PRD.md](PRD.md) §5.45, [DECISIONS.md](DECISIONS.md) D-069)
+
+**재고 — `inventory_ledger`(§3.10) 확장**: 신규 테이블 대신 **변동유형(type) 확장**으로 대부분 해결한다 — `INBOUND_EXPECTED`(입고예정), `ADJUSTMENT`(재고조정, `reason` 컬럼 동반), `TRANSFER_OUT`/`TRANSFER_IN`(창고간 이동, `related_transfer_id`로 두 행 연결— 쌍 일관성은 BR-047). 재고 예약(Hold)/안전재고/백오더는 이미 **O-127/O-134/O-130**으로 등록되어 있어 재등록하지 않는다.
+
+**`inventory_lots`**(신규) — LOT(로트) 관리. 도입 여부 자체는 미확정(O-177).
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| warehouse_id | `warehouses`(§3.10) 참조 |
+| product_option_combination_id 또는 sku_code | 대상 SKU(§3.52 O-176 해소 후 확정) |
+| lot_number | 로트 번호 |
+| manufactured_at / expires_at | 제조일/유통기한 |
+| quantity | 로트 단위 수량 |
+
+- `inventory_ledger.lot_id`(신규, nullable) — 로트 단위 출고 추적. LOT 우선 출고(FEFO) 규칙은 BR-048 참조.
+- 입고예정(발주)을 단순 "예정 수량 표시"를 넘어 공급처/발주서 단위로 관리할지(`purchase_orders` 신설 여부)는 미확정(O-178).
+
+**주문 운영(신규)**
+
+| 테이블 | 설명 |
+|---|---|
+| `order_admin_notes` | 주문 메모/관리자 메모 — `related_ticket_id`(nullable, CS Center §3.19 티켓 참조)로 CS 메모 중복 없이 연결 |
+| `shipment_change_logs` | 송장 변경/배송사 변경 통합 로그(§3.55에서도 참조) |
+| `order_merge_logs` / `order_split_logs` | 주문 병합/분리 — 매출 합계 일치 규칙은 BR-049. 허용 범위는 미확정(O-179) |
+| `exchange_requests` / `exchange_items` | 부분교환 — `returns`(§3.10, O-129 반품 상태머신)와 통합할지 분리할지는 미확정(O-180), 재고정합성 트랜잭션 규칙은 BR-050 |
+
+> 부분배송/부분취소/부분환불/부분반품은 이미 **O-133/O-135/O-129**로 등록되어 있어 재등록하지 않는다.
+
+**결제 운영(신규)**
+
+| 테이블/컬럼 | 설명 |
+|---|---|
+| `order_payment_attempts` | 일반 주문 PG 실패/재결제 시도 로그(`order_id`/`attempt_no`/`pg_code`/`status`/`failure_reason`) — 정기배송 자동결제 실패/재시도는 이미 **O-086**으로 등록되어 재등록하지 않음. 가상계좌/무통장입금 도입 여부는 미확정(O-181) |
+| `virtual_account_issuances` | 가상계좌 발급 내역(도입 시) |
+| `bank_transfer_payments` | 무통장입금 매칭 내역(도입 시) |
+| `order_payment_splits` | 복합결제(포인트+카드 등) 분할 내역 — 부분실패 처리 정책은 미확정(O-182) |
+| `point_transactions.transaction_type`(§3.36) | 포인트의 결제수단화는 신규 값(`PAYMENT_USE`) 추가로 충분 — 기존 적립/사용 승인 절차(§5.23)와의 관계는 미확정(O-182에 포함) |
+
+**배송 운영(`shipments`/`shipment_items`, §3.10 컬럼 추가)**: `bundle_group_id`(묶음배송), `scheduled_dispatch_at`(예약배송), `hold_reason`/`hold_at`(출고보류). 배송사 변경/송장 일괄 업로드는 위 `shipment_change_logs` 및 O-126(Import 종속)을 재사용한다. 묶음배송/예약배송의 데이터모델 확정 및 O-133(1주문:N배송)과의 경계는 미확정(O-183).
+
+**`shipping_fee_settlements`**(신규) — 배송비 정산 실행/내역(`shipping_fee_policies`는 요율 정책만 정의, 실행 기록은 부재 확인). 정산 시점의 정책 버전을 스냅샷으로 고정하는 규칙은 BR-051. **MLM/후원수당 정산과는 무관**(명칭의 "정산"은 배송비 결제 영역). 도입 여부/실행주기는 미확정(O-184).
+
+### 3.54 쇼핑몰 운영 고도화 — 리뷰/고객쇼핑/검색/프로모션 ([PRD.md](PRD.md) §5.45, [DECISIONS.md](DECISIONS.md) D-069)
+
+**`product_reviews`(§3.35) 컬럼 추가**: `video_url`(리뷰 동영상), `admin_reply`/`admin_replied_at`/`admin_replied_by`(관리자 답변 — 스레드형으로 확장할지는 미확정 O-186), `is_best`/`best_selected_at`/`best_selected_by`(베스트 리뷰 — 선정기준은 미확정 O-187). 리뷰 이미지는 이미 `image_refs`로 존재(재사용). 리뷰 포인트는 `point_transactions.source_type`(§3.36)에 `REVIEW_REWARD` 값 추가로 충분(신규 테이블 불필요).
+
+**`product_comparisons`**(신규) — 상품 비교(`member_id`/`product_id`/`added_at`). 비회원 처리(서버 vs 클라이언트 저장)는 미확정(O-188, 기존 O-099와 동일 패턴).
+
+- 최근 검색은 신규 테이블 없이 `search_query_logs`(§3.35)를 회원 단위로 조회하는 것으로 충분. 재구매는 `orders`/`order_items`(§3.3) 조회 후 재주문이라 데이터 모델 변경이 필요 없다(애플리케이션 기능).
+- 연관검색어는 `search_query_logs` 동시발생 분석(파생) 또는 별도 `related_search_keywords` 마스터 테이블 중 택1 — 미확정(O-189). 오타교정은 데이터 모델 불필요(애플리케이션 레벨 유사도 매칭, 정확도 임계값은 관리자 설정값 — BR-052).
+- 검색어별 전환율: `search_query_logs`에 `resulted_in_purchase`/`resulting_order_id`(신규, `referral_link_clicks.resulting_member_id`(§3.28)와 동일한 "전환 연결" 패턴) 또는 §5.25 통계 모듈에서 조인 — 미확정(O-190).
+- 추천상품은 이미 §5.21에서 "관리자 수동 큐레이션 또는 알고리즘(미확정)"으로 다뤄지고 있어 재등록하지 않는다.
+
+**`product_bundles`(신규) / `product_bundle_items`(신규)** — One+One/Bundle(번들) 묶음판매. **MLM 패키지 엔진(`packages`/§3.24.1)과 명확히 별개**다(보상플랜·페어보너스와 무관한 일반 쇼핑몰 번들). Bundle 할인과 쿠폰/회원할인의 중복 적용 규칙은 미확정(O-191).
+
+- 쿠폰/기획전/타임세일/회원할인은 이미 존재하거나 기존 Open Decision(O-099/O-113)으로 등록되어 재등록하지 않는다. 첫구매 할인/생일쿠폰은 `coupons`/`coupon_issuances`(§3.35)의 발급조건 종류 확장으로 충분 — 자동발급 트리거(Scheduler Center vs 쇼핑몰 모듈 책임)는 미확정(O-192).
+
+### 3.55 상품/사이트 SEO 및 공유 이미지 관리 ([PRD.md](PRD.md) §5.46, [DECISIONS.md](DECISIONS.md) D-069 — O-136 구체화)
+
+> 1차 Gap Analysis(D-062)에서 O-136으로 "SEO 메타필드 추가 여부"만 식별되어 있었다 — 본 절은 그 구체적 스키마를 설계한다. 최종 "신규 테이블 분리 vs 컬럼 추가" 확정은 여전히 미확정(O-193, 아래 권고안 참조).
+
+**`product_seo`**(신규, `products` 1:1) — 상품은 가격/재고/리뷰평점 등 Schema.org 특화 정보가 있어 범용 테이블과 분리 권고.
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| product_id | PK 겸 FK, `products` 1:1 |
+| seo_title / seo_description / seo_keywords | 미입력 시 자동생성(BR-053) |
+| slug | 상품 고유 URL slug |
+| canonical_url | 중복 URL 정규화 |
+| meta_robots | INDEX_FOLLOW/NOINDEX_FOLLOW 등 |
+| og_title / og_description / og_image_ref | 미입력 시 `products.thumbnail_image_ref`(§3.50) 자동 매핑 |
+| twitter_title / twitter_description / twitter_image_ref | |
+| schema_brand_override / schema_enabled | Schema.org Product 구조화데이터 — 가격/재고/리뷰평점은 **저장하지 않고 조회 시 `products.price`/`inventory_items`/`product_reviews` 실시간 조합**(원장 중복 방지). 실시간 조합 vs 캐시 컬럼은 미확정(O-194) |
+| sitemap_priority / sitemap_change_frequency | sitemap.xml 힌트(선택, 미입력 시 시스템 기본값) |
+
+- 이미지 alt text는 이미 `product_images.alt_text`(§3.50)로 존재 — 재사용(중복 컬럼 없음).
+- robots.txt는 상품 단위가 아니라 **tenant 전역 설정**(아래)을 따른다.
+
+**`tenant_settings`(§3.31.1/§3.49) 컬럼 추가** — Site 단위 SEO/공유 기본값.
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| site_title / site_description / site_keywords | |
+| default_og_image_ref / default_twitter_image_ref | 상품/페이지 SEO 미입력 시 최종 fallback |
+| apple_touch_icon_ref | favicon(`favicon_ref`, §3.49)과 별개 규격 |
+| canonical_base_url | 멀티 도메인 운영 시 정규 도메인 |
+| default_robots_txt | 사이트 전역 robots.txt — meta robots 기본값과는 별개 |
+
+- favicon/기본언어·통화·국가는 이미 `tenant_settings`(§3.31.1/§3.49)에 존재 — 재사용.
+
+**`tenant_share_images`**(신규) — 카카오톡/공유 이미지(용도별 다수, `tenant_settings` 컬럼 무한 추가 대신 1:N 테이블).
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| tenant_id | `tenants`(§3.31) 참조 |
+| share_type | `KAKAO_DEFAULT`/`MAIN_URL_DEFAULT`/`PRODUCT_DEFAULT`/`EVENT_DEFAULT`/`PROMOTION_DEFAULT`/`BRAND_DEFAULT` — `marketing_programs.category`(§3.34)처럼 자유 확장 가능한 분류값, 고정 enum 강제 아님 |
+| image_ref | File Manager(§3.39) 업로드 결과 참조 |
+| label | 관리자 식별용 메모 |
+| is_active | |
+
+- 이미지 권장 규격(OG 1200×630px, 카카오톡 1200×630 또는 800×400, 정사각 800×800)은 **DB 제약이 아니라 UI 안내 문구로만 처리**한다(BR-054) — `system_security_policies.file_upload_policy`(§3.46)의 확장자/용량 제한과는 별개 차원이며 그 정책에 규격을 추가하지 않는다.
+
+**`content_seo_metadata`**(신규, 범용 1:N) — 상품 외 페이지(쇼핑몰 메인/카테고리/브랜드관/기획전/이벤트/Lifestyle Program/공지사항/FAQ/회사소개/회원가입/로그인 등)의 SEO. File Manager(§3.39)의 `related_entity_type`/`related_entity_id` 패턴을 그대로 재사용한다(기존 패턴 재사용 원칙).
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| related_entity_type | `CMS_PAGE`/`MARKETING_PROGRAM`/`FAQ_CATEGORY` 등 |
+| related_entity_id | 대상 행 id |
+| seo_title / seo_description / og_image_ref / slug / canonical_url / meta_robots | `product_seo`와 동일 필드셋(상품 특화 Schema.org 필드 제외) |
+| is_indexable | 콘텐츠 노출(`is_active`)과 별개로 검색엔진 노출만 제어할 필요가 있는지는 미확정 — 회원가입/로그인 페이지처럼 "콘텐츠는 노출되지만 검색엔진 비노출"이 필요한 사례 존재 |
+
+- 다국어 SEO 메타데이터는 기존 `cms_translations`(§3.33)의 `field_name` 확장으로 흡수 가능 — 언어별로 SEO 키워드 전략 자체가 달라야 하는지는 미확정(O-193에 포함, 테이블 구조 확정과 함께 정리).
+- SEO Preview(Google/Naver/KakaoTalk/Facebook/X/모바일 미리보기)는 **순수 프론트엔드(web) 렌더링이며 DB 영향이 없다** — 위 컬럼 값을 읽어 화면에 렌더링만 한다.
+- sitemap.xml/robots.txt는 별도 원장 없이 위 컬럼(`is_active`/`meta_robots`/`slug`)을 조합해 **요청 시점에 동적 생성**한다(BR-054, `banners`의 노출기간 쿼리타임 필터링과 동일 패턴).
+
+### 3.56 쇼핑몰 Dashboard/관리자 운영 보강 — 데이터 연계 ([PRD.md](PRD.md) §5.45, [DECISIONS.md](DECISIONS.md) D-069)
+
+본 영역은 **신규 핵심 테이블을 거의 요구하지 않는다** — 기존 Dashboard Builder(§3.43)/Report Builder(§3.44)/Audit Center(§3.42)/Bulk Action 패턴(§3.51)을 재사용한다.
+
+| 항목 | 데이터 모델 |
+|---|---|
+| 상품/주문/결제/배송/재고 Dashboard | Dashboard Builder(§3.43) data_source에 위젯만 추가 — 기존 트랜잭션 테이블 집계, 신규 테이블 없음 |
+| 검색/SEO Dashboard, 검색어 통계, 전환율 | `search_query_logs`(§3.35) 재사용, §3.54의 전환 연결 컬럼(O-190) 확정 시 함께 위젯화 |
+| 공유 클릭 통계 | `content_click_events.click_type`(§3.35)에 `SOCIAL_SHARE` 추가 검토 — 미확정 |
+| 상품별 유입 경로(referrer) | `content_view_events`(§3.35)에 `referrer_source`(신규, nullable) 확장 검토 — `referral_link_clicks`(§3.28, MLM 추천링크 전용)와는 별개 트랙임을 명확히 한다. 미확정 |
+| 상품 승인/히스토리/운영 로그 | `audit_logs`(§3.8) + Audit Center(§3.42) 재사용 |
+| SEO 일괄수정/OG이미지 일괄업로드/alt text 일괄수정 | Bulk Action 패턴(§3.51) 재사용 — §3.55 컬럼 확정 후 그 컬럼에 대한 일괄 PATCH, 신규 계산 로직 없음 |
+| 상품 Import(파일→DB 반영) | File Manager(§3.39) 업로드 + Bulk Action 조합으로 가능해 보이나, 검증 실패 행 처리 등은 **O-126**(대량 Import/Export 도입 여부)에 종속 — 별도 Job 추적 테이블 필요 여부는 O-118과 연계해 후속 확정 |
+
+> `content_click_events`/`content_view_events`(§3.35) 컬럼 확장(공유클릭/유입경로)은 §3.54(검색/프로모션)·§3.55(SEO/공유이미지) 설계와 동일 테이블을 다루므로, 실제 컬럼명/값 도메인은 한 번에 확정한다(중복 설계 방지) — 본 절에서 통합 인지만 하고 별도 컬럼 후보를 추가하지 않는다.
 
 ## 4. 설계 원칙
 

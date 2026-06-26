@@ -3,6 +3,30 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v1.5.0] - 2026-06-26 (쇼핑몰 운영 고도화 및 SEO/공유이미지 관리 — New Feature 트랙)
+
+> 사용자 요청: "쇼핑몰 운영(상품/옵션/재고/주문/결제/배송/리뷰/고객쇼핑/검색/프로모션)과 SEO(상품별/사이트/페이지별/Preview)·카카오톡 공유이미지 관리를 상용 ERP 수준으로 보강한다." [DECISIONS.md](DECISIONS.md) D-069. Design Freeze 이후 New Feature 트랙(신규 Business Rule/Open Decision 등록 허용)으로 진행. **MLM 보상플랜·정산 계산 로직·Workflow 기존 구조·ERP Core 구조·기존 Business Rule은 변경하지 않았고, 기존 기능을 삭제하지 않았으며, Open Decision도 삭제하지 않았다.** 코드/실제 Database/실제 API는 생성하지 않음.
+
+### Added
+
+- [DATABASE.md](DATABASE.md) §3.52~§3.56(신규) — 상품/옵션(SKU 연결고리), 재고(LOT), 주문(병합/분리/부분교환), 결제(가상계좌/무통장입금/복합결제), 배송(묶음/예약/배송비정산), 리뷰/상품비교/Bundle, SEO(`product_seo`/`tenant_share_images`/`content_seo_metadata`), Dashboard 연계. 신규 테이블 18종, 기존 테이블 컬럼 확장 다수(신규 테이블보다 재사용 우선)
+- [PRD.md](PRD.md) §5.45(쇼핑몰 운영 고도화) · §5.46(상품/사이트 SEO 및 공유이미지 관리, O-136 구체화) — 8개 절 신설
+- [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) BR-045~BR-054(신규) — 쇼핑몰/CMS 운영 규칙(MLM Rule 아님). BR-053 "SEO 자동생성 시 관리자 수동 입력값 우선"이 핵심
+- [DECISIONS.md](DECISIONS.md) D-069(확정) + O-176~O-194(19건, Open Decision) — O-176(옵션조합-SKU-재고 연결모델)은 후속 보강 전체의 전제조건으로 BLOCKER에 준하는 우선순위 권고
+- [STATE-MACHINE.md](STATE-MACHINE.md) §15(상품 판매상태) · §16(반품/교환 통합 상태머신, 권장안)
+- [SITEMAP.md](SITEMAP.md) §1.12(SEO/공유 이미지 관리, 신규) + 상품관리/주문관리/배송관리 기존 절에 행 추가
+- [WIREFRAME.md](WIREFRAME.md) §2 모듈×아키타입 매핑표 — 옵션/재고고도화, 상품SEO관리, Bundle관리, 주문 병합/분리+부분교환, 배송 묶음/예약+배송비정산, SEO/공유이미지 관리(5행) 추가
+
+### Changed
+
+- [MASTER-INDEX.md](MASTER-INDEX.md) §1 — DATABASE/PRD/BUSINESS-RULE-CATALOG/SITEMAP/STATE-MACHINE/WIREFRAME/DECISIONS 7개 문서의 상태·마지막 변경 컬럼을 D-069로 갱신
+- README.md — Open Decision 범위(O-002~O-194), DATABASE 엔터티 수(135개+), 쇼핑몰 절 설명에 D-069 운영 고도화 항목 반영
+
+### 비고
+
+- 본 라운드는 "필요한 문서만 수정한다" 원칙에 따라 DATA-DICTIONARY.md/API-SPEC.md/ROLE-MATRIX.md/TEST-PLAN.md/ERD.md는 의도적으로 갱신하지 않았다 — 후속 라운드에서 일괄 반영 필요
+- O-176~O-194는 D-065 Design Freeze 분류(BLOCKER/POST v1/FUTURE) 스냅샷 이후 추가된 항목이라 아직 정식 분류되지 않았다([DECISIONS.md](DECISIONS.md) §2.3 비고 참조)
+
 ## [v1.4.0] - 2026-06-26 (마케팅 관리자 설정 예시 추가 — 신규 Business Rule 없음)
 
 > 사용자 요청: "운영자가 관리자 화면을 보고 패키지/유니레벨/제품 판매수익/페어보너스/Lifestyle Program/국가별 마케팅을 실제 어떻게 설정하는지 5분 안에 이해할 수 있도록 운영 예시를 추가한다." [DECISIONS.md](DECISIONS.md) D-068. Business Rule 변경 없음, 새 정책 없음. MLM/Database/API/쇼핑몰/Open Decision 구조 변경 없음. 코드는 생성하지 않음.

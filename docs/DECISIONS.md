@@ -1,6 +1,6 @@
 # DECISIONS.md — 의사결정 기록
 
-> 상태: Living document · 최종 수정일: 2026-06-26 (D-046~D-059 추가 — ERP Core Platform 완성 Phase 2, §5.14 종합 보고서; D-060 추가 — 상품 이미지/미디어 관리 보강; D-061 추가 — ERP UX Standard 신설; D-062 추가 — 상용 ERP 수준 Gap Analysis, [GAP-ANALYSIS.md](GAP-ANALYSIS.md) 신설; D-063 추가 — 개발 착수 준비 문서 세트 9종 신설 + Open Decision 정리, §2.1; D-064 추가 — 개발 착수 전 최종 안정화, 표준화 카탈로그 5종 + 개발 Blocker 통합 목록 §2.2; D-065 추가 — Design Freeze 선언, §2.3 Open Decision BLOCKER/POST v1/FUTURE 재분류; D-066 추가 — Development Kickoff 준비, DEVELOPMENT-KICKOFF.md/IMPLEMENTATION-GUIDE.md 신설; D-067 추가 — 마케팅 플랜 가독성 보강(Member Growth Flow/자격비교표/Worked Example); D-068 추가 — 마케팅 관리자 설정 예시 보강, WIREFRAME.md §4 신설)
+> 상태: Living document · 최종 수정일: 2026-06-26 (D-046~D-059 추가 — ERP Core Platform 완성 Phase 2, §5.14 종합 보고서; D-060 추가 — 상품 이미지/미디어 관리 보강; D-061 추가 — ERP UX Standard 신설; D-062 추가 — 상용 ERP 수준 Gap Analysis, [GAP-ANALYSIS.md](GAP-ANALYSIS.md) 신설; D-063 추가 — 개발 착수 준비 문서 세트 9종 신설 + Open Decision 정리, §2.1; D-064 추가 — 개발 착수 전 최종 안정화, 표준화 카탈로그 5종 + 개발 Blocker 통합 목록 §2.2; D-065 추가 — Design Freeze 선언, §2.3 Open Decision BLOCKER/POST v1/FUTURE 재분류; D-066 추가 — Development Kickoff 준비, DEVELOPMENT-KICKOFF.md/IMPLEMENTATION-GUIDE.md 신설; D-067 추가 — 마케팅 플랜 가독성 보강(Member Growth Flow/자격비교표/Worked Example); D-068 추가 — 마케팅 관리자 설정 예시 보강, WIREFRAME.md §4 신설; D-069 추가 — 쇼핑몰 운영 고도화 및 SEO/공유이미지 관리, DATABASE.md §3.52~3.56/PRD.md §5.45~5.46 신설, BR-045~054/O-176~194 등록)
 > 형식: 각 결정은 날짜, 결정 내용, 배경/근거, (해당 시) 대안과 기각 이유를 포함한다. 미확정 사항은 하단 "Open Decisions"에서 모아 추적한다.
 
 ## 1. 확정된 결정 (Decided)
@@ -623,6 +623,13 @@
 - **근거**: 사용자(프로젝트 오너) 요청 — "운영자가 관리자 화면을 보고 실제 어떻게 설정하는지 5분 안에 이해할 수 있도록 운영 예시를 추가한다."
 - **관련 문서**: [WIREFRAME.md](WIREFRAME.md) §4, [PRD.md](PRD.md) §5.1.4, [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §11, [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) §3
 
+### D-069. 쇼핑몰 운영 고도화 및 SEO/공유이미지 관리를 보강한다 (New Feature, Design Freeze 이후 — 기존 쇼핑몰/MLM/정산 구조 변경 없음)
+
+- **날짜**: 2026-06-26
+- **결정**: 일반 쇼핑몰/회원몰/MLM 패키지 상품몰/B2C/B2B/Global 쇼핑몰 모두를 지원하는 상용 ERP 수준의 운영 기능을 보강한다. (1) [DATABASE.md](DATABASE.md) §3.52~§3.56에 상품/옵션(SKU 연결고리 보강)/재고(LOT 포함)/주문/결제/배송/리뷰/고객쇼핑/검색/프로모션/SEO/공유이미지 운영 스키마를 신설한다 — 가능한 곳은 모두 기존 테이블 확장 또는 기존 시스템(`audit_logs`/Workflow Engine/Dashboard Builder/Bulk Action/File Manager) 재사용으로 처리했다. (2) [PRD.md](PRD.md) §5.45(쇼핑몰 운영 고도화)/§5.46(상품·사이트 SEO 및 공유이미지 관리, O-136 구체화)를 신설한다. (3) [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md)에 BR-045~BR-054(쇼핑몰·CMS 운영 규칙, MLM Rule 아님)를 신규 등록한다 — 핵심은 BR-053 "SEO 자동생성 시 관리자 수동 입력값이 항상 우선"이다. (4) Open Decision O-176~O-194(19건)를 신규 등록한다. **MLM 보상플랜·정산 계산 로직·Workflow 기존 구조·ERP Core 구조·기존 Business Rule을 변경하지 않았고, 기존 기능을 삭제하지 않았다.** 코드/Database 실제 변경/API 실제 구현은 수행하지 않았다.
+- **근거**: 사용자(프로젝트 오너) 요청 — "단순한 상품 판매 쇼핑몰이 아니라 SEO, 카카오톡 공유 이미지, 상품별 검색 노출, 운영 자동화, 주문/배송/재고 관리, 프로모션, 관리자 통계까지 포함하는 상용 ERP 수준의 쇼핑몰 운영 플랫폼으로 보강한다."
+- **관련 문서**: [DATABASE.md](DATABASE.md) §3.52~§3.56, [PRD.md](PRD.md) §5.45~§5.46, [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) BR-045~054, [DECISIONS.md](DECISIONS.md) O-176~O-194
+
 ## 2. Open Decisions (미확정 — 사업팀/법무 확정 필요)
 
 | ID | 항목 | 관련 문서 | 비고 |
@@ -798,6 +805,25 @@
 | O-173 | 서비스 상태 페이지(공개 또는 내부) 및 장애 공지(Incident Communication) 메커니즘 도입 여부 | ARCHITECTURE.md §6 | D-063 신규(개발준비도 점검) |
 | O-174 | CMS 다국어 운영에 용어집(Glossary)/번역 메모리 관리 기능을 도입할지 | DATABASE.md §3.33, PRD.md §5.19.7 | D-063 신규(개발준비도 점검) |
 | O-175 | Report Builder(§5.37) 예약 생성 기능을 활용해 경영진/Compliance Admin 대상 정기 컴플라이언스 요약 리포트를 표준 산출물로 별도 정의할지 | PRD.md §5.7/§5.37, ARCHITECTURE.md §8.1 | D-063 신규(개발준비도 점검) |
+| O-176 | 상품 옵션조합-SKU-재고 연결모델 확정 — `product_id` 기준 합산 vs `product_option_combination_id`(SKU) 기준 분리, B/C 보강 전체의 전제조건 | DATABASE.md §3.52 | D-069 신규(쇼핑몰 운영 고도화) |
+| O-177 | LOT(로트) 관리 도입 여부 및 적용 범위(유통기한 상품 카테고리 한정 vs 전체) | DATABASE.md §3.53 | D-069 신규 |
+| O-178 | 입고예정(발주) 관리를 단순 예정수량 표시로 둘지, 공급처/발주서 단위 `purchase_orders` 별도 관리로 확장할지 | DATABASE.md §3.53 | D-069 신규 |
+| O-179 | 주문 병합/분리 허용 범위 및 매출·재고 정합성 처리 방식 | DATABASE.md §3.53 | D-069 신규 |
+| O-180 | 부분교환 데이터모델을 반품 상태머신(O-129)에 통합할지 별도 분리할지 | DATABASE.md §3.53, O-129 연계 | D-069 신규 |
+| O-181 | 가상계좌/무통장입금 도입 여부 및 입금 매칭(자동/수동) 방식 | DATABASE.md §3.53 | D-069 신규 |
+| O-182 | 복합결제(포인트+카드 등) 허용 여부, 부분실패 시 처리 정책, 포인트 결제수단화와 기존 §5.23 적립/사용 승인 절차의 관계 | DATABASE.md §3.53 | D-069 신규 |
+| O-183 | 묶음배송/예약배송/배송사변경의 데이터모델 확정 및 분할배송(O-133)과의 경계 정리 | DATABASE.md §3.53, O-133 연계 | D-069 신규 |
+| O-184 | 배송비 정산(실행/내역) 도입 여부 및 실행 주기 | DATABASE.md §3.53 | D-069 신규 |
+| O-185 | 옵션별 할인과 상품 차원 타임세일(가격정책 후속확정, §5.21)의 정책 통합 필요 여부 | DATABASE.md §3.52 | D-069 신규 |
+| O-186 | 리뷰 관리자 답변을 컬럼(1:1)로 둘지 별도 스레드 테이블로 둘지 | DATABASE.md §3.54 | D-069 신규 |
+| O-187 | 베스트 리뷰 선정 기준 — 관리자 수동 선정 vs 평점/추천수 기반 자동 선정 | DATABASE.md §3.54 | D-069 신규 |
+| O-188 | 상품 비교(`product_comparisons`)의 비회원 처리 — 서버 저장 vs 클라이언트 저장(O-099와 동일 패턴) | DATABASE.md §3.54, O-099 연계 | D-069 신규 |
+| O-189 | 연관검색어 산출 방식 — 동시발생 통계 기반 파생 vs 별도 마스터 테이블(관리자 수동 매핑) | DATABASE.md §3.54 | D-069 신규 |
+| O-190 | 검색어별 전환율 연결 컬럼을 `search_query_logs` 확장으로 둘지, `content_click_events` 조인으로 충분한지 | DATABASE.md §3.54, §5.25 연계 | D-069 신규 |
+| O-191 | Bundle(One+One) 할인과 쿠폰/회원할인의 중복 적용 우선순위 및 동시 적용 허용 여부 | DATABASE.md §3.54 | D-069 신규 |
+| O-192 | 첫구매/생일쿠폰 자동발급 트리거 시점과 책임 모듈(Scheduler Center vs 쇼핑몰 모듈), O-099 쿠폰 정책 확정 범위 포함 여부 | DATABASE.md §3.54, O-099 연계 | D-069 신규 |
+| O-193 | `product_seo`/`content_seo_metadata` 신규 테이블 분리 vs 각 콘텐츠 테이블 컬럼 직접 추가 최종 확정(O-136 구체화), 다국어 SEO 메타데이터의 `cms_translations` 흡수 여부 | DATABASE.md §3.55, O-136 연계 | D-069 신규 |
+| O-194 | Schema.org Product의 가격/재고/리뷰평점을 실시간 조합 vs 캐시 컬럼으로 생성할지, 공유이미지 종류(`tenant_share_images.share_type`)를 자유확장 vs 고정 6종으로 제한할지, 공유클릭(`content_click_events.click_type`)·유입경로(`content_view_events.referrer_source`) 컬럼 확장 여부 | DATABASE.md §3.55/§3.56 | D-069 신규 |
 
 ### 2.1 Open Decision 우선순위 분류 및 정리 (2026-06-25 정리, D-063)
 
@@ -854,6 +880,8 @@ O-053(CN, D-023으로 우선순위 하향 유지), O-113(회원할인 기준만 
 
 **Design Freeze 선언에 따라, Open Decision 162건(활성 항목 전체 — §2 표 171행 중 이미 해소·병합되어 취소선 처리된 9건은 제외) 전체를 [RELEASE-ROADMAP.md](RELEASE-ROADMAP.md)의 v1.0/v1.1/v2.0 범위 기준으로 3개 그룹으로 재분류한다. 항목을 삭제하거나 번호를 바꾸지 않는다 — §2의 원본 표는 그대로 유지되며, 본 절은 그 위에 덧붙이는 분류 레이어다.**
 
+> **2026-06-26 추가(D-069)**: Design Freeze 이후 New Feature 트랙(쇼핑몰 운영 고도화)에서 신규 등록된 O-176~O-194(19건)는 본 분류 작업의 스냅샷 시점(D-065) 이후 추가된 항목이라 아래 BLOCKER/POST v1/FUTURE에 아직 포함되지 않았다 — v1.0 범위(§5.45/§5.46) 안의 항목이므로 잠정적으로 **POST v1**(O-176 제외)로 간주해도 무방하나, **O-176(옵션조합-SKU-재고 연결모델)은 B/C 보강 전체의 전제조건이라 BLOCKER에 준하는 우선순위**로 취급할 것을 권고한다. 정식 분류는 별도 라운드에서 일괄 정리한다.
+
 분류 기준:
 - **BLOCKER**: 코드를 작성하기 전에 결정하지 않으면 v1.0 해당 모듈 자체를 시작할 수 없는 항목. (= §2.2 Tier 1 + Tier 2, 15건)
 - **POST v1**: v1.0 모듈 안에 있고 출시 전에는 확정해야 하지만, 이미 임시 기본값/현재 동작이 있어 그 결정을 기다리지 않고도 구현에 착수할 수 있는 항목. (별도 명시가 없는 나머지 대다수)
@@ -891,7 +919,7 @@ O-022, O-028, O-042, O-066, O-127, O-128, O-129, O-136, O-137, O-144, O-148, O-1
 
 설계 단계를 마무리하기 위해 다음 순서로 결정하는 것을 권고한다:
 
-**Phase 1(KR) 설계는 D-001~D-068로 이어지고 Design Freeze(D-065)로 공식 종료되었으며, D-066으로 개발 착수 준비까지 완료되었다. D-067/D-068은 Design Freeze 이후의 순수 가독성 보강(Business Rule 변경 없음)이다 (§5.7/§5.9/§5.10/§5.11/§5.12/§5.13/§5.14 참조, [DESIGN-FREEZE.md](DESIGN-FREEZE.md)/[DEVELOPMENT-KICKOFF.md](DEVELOPMENT-KICKOFF.md) 참조).** O-024(추천인 변경 법률위험)는 D-020으로, **CN 관련 리스크(O-053)는 D-023(Reserved 전환)으로 우선순위가 낮아졌고, O-060(패키지 수치 확정 여부)은 D-024로, O-072(페어보너스 큐 재정렬)는 D-026으로, O-009의 "주정산 마감요일" 부분은 D-029로, O-007/O-008/O-083/O-084(직급/PV 관련)는 D-030으로 해소**되었다. 2026-06-24 마케팅 플랜 검증/리스크 최소화/자격 정정/정합성 전면 점검 라운드에서 O-076~O-085가 신규 식별되었고, D-027(35% 모니터링 엔진)·D-028(자격 분리·명칭 정정)·D-029(정산 주기 정정)·D-030(직급/PV 폐기 실행)이 추가되었다. 같은 날 후속 "마케팅 플랜 재정의" 라운드에서 **D-031(잔여 정합성 정리·쇼핑몰 구조 신설)·D-032(`plan_definition` 관리자 설정화 스키마 확정)**이 추가되고 O-086/O-087이 신규 식별되었다(§5.11). 이어서 "쇼핑몰 및 패키지 엔진 구조 재설계" 라운드에서 **D-033(패키지 엔진 일반화 — 무제한 패키지+정책)·D-034(쇼핑몰/회원몰 재정의)·D-035(Multi-Tenant 구조 준비)**가 추가되고 O-088~O-090이 신규 식별되었다(§5.12). 후속 "Lifestyle Program 쇼핑몰 노출 구조" 라운드에서 **D-036**이 추가되고 O-091~O-094가 신규 식별되었다. 이어서 "ERP 플랫폼 완성도 보강(Phase 1, 95%→99%)" 라운드에서 **D-037(ERP 모듈 구조)~D-045(관리자 설정 일원화 점검)** 9개가 추가되고 O-095~O-104가 신규 식별되었다(§5.13). 후속 "ERP Core Platform 완성(Phase 2)" 라운드에서 **D-046(ERP Core 신설)~D-059(Multi-Tenant 보강 Phase 2)** 14개가 추가되고 O-105~O-114가 신규 식별되었다(§5.14). 이어서 "상품 이미지 관리 보강" 라운드에서 **D-060**이 추가되고 O-115/O-116이 신규 식별되었다. 후속 "ERP UX Standard" 라운드에서 **D-061**이 추가되고 O-117~O-120이 신규 식별되었다. 이어서 "상용 ERP 수준 Gap Analysis" 라운드에서 **D-062**가 추가되고 5개 영역(회원/CRM/Multi-Tenant, 쇼핑몰/주문/배송/재고, CMS/Marketing/Notification/BI, ERP Core 운영+개발산출물, MLM/정산/법무 운영+성능/UX) 점검 결과 O-121~O-169(49건)가 신규 식별되었다 — 상세는 [GAP-ANALYSIS.md](GAP-ANALYSIS.md) 참조. 후속 "개발 착수 준비(Documentation Phase)" 라운드에서 **D-063**이 추가되어 SITEMAP/ROLE-MATRIX/ERD/API-SPEC/WIREFRAME/DESIGN-SYSTEM/UI-GUIDELINE/CODING-STANDARD/TEST-PLAN/DEPLOYMENT/MASTER-INDEX 11개 신규 문서가 생성되고, O-170~O-175(6건)가 신규 식별되었으며 Open Decision 전체에 대한 해소(O-062)·병합(O-009→O-010, O-113 일부→O-098, O-121→O-028)·우선순위 분류(§2.1)가 적용되었다. 이어서 "개발 착수 전 최종 안정화(Pre-Development Stabilization)" 라운드에서 **D-064**가 추가되어 BUSINESS-RULE-CATALOG/EVENT-CATALOG/ERROR-CODE/STATE-MACHINE/DATA-DICTIONARY 5개 표준화 카탈로그가 생성되고, 개발 Blocker 17건이 단일 목록(§2.2)으로 통합되었으며, API-SPEC.md/TEST-PLAN.md가 보강되었다 — 신규 기능/Open Decision은 추가되지 않았다(점검 결과 심각한 문서 중복 없음 확인). 이어서 "Design Freeze" 라운드에서 **D-065**가 추가되어 설계 단계가 공식 종료되고 Open Decision 162건(활성)이 BLOCKER(15)/POST v1(129)/FUTURE(18)로 재분류되었다(§2.3). 후속 "Development Kickoff" 라운드에서 **D-066**이 추가되어 DEVELOPMENT-KICKOFF.md/IMPLEMENTATION-GUIDE.md가 생성되었다. 이어서 "마케팅 플랜 가독성 보강" 라운드에서 **D-067**이, "마케팅 관리자 설정 예시" 라운드에서 **D-068**이 추가되었다 — 둘 다 신규 Business Rule/Open Decision/MLM·정산·쇼핑몰·Database·API 구조 변경 없이 기존 설계를 시각화·예시화한 순수 가독성 보강이다.
+**Phase 1(KR) 설계는 D-001~D-069로 이어지고 Design Freeze(D-065)로 공식 종료되었으며, D-066으로 개발 착수 준비까지 완료되었다. D-067/D-068은 Design Freeze 이후의 순수 가독성 보강(Business Rule 변경 없음)이다 (§5.7/§5.9/§5.10/§5.11/§5.12/§5.13/§5.14 참조, [DESIGN-FREEZE.md](DESIGN-FREEZE.md)/[DEVELOPMENT-KICKOFF.md](DEVELOPMENT-KICKOFF.md) 참조).** O-024(추천인 변경 법률위험)는 D-020으로, **CN 관련 리스크(O-053)는 D-023(Reserved 전환)으로 우선순위가 낮아졌고, O-060(패키지 수치 확정 여부)은 D-024로, O-072(페어보너스 큐 재정렬)는 D-026으로, O-009의 "주정산 마감요일" 부분은 D-029로, O-007/O-008/O-083/O-084(직급/PV 관련)는 D-030으로 해소**되었다. 2026-06-24 마케팅 플랜 검증/리스크 최소화/자격 정정/정합성 전면 점검 라운드에서 O-076~O-085가 신규 식별되었고, D-027(35% 모니터링 엔진)·D-028(자격 분리·명칭 정정)·D-029(정산 주기 정정)·D-030(직급/PV 폐기 실행)이 추가되었다. 같은 날 후속 "마케팅 플랜 재정의" 라운드에서 **D-031(잔여 정합성 정리·쇼핑몰 구조 신설)·D-032(`plan_definition` 관리자 설정화 스키마 확정)**이 추가되고 O-086/O-087이 신규 식별되었다(§5.11). 이어서 "쇼핑몰 및 패키지 엔진 구조 재설계" 라운드에서 **D-033(패키지 엔진 일반화 — 무제한 패키지+정책)·D-034(쇼핑몰/회원몰 재정의)·D-035(Multi-Tenant 구조 준비)**가 추가되고 O-088~O-090이 신규 식별되었다(§5.12). 후속 "Lifestyle Program 쇼핑몰 노출 구조" 라운드에서 **D-036**이 추가되고 O-091~O-094가 신규 식별되었다. 이어서 "ERP 플랫폼 완성도 보강(Phase 1, 95%→99%)" 라운드에서 **D-037(ERP 모듈 구조)~D-045(관리자 설정 일원화 점검)** 9개가 추가되고 O-095~O-104가 신규 식별되었다(§5.13). 후속 "ERP Core Platform 완성(Phase 2)" 라운드에서 **D-046(ERP Core 신설)~D-059(Multi-Tenant 보강 Phase 2)** 14개가 추가되고 O-105~O-114가 신규 식별되었다(§5.14). 이어서 "상품 이미지 관리 보강" 라운드에서 **D-060**이 추가되고 O-115/O-116이 신규 식별되었다. 후속 "ERP UX Standard" 라운드에서 **D-061**이 추가되고 O-117~O-120이 신규 식별되었다. 이어서 "상용 ERP 수준 Gap Analysis" 라운드에서 **D-062**가 추가되고 5개 영역(회원/CRM/Multi-Tenant, 쇼핑몰/주문/배송/재고, CMS/Marketing/Notification/BI, ERP Core 운영+개발산출물, MLM/정산/법무 운영+성능/UX) 점검 결과 O-121~O-169(49건)가 신규 식별되었다 — 상세는 [GAP-ANALYSIS.md](GAP-ANALYSIS.md) 참조. 후속 "개발 착수 준비(Documentation Phase)" 라운드에서 **D-063**이 추가되어 SITEMAP/ROLE-MATRIX/ERD/API-SPEC/WIREFRAME/DESIGN-SYSTEM/UI-GUIDELINE/CODING-STANDARD/TEST-PLAN/DEPLOYMENT/MASTER-INDEX 11개 신규 문서가 생성되고, O-170~O-175(6건)가 신규 식별되었으며 Open Decision 전체에 대한 해소(O-062)·병합(O-009→O-010, O-113 일부→O-098, O-121→O-028)·우선순위 분류(§2.1)가 적용되었다. 이어서 "개발 착수 전 최종 안정화(Pre-Development Stabilization)" 라운드에서 **D-064**가 추가되어 BUSINESS-RULE-CATALOG/EVENT-CATALOG/ERROR-CODE/STATE-MACHINE/DATA-DICTIONARY 5개 표준화 카탈로그가 생성되고, 개발 Blocker 17건이 단일 목록(§2.2)으로 통합되었으며, API-SPEC.md/TEST-PLAN.md가 보강되었다 — 신규 기능/Open Decision은 추가되지 않았다(점검 결과 심각한 문서 중복 없음 확인). 이어서 "Design Freeze" 라운드에서 **D-065**가 추가되어 설계 단계가 공식 종료되고 Open Decision 162건(활성)이 BLOCKER(15)/POST v1(129)/FUTURE(18)로 재분류되었다(§2.3). 후속 "Development Kickoff" 라운드에서 **D-066**이 추가되어 DEVELOPMENT-KICKOFF.md/IMPLEMENTATION-GUIDE.md가 생성되었다. 이어서 "마케팅 플랜 가독성 보강" 라운드에서 **D-067**이, "마케팅 관리자 설정 예시" 라운드에서 **D-068**이 추가되었다 — 둘 다 신규 Business Rule/Open Decision/MLM·정산·쇼핑몰·Database·API 구조 변경 없이 기존 설계를 시각화·예시화한 순수 가독성 보강이다. 후속 "쇼핑몰 운영 고도화 및 SEO/공유이미지 관리" 라운드(New Feature 트랙)에서 **D-069**가 추가되어 상품/옵션/재고/주문/결제/배송/리뷰/검색/프로모션/SEO 운영 스키마([DATABASE.md](DATABASE.md) §3.52~§3.56)와 BR-045~054, O-176~O-194(19건)가 신규 등록되었다 — 기존 쇼핑몰/MLM/정산 구조는 변경하지 않았다.
 
 ### 3.1 마케팅 플랜/보상엔진 — 개발착수 전 필수 우선순위 (2026-06-24 재정렬)
 

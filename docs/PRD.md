@@ -1,6 +1,6 @@
 # PRD.md — Product Requirements Document
 
-> 상태: Draft v0.25 (D-068 — 가독성 보강: §5.1.4에 [WIREFRAME.md](WIREFRAME.md) §4 운영 설정 예시 교차참조 추가, 신규 필드/화면 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.26 (D-069 — 쇼핑몰 운영 고도화 및 SEO/공유이미지 관리: §5.45~§5.46 신규. 기존 쇼핑몰/MLM/정산 구조 변경 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md)
 
 ## 1. 제품 비전
@@ -1261,6 +1261,88 @@ ERP 전체(관리자 Admin Console/회원 Partner Portal/쇼핑몰/CMS/ERP Core)
 - 적용 화면: 회원관리/상품관리/카테고리관리/패키지관리/주문관리/배송관리/반품관리/정산관리/수당관리/CMS/Marketing Program/Workflow/API Center/Scheduler/Dashboard/Report Builder/Form Builder/System Settings 등 ERP 전체 관리자 화면, 그리고 회원(Partner Portal)·쇼핑몰 화면.
 - **원칙**: 동일 UX·동일 Button·동일 Dialog·동일 Toast·동일 Loading·동일 Confirm 정책을 사용한다. 화면마다 다른 UX를 만들지 않는다 — 화면별 변형이 필요하면 본 표준 자체를 갱신하고 [DECISIONS.md](DECISIONS.md)에 기록한 뒤 전체에 반영한다.
 - 데이터 모델 영향은 [DATABASE.md](DATABASE.md) §3.51, 프론트엔드(web) 배치는 [ARCHITECTURE.md](ARCHITECTURE.md) §2.1.1, AI 작업지시서 적용 원칙은 [TASK-SPEC.md](TASK-SPEC.md) §6 참조.
+
+### 5.45 쇼핑몰 운영 고도화 (New Feature — [DECISIONS.md](DECISIONS.md) D-069, Design Freeze 이후 보강)
+
+> 일반 쇼핑몰/회원몰/MLM 패키지 상품몰/B2C/B2B/Global 쇼핑몰 모두를 지원하는 상용 수준의 운영 기능 보강이다. **기존 쇼핑몰 구조(§5.1.3)·MLM 패키지 엔진(§5.1.4)·정산은 변경하지 않는다.** 데이터 모델은 [DATABASE.md](DATABASE.md) §3.52~§3.54 참조.
+
+#### 5.45.1 상품/옵션 운영
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| 상품 복사 | 신규(애플리케이션 기능) | DB 변경 없음 — 행 복제 |
+| 상품 일괄 등록/수정/삭제, Import/Export(CSV/Excel) | 기존 Open Decision 종속 | **O-126** 참조, 재등록 없음 |
+| 예약 공개/종료, 판매중지, 노출순위, 진열순서, 검색순위, 판매기간 | **신규** | `products.publish_start_at/end_at`/`sales_status`/`display_order`/`search_boost_score`(§3.52) |
+| 판매상태(상태머신) | **신규** | 자동전이 규칙 BR-045 |
+| 상품 승인 | 재사용 | Workflow Engine(§5.30) 재사용 — 신규 전용 구조 아님 |
+| 변경이력 | 재사용 | `audit_logs`(§3.8) |
+| 옵션별 SKU/재고/바코드/이미지/가격/할인/판매중지/배송비 | **신규** | `product_option_combinations`/`product_images` 컬럼 확장(§3.52). 옵션-재고 연결모델 확정은 미확정(O-176) |
+
+#### 5.45.2 재고/주문/결제/배송 운영
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| 재고 Hold/안전재고/백오더 | 기존 Open Decision 종속 | O-127/O-134/O-130 참조 |
+| 입고예정/재고조정/재고이력/창고간이동 | **신규**(변동유형 확장) | `inventory_ledger`(§3.53) 신규 변동유형, 신규 테이블 아님 |
+| LOT/유통기한 | **신규**(도입여부 미확정) | `inventory_lots`(§3.53), O-177, FEFO 규칙 BR-048 |
+| 주문 메모/CS메모/송장변경/병합/분리 | **신규** | `order_admin_notes`/`shipment_change_logs`/`order_merge_logs`/`order_split_logs`(§3.53) |
+| 부분배송/부분취소/부분환불/부분반품 | 기존 Open Decision 종속 | O-133/O-135/O-129 참조 |
+| 부분교환 | **신규** | `exchange_requests`/`exchange_items`(§3.53), O-129와 통합 여부 O-180 |
+| PG실패/재결제/가상계좌/무통장입금/복합결제/결제로그 | **신규**(일부 도입여부 미확정) | `order_payment_attempts`/`virtual_account_issuances`/`bank_transfer_payments`/`order_payment_splits`(§3.53), O-181/O-182 |
+| 정기배송 자동결제 실패/재시도 | 기존 Open Decision 종속 | O-086 참조 |
+| 포인트 결제 | **확장** | `point_transactions.transaction_type`(§3.36)에 값 추가 |
+| 묶음배송/예약배송/출고보류/배송사변경/송장일괄업로드 | **신규**(일부 미확정) | `shipments` 컬럼 확장(§3.53), O-183, 일괄업로드는 O-126 종속 |
+| 배송비 정산 | **신규**(도입여부 미확정) | `shipping_fee_settlements`(§3.53), O-184, 스냅샷 규칙 BR-051 |
+
+#### 5.45.3 리뷰/고객쇼핑/검색/프로모션
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| 리뷰 이미지 | 재사용 | `product_reviews.image_refs`(기존) |
+| 리뷰 동영상/신고/답변/베스트리뷰/포인트 | **신규**(일부 세부 미확정) | `product_reviews` 컬럼 확장(§3.54), 답변구조 O-186, 베스트선정기준 O-187, 포인트는 `source_type` 확장(재사용) |
+| 최근 본 상품/관심상품 | 재사용 | `recently_viewed_products`/`product_wishlists`(기존) |
+| 상품 비교 | **신규** | `product_comparisons`(§3.54), 비회원 처리 O-188 |
+| 최근 검색/재구매 | 재사용 | `search_query_logs` 조회, `orders` 재주문 — DB 변경 없음 |
+| 추천상품 | 기존 Open Decision 종속 | §5.21 "알고리즘 미확정" 그대로 |
+| 자동완성/오타교정 | 재사용/애플리케이션 레벨 | DB 변경 없음, 오타교정 유사도 매칭은 BR-052 |
+| 인기검색어/검색로그 | 재사용 | 기존(§5.21/§3.35) |
+| 연관검색어/검색어별 전환율 | **신규**(미확정) | O-189/O-190 |
+| 검색결과 노출순위 | 재사용 | §5.45.1의 `search_boost_score` 활용 |
+| 쿠폰/기획전/타임세일/회원할인 | 기존/기존 Open Decision 종속 | O-099/O-113, §5.21 "가격정책 후속확정" 그대로 |
+| One+One/Bundle(번들) | **신규** | `product_bundles`/`product_bundle_items`(§3.54) — **MLM 패키지 엔진과 무관** |
+| 첫구매 할인/생일쿠폰 | **확장** | `coupons` 발급조건 확장(재사용), 자동발급 책임모듈 O-192 |
+
+#### 5.45.4 쇼핑몰 Dashboard/관리자 운영
+
+대부분 **재사용** — Dashboard Builder(§5.36)/Report Builder(§5.37)/Audit Center(§5.35)/Bulk Action(§5.44.6) 패턴을 그대로 사용하며 신규 핵심 테이블을 요구하지 않는다. 공유 클릭 통계·상품별 유입경로는 `content_click_events`/`content_view_events`(§3.35) 컬럼 확장 검토(미확정, §3.56 참조). 상품 Import는 O-126에 종속.
+
+### 5.46 상품/사이트 SEO 및 공유 이미지 관리 (New Feature — [DECISIONS.md](DECISIONS.md) D-069, O-136 구체화)
+
+> 네이버/구글 등 검색엔진 노출과 카카오톡/SNS 공유 시 노출되는 대표 이미지·문구를 관리자가 설정할 수 있도록 한다. 데이터 모델은 [DATABASE.md](DATABASE.md) §3.55 참조.
+
+#### 5.46.1 상품별 SEO
+
+SEO Title/Description/Keywords/Slug/Canonical URL/Meta Robots/OG Title·Description·Image/Twitter Card Title·Description·Image/Schema.org Product(가격·재고상태·브랜드·리뷰평점은 실시간 조합, 저장 안 함)/이미지 alt text(이미 `product_images.alt_text`로 존재)/sitemap.xml 자동반영/robots.txt 연동 — `product_seo`(§3.55, 신규 1:1 테이블).
+
+**자동 생성 규칙(BR-053)**: 관리자가 직접 입력하지 않으면 상품명→SEO Title, 요약설명→SEO Description, 대표이미지→OG Image, 브랜드명→Schema Brand, 가격→Schema Offer, 재고→Availability를 자동 매핑한다. **관리자가 직접 수정하면 수동 입력값이 항상 우선**한다.
+
+#### 5.46.2 쇼핑몰 메인 SEO / 공유 이미지 관리
+
+Site Title/Description/Keywords, Default Meta/OG/Twitter Card Image, Favicon(기존)/Apple Touch Icon, Canonical Base URL, Default Robots, Default Language/Country/Currency(기존) — `tenant_settings` 컬럼 확장(§3.55).
+
+카카오톡 공유 대표이미지/메인주소 공유이미지/상품공유 기본이미지/이벤트공유이미지/프로모션공유이미지/브랜드공유이미지는 관리자가 File Manager(§5.32)를 통해 직접 업로드한다 — `tenant_share_images`(§3.55, 신규).
+
+**이미지 권장 규격(안내 문구, DB 강제 아님 — BR-054)**: OG Image 권장 1200×630px / 카카오톡 공유 이미지 권장 1200×630px 또는 800×400px / 정사각 썸네일 보조 800×800px.
+
+#### 5.46.3 페이지별 SEO
+
+쇼핑몰 메인/상품 카테고리/브랜드관/기획전/이벤트/Lifestyle Program/공지사항/FAQ/회사소개/브랜드소개/회원가입/로그인 등 페이지에 Meta Title/Description/OG Image/Slug/Canonical URL/노출 여부/robots 설정 — `content_seo_metadata`(§3.55, 신규 범용 테이블, File Manager의 `related_entity_type`/`related_entity_id` 패턴 재사용).
+
+#### 5.46.4 SEO Preview 기능
+
+Google 검색결과 미리보기, Naver 검색결과 미리보기, KakaoTalk 공유 미리보기, Facebook 공유 미리보기, X/Twitter Card 미리보기, 모바일 미리보기 — **순수 프론트엔드(web) 렌더링 기능이며 DB 영향이 없다.** §5.46.1~5.46.3에서 입력(또는 자동생성)된 값을 각 플랫폼 레이아웃으로 실시간 렌더링한다.
+
+- 본 절 전체의 신규 Open Decision은 [DECISIONS.md](DECISIONS.md) §2의 O-176~O-194(§5.45/§5.46 관련) 참조. **신규 Business Rule(BR-045~BR-054)은 모두 쇼핑몰/CMS 운영 규칙이며 MLM Rule이 아니다** — [BUSINESS-RULE-CATALOG.md](BUSINESS-RULE-CATALOG.md) §1 참조.
 
 ## 6. 비기능 요구사항
 

@@ -1,6 +1,6 @@
 # BUSINESS-RULE-CATALOG.md — Business Rule Catalog
 
-> 상태: v0.3 (D-068 — 가독성 보강: [WIREFRAME.md](WIREFRAME.md) §4.9 화면단위 BR 연결로 교차참조 추가, 신규 BR 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.4 (D-069 — 쇼핑몰 운영 고도화/SEO 보강: BR-045~BR-054 신규 추가, 모두 쇼핑몰·CMS 운영 규칙이며 MLM Rule 아님) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 목적: PRD/DATABASE/COMPENSATION/SETTLEMENT/LEGAL/DECISIONS에 흩어진 Business Rule을 한곳에서 찾을 수 있게 정리한다. 본 문서는 새 정책을 만들지 않고, 기존 문서의 위치와 상태만 색인한다.
 
 ## 0. 작성 원칙
@@ -57,6 +57,16 @@
 | BR-042 | Multi-Tenant 구조 준비, 활성화 보류 | 확정 | [DECISIONS.md](DECISIONS.md) D-035/D-044/D-059 | [DATABASE.md](DATABASE.md) §3.31/§3.31.1 |
 | BR-043 | CountryAdmin 국가 스코프 | 확정 구조, 세부 액션 미확정 | [PRD.md](PRD.md) §5.6.4, [ARCHITECTURE.md](ARCHITECTURE.md) §4 | [ROLE-MATRIX.md](ROLE-MATRIX.md) |
 | BR-044 | Promotion/Rank/PV 체계 폐기 | 확정 폐기 | [PROMOTION-RULES.md](PROMOTION-RULES.md), [DECISIONS.md](DECISIONS.md) D-030 | [DATABASE.md](DATABASE.md) §3.2/§3.4 |
+| BR-045 | 상품 판매상태(sales_status) 자동전이 규칙 | 신규(쇼핑몰 운영, MLM Rule 아님) | [DECISIONS.md](DECISIONS.md) D-069 | [DATABASE.md](DATABASE.md) §3.52, [PRD.md](PRD.md) §5.45.1 |
+| BR-046 | 옵션별 품절 시 상품 노출 유지·해당 옵션만 선택 불가 처리 | 신규 | [DECISIONS.md](DECISIONS.md) D-069 | [DATABASE.md](DATABASE.md) §3.52 |
+| BR-047 | 창고간 이동(`TRANSFER_OUT`/`TRANSFER_IN`) 쌍 일관성 — 두 행 수량 항상 일치, 한쪽만 생성 금지 | 신규 | [DECISIONS.md](DECISIONS.md) D-069 | [DATABASE.md](DATABASE.md) §3.53 |
+| BR-048 | LOT 우선 출고(FEFO) — 유통기한이 짧은 LOT을 먼저 출고 | 신규, LOT 도입 자체는 미확정(O-177) | [DECISIONS.md](DECISIONS.md) D-069 | [DATABASE.md](DATABASE.md) §3.53 |
+| BR-049 | 주문 병합/분리 시 매출 합계 일치(append-only 로그) | 신규 | [DECISIONS.md](DECISIONS.md) D-069 | [DATABASE.md](DATABASE.md) §3.53 |
+| BR-050 | 부분교환은 반품 입고 확인과 신규 출고를 단일 트랜잭션으로 묶어 재고 정합성 보장 | 신규 | [DECISIONS.md](DECISIONS.md) D-069 | [DATABASE.md](DATABASE.md) §3.53 |
+| BR-051 | 배송비 정산은 정산 시점의 정책 버전을 스냅샷으로 고정 — 사후 정책변경이 과거 정산에 영향 없음 | 신규, 도입 자체는 미확정(O-184) | [DECISIONS.md](DECISIONS.md) D-069 | [DATABASE.md](DATABASE.md) §3.53 |
+| BR-052 | 검색어 오타교정은 유사도 매칭, 정확도 임계값은 관리자 설정값(하드코딩 금지 원칙 적용) | 신규 | [DECISIONS.md](DECISIONS.md) D-069 | [DATABASE.md](DATABASE.md) §3.54, [PRD.md](PRD.md) §5.45.3 |
+| BR-053 | **SEO 필드 자동생성 우선순위** — 상품명→SEO Title, 요약설명→Description, 대표이미지→OG Image, 브랜드→Schema Brand, 가격→Offer, 재고→Availability 자동 매핑하되 **관리자 수동 입력값이 항상 우선** | 신규(핵심) | [DECISIONS.md](DECISIONS.md) D-069 | [DATABASE.md](DATABASE.md) §3.55, [PRD.md](PRD.md) §5.46.1 |
+| BR-054 | SEO 이미지 권장 규격은 DB 제약이 아니라 UI 안내 문구로만 처리. sitemap.xml/robots.txt는 별도 원장 없이 요청 시점 동적 생성(쿼리타임 파생) | 신규 | [DECISIONS.md](DECISIONS.md) D-069 | [DATABASE.md](DATABASE.md) §3.55 |
 
 ## 2. Open/Mixed 상태 Rule 추적
 
