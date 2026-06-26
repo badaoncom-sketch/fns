@@ -1,6 +1,6 @@
 # DATABASE.md — 데이터 모델
 
-> 상태: Draft v0.27 (D-074 — Dynamic Board Engine: §3.58 신규(`boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5종 — 게시판 유형마다 테이블을 만들지 않고 공통 구조+`board_type`+`metadata`(JSON)로 수용. 첨부/이미지/SEO/다국어/조회수는 기존 File Manager/`content_seo_metadata`/`cms_translations`/`content_view_events` 재사용). **기존 CMS(`cms_pages`/FAQ/팝업/배너) 변경 없음.** D-072 — §3.57 신규(`carts`/`cart_items`/`product_price_alerts` 신규 테이블 2종 + 배송추적/알림템플릿 컬럼 명료화). MLM/정산/Workflow/ERP Core 기존 구조 변경 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.28 (D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §3.59(공제조합 연동 보강, `compliance_member_registrations`/`compliance_transmission_items` 신규)/§3.60(E-Wallet, `member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests` 신규 — append-only Ledger)/§3.61(글로벌 결제, `payment_webhook_events` 신규 + `external_api_connections.country_code` 컬럼 추가). **전부 Tenant별 선택 기능**, MLM 보상플랜·정산 계산 로직·기존 Business Rule·ERP Core 구조 변경 없음. D-074 — Dynamic Board Engine: §3.58 신규(`boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5종). 기존 CMS 변경 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [COMPENSATION-RULES.md](COMPENSATION-RULES.md), [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md)
 > 본 문서는 테이블 구조의 **개념 설계**이며, 실제 마이그레이션 파일/스키마는 구현 단계에서 작성한다. 코드/마이그레이션은 생성하지 않는다.
 
@@ -1602,6 +1602,109 @@
 
 - **권한(§5.67.7)은 신규 테이블이 필요 없다** — [ROLE-MATRIX.md](ROLE-MATRIX.md)의 기존 역할 체계(7역할×11액션)를 게시판 모듈에 그대로 적용한다.
 - **기존 5개 CMS 콘텐츠(공지사항/FAQ/팝업/배너)를 Board Engine으로 마이그레이션할지 여부는 본 라운드에서 결정하지 않는다** — "기존 CMS를 변경하지 않는다"는 본 라운드 원칙에 따라 현재 구조를 그대로 유지하며, 통합 여부는 **O-200**으로 등록한다.
+
+### 3.59 한국 공제조합 연동 보강 ([PRD.md](PRD.md) §5.68, [DECISIONS.md](DECISIONS.md) D-075 — §3.16 확장)
+
+> 기존 §3.16(`compliance_report_definitions`/`compliance_report_submissions`)은 "보고서 단위" 생성/제출만 다뤘다 — 본 절은 **회원/후원관계/매출/수당/환불/반품/취소를 항목 단위로 전송·추적**하는 운영 레이어를 추가한다. **Tenant별 선택 기능**이며, 신규 연동 엔진을 만들지 않고 API Center(§3.38)/Scheduler Center(§3.40)/Audit Center(§3.42)/Report Builder(§3.44)를 재사용한다.
+
+**연동 등록**: 신규 테이블 없음 — `external_api_connections`(§3.38, `category='COMPLIANCE_REPORTING'`)의 행으로 등록한다. `api_name`에 "직접판매공제조합"/"한국특수판매공제조합" 등을 자유 입력(고정 enum 아님, 동시에 둘 다 등록 가능). `tenant_id`(§3.38 기존 컬럼)로 고객사별 사용/미사용·연동 대상 선택을 표현한다 — 테스트/운영 모드는 기존 `status`(TESTING/ACTIVE/INACTIVE)를 그대로 사용, API Key/인증정보는 기존 `auth_key_ref`(Vault 참조, 평문 금지) 재사용.
+
+**`compliance_report_definitions`(§3.16) 컬럼 추가**: `tenant_id`(nullable — 테넌트별 보고서 정의 차등), `auto_transmit`(자동 전송 여부)/`manual_transmit_allowed`(수동 전송 허용 여부). 보고 주기(`frequency`)는 기존 컬럼 그대로(정확한 옵션 범위는 기존부터 미확정).
+
+**`compliance_member_registrations`**(신규) — 회원별 공제조합 등록 정보.
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| member_id | 대상 회원 |
+| connection_id | `external_api_connections` 참조(어느 공제조합인지) |
+| registration_number | 공제번호 |
+| certificate_file_ref | 공제증서 — File Manager(`files`, §3.39) 참조, 신규 파일 테이블 없음 |
+| status | 등록대기/등록완료/등록실패/해지 |
+| registered_at | |
+
+**`compliance_transmission_items`**(신규) — 전송 대상 항목별 추적(회원/후원관계/매출/수당/환불/반품/취소).
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| connection_id | 어느 공제조합 연동인지 |
+| item_type | MEMBER/SPONSOR_RELATION/REVENUE/COMMISSION/REFUND/RETURN/CANCEL — 자유 확장값 |
+| source_type / source_id | 범용 참조(예: `members`/`orders`/`commission_records`/`returns`) — File Manager와 동일한 다형 참조 패턴 |
+| period | 대상 기간(해당하는 경우) |
+| status | 대기/전송중/성공/실패 |
+| failure_reason | |
+| retry_count / last_attempted_at | 재전송 추적 |
+| call_log_id | `external_api_call_logs`(§3.38) 참조 — 실제 HTTP 호출 1건과 연결(재시도마다 새 호출 로그) |
+
+- **전송 로그/PG 응답과 동일한 패턴**: 실제 호출 시도·성공/실패·재시도 횟수는 기존 `external_api_call_logs`(§3.38)를 그대로 사용한다 — `compliance_transmission_items`는 "이 비즈니스 항목이 전송됐는가"를, `external_api_call_logs`는 "그 전송 시도가 어떻게 됐는가"를 각각 책임진다(1:N).
+- **관리 기능**(전송대상조회/전송상태/성공실패/재전송/수동전송/전송로그/보고서 다운로드)은 모두 위 두 테이블 + 기존 Audit Center/Report Builder 조회 화면으로 충분하다 — 신규 화면 엔진 없음.
+- **자동 전송**은 Scheduler Center(§3.40)의 기존 Job 패턴(`job_name`에 "공제조합 항목전송" 추가)을 재사용한다.
+
+### 3.60 전자지갑 (E-Wallet) ([PRD.md](PRD.md) §5.69, [DECISIONS.md](DECISIONS.md) D-075)
+
+> Tenant별 선택 기능. **반드시 append-only Ledger 구조** — 잔액은 항상 원장에서 파생하며 직접 UPDATE하지 않는다(`commission_records`/`settlement_items`와 동일한 원칙, [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md)). 포인트(`point_transactions`, §3.36)와는 **별개의 시스템**이다 — 포인트는 그대로 유지하고, 지갑은 신규 병행 구조로 둔다(전환 여부는 정책 미확정, 아래 참조).
+
+**`member_wallets`** — 회원별 × 통화별 지갑(1:N, 회원 1명이 통화별로 여러 지갑을 가질 수 있음).
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| id / member_id | |
+| currency_code | KRW/USD/THB/JPY 등 — `marketing_programs.category`와 동일한 **자유 확장값**(고정 enum 아님, 신규 통화 추가 시 스키마 변경 불필요) |
+| status | ACTIVE/LOCKED — 관리자 지갑 잠금/해제(§5.69 관리자 기능) |
+| available_balance_cache / pending_balance_cache / withdrawable_balance_cache / used_balance_cache / hold_balance_cache | **파생 캐시** — 신뢰 가능한 원본은 항상 `wallet_transactions` 집계. 목록 화면 성능을 위한 비정규화(§3.57 `board_posts.view_count_cache`와 동일 원칙) |
+| created_at | |
+
+**`wallet_transactions`** — append-only 원장(Ledger). 잔액 직접 수정 금지, 모든 변경은 새 행 추가로만 표현한다.
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| id / wallet_id | |
+| transaction_type | CHARGE(충전)/EARN(적립)/USE(사용)/CANCEL(취소)/REFUND(환불)/WITHDRAWAL_REQUEST(출금신청)/WITHDRAWAL_COMPLETED(출금완료)/ADJUSTMENT(보정)/HOLD(보류)/RELEASE(해제) |
+| amount | 부호로 증감 표현(양수=증가, 음수=감소) |
+| balance_type_affected | available/pending/withdrawable/used/hold 중 영향받는 잔액 종류 |
+| source_type / source_id | 범용 참조 — EARN이면 `commission_records`/`settlement_items` 참조(수당 적립 시 정산 결과를 그대로 인용, **정산 계산 로직 자체는 건드리지 않음**), USE면 `orders` 참조 등 |
+| reason | ADJUSTMENT/HOLD/RELEASE일 때 사유 기록(필수) |
+| created_by | 시스템(배치) 또는 관리자(수동 보정) |
+| created_at | |
+
+**`wallet_withdrawal_requests`** — 출금 신청 워크플로우(신규 승인 구조 아님, Workflow Engine 재사용).
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| id / wallet_id / member_id | |
+| amount | 신청 금액 |
+| bank_account_ref | 출금 계좌(기존 회원 계좌 정보 참조 또는 1회성 입력 — 정확한 방식 미확정) |
+| status | REQUESTED/APPROVED/REJECTED/COMPLETED |
+| workflow_instance_id | `workflow_instances`(§3.37, `subject_type='WALLET_WITHDRAWAL'`) 참조 — **신규 승인 구조를 만들지 않고 Workflow Engine 재사용** |
+| requested_at / processed_at / processed_by | |
+
+- **상태 전이마다 `wallet_transactions`에 대응 원장 행이 생긴다**: REQUESTED → HOLD(가용잔액 차감, 보류잔액 증가) / REJECTED → RELEASE(보류 해제, 가용잔액 복원) / COMPLETED → WITHDRAWAL_COMPLETED(보류잔액 소진).
+- **정산(Settlement)과의 경계**: 후원수당의 1차 산정·법적 한도 검증·세금 계산(③~④단계, [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md) §9)은 **전혀 변경하지 않는다.** 지갑 적립(EARN)은 정산이 이미 확정한 `settlement_items` 금액을 그대로 인용하는 **추가 지급 채널(은행송금 대신 또는 더불어)**일 뿐이다 — 정산 금액 계산 자체에는 영향을 주지 않는다. 은행송금/지갑적립 분배 정책(전액/선택/병행)은 **O-201**(아래)로 미확정 등록.
+- **포인트(`point_transactions`)와 지갑(`wallet_transactions`) 간 전환 여부**는 정책 미확정 — **O-202**.
+- **쇼핑몰 결제 시 지갑/포인트 우선순위**는 정책 미확정 — **O-203**.
+
+### 3.61 글로벌 결제 ([PRD.md](PRD.md) §5.70, [DECISIONS.md](DECISIONS.md) D-075)
+
+> Tenant별 선택 기능. 한국 결제(신용카드/계좌이체/가상계좌/무통장입금)는 이미 §3.53(D-069, `order_payment_attempts`/`virtual_account_issuances`/`bank_transfer_payments`/`order_payment_splits`)이 다룬다 — **재등록하지 않는다.** 본 절은 (1) PG를 국가별로 스코프하는 컬럼 1개 추가, (2) 글로벌 PG(태국 PromptPay/일본 신용카드/Stripe/PayPal) 등록, (3) 인바운드 Webhook 수신만 신규로 다룬다.
+
+**`external_api_connections`(§3.38) 컬럼 추가**: `country_code`(nullable) — PG 연동을 국가별로 스코프(예: 태국 PromptPay 연동은 `country_code='TH'`). 기존 `tenant_id`와 결합해 "어느 테넌트가 어느 국가에서 어느 PG를 쓰는지"를 표현한다. Test/Live 모드는 기존 `status`, API Key/Secret Key는 기존 `auth_key_ref`(복수 키가 필요하면 JSON으로 확장 검토— 미확정), Webhook URL은 기존 `endpoint_url` 재사용.
+
+**`payment_webhook_events`**(신규) — PG가 보내는 **인바운드** Webhook 수신 로그(append-only). 기존 `external_api_call_logs`(§3.38)는 **우리가 PG를 호출한** 아웃바운드 기록이라 인바운드 수신과는 방향이 반대 — 별도 테이블이 불가피하다.
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| connection_id | 어느 PG 연동인지 |
+| event_type | 결제승인/결제실패/취소/부분취소/환불/부분환불/정기결제성공/정기결제실패 등 — PG사별로 다른 원본 이벤트명을 정규화(매핑 규칙은 미확정) |
+| raw_payload_ref | 원문 페이로드 — PII/보안 고려해 File Manager 또는 별도 암호화 저장 검토(미확정) |
+| signature_verified | Webhook 서명 검증 통과 여부 |
+| related_order_id | 매칭된 주문(매칭 실패 시 null, 수동 매칭 필요) |
+| status | 수신/처리중/처리완료/처리실패 |
+| received_at / processed_at | |
+
+- **자동결제(정기결제)**: 기존 `recurring_order_payment_attempts`(§3.30)/`payment_methods.pg_token`(PG 무관 토큰화 패턴, §3.30)을 그대로 재사용 — 글로벌 PG 토큰도 동일 컬럼에 저장한다. 정확한 토큰화 방식은 기존 **O-087**로 이미 추적 중(재등록하지 않음).
+- **Idempotency Key**: 기존 **O-054**(`idempotency_key` 도입 범위 미확정)에 결제 영역도 포함된다 — 재등록하지 않음.
+- **부분취소/부분환불**: 주문 레벨 처리는 이미 §3.53(O-133/O-135/O-129)이 다룬다. 본 절은 PG로 보내는 **요청** 자체만 다루며, 그 요청·응답은 `external_api_call_logs`(아웃바운드) 재사용.
+- **PG사 구체 선정**(한국 신용카드/계좌이체 PG사명, 일본 신용카드 PG사명 등)은 미확정 — **O-204**.
+- **Webhook 서명 검증 방식 및 검증 실패 시 처리**(거부/격리 후 검토 등)는 미확정 — **O-205**.
 
 ## 4. 설계 원칙
 

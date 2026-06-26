@@ -1,6 +1,6 @@
 # ERD.md — Entity Relationship Diagram
 
-> 상태: v0.2 ([DECISIONS.md](DECISIONS.md) D-063 — 개발 착수 준비 문서 세트 / D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(§3.52~§3.56) 신규 테이블 18개를 ERD에 반영하는 동기화 작업, 클러스터 14 추가. D-070 자체는 신규 테이블을 추가하지 않음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.3 ([DECISIONS.md](DECISIONS.md) D-063 — 개발 착수 준비 문서 세트 / D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(§3.52~§3.56) 신규 테이블 18개를 ERD에 반영하는 동기화 작업, 클러스터 14 추가. D-070 자체는 신규 테이블을 추가하지 않음 / **본 라운드(2026-06-26) — 동기화 누락분 일괄 반영**: D-072(§3.57, 클러스터 15)·D-074(§3.58, 클러스터 16)·D-075(§3.59~§3.61, 클러스터 17) 세 라운드에서 추가된 신규 테이블 14개가 ERD에 반영되지 않은 채 누적되어 있던 것을 클러스터 15/16/17 추가로 한 번에 동기화함) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [DATABASE.md](DATABASE.md)
 > 본 문서는 DATABASE.md §3의 텍스트 기반 엔터티 정의를 시각화한 것이며, 실제 마이그레이션 스키마를 대체하지 않는다.
 
@@ -1206,6 +1206,230 @@ erDiagram
 
 ---
 
+## 클러스터 15. 쇼핑몰 UX 보강 (Cart/Price Alert) — §3.57
+
+D-072(쇼핑몰 UX/알림/운영자 대시보드 완성)에서 신규로 추가된 테이블. 최근 본 상품/찜하기/상품비교/재입고알림/고객알림/취소환불교환반품/운영자 대시보드/관리자 업무 Queue는 모두 기존 테이블 재사용이며 신규 테이블이 없다(DATABASE.md §3.57 재사용 매핑 표 참조) — 불가피한 신규 테이블은 장바구니(`carts`/`cart_items`)와 가격인하 알림(`product_price_alerts`) 3개뿐이다.
+
+```mermaid
+erDiagram
+    members ||--o| carts : "member_id (nullable, 비회원 처리 미확정 O-197과 동일 패턴)"
+    carts ||--o{ cart_items : "cart_id"
+    products ||--o{ cart_items : "product_id"
+    product_option_combinations ||--o{ cart_items : "product_option_combination_id (nullable)"
+    members ||--o{ product_price_alerts : "member_id"
+    products ||--o{ product_price_alerts : "product_id"
+
+    carts {
+        uuid id PK "추정"
+        uuid member_id FK "nullable, 비회원 장바구니 처리 미확정(O-197)"
+        timestamp updated_at
+    }
+    cart_items {
+        uuid cart_id FK
+        uuid product_id FK
+        uuid product_option_combination_id FK "nullable, products §3.52 참조"
+        int quantity
+        timestamp added_at
+    }
+    product_price_alerts {
+        uuid member_id FK
+        uuid product_id FK
+        decimal target_price "또는 현재가 대비 % 기준, 미확정(O-198)"
+        timestamp notified_at "nullable"
+    }
+```
+
+> 비고: `carts.member_id`의 nullable 처리(비회원 장바구니)는 `product_comparisons.member_id`(클러스터 14-B, O-188)와 동일한 "비회원 처리 미확정" 패턴이다 — 본 ERD에서는 별도 신규 Open Decision 없이 같은 미확정 패턴(O-197)으로 표기했다. `product_price_alerts`는 `restock_notifications`(클러스터 10)와 동일한 "상품 알림 신청" 형태이나 트리거가 재고가 아닌 가격이라 별도 테이블이다. `shipments`(클러스터 6) 컬럼 명료화(`courier_name`/`tracking_no`/`status`/`status_updated_at`)와 `notification_templates`(클러스터 8) 컬럼 추가(`subject_template`/`is_active`)는 신규 테이블이 아니므로 본 다이어그램에 표시하지 않는다.
+
+---
+
+## 클러스터 16. Dynamic Board Engine — §3.58
+
+D-074에서 신규로 추가된 범용 게시판 엔진. 게시판 유형(공지/갤러리/자료실/보도자료 등)마다 별도 테이블을 두지 않고 `boards`/`board_posts` 공통 구조 + `board_type` 자유 분류값 + `metadata`/`feature_flags`(JSON) 확장으로 모든 유형을 수용한다. 기존 CMS(`cms_pages`/`faq_categories`·`faq_items`/`popups`/`banners`, 클러스터 9-A)는 변경하지 않는다.
+
+```mermaid
+erDiagram
+    boards ||--o{ board_categories : "board_id"
+    boards ||--o{ board_posts : "board_id"
+    board_categories ||--o{ board_posts : "category_id (nullable)"
+    board_posts ||--o{ board_post_comments : "post_id"
+    board_post_comments ||--o{ board_post_comments : "parent_comment_id (self-ref, 답글)"
+    members ||--o{ board_post_comments : "member_id"
+    board_posts ||--o{ board_post_likes : "post_id"
+    members ||--o{ board_post_likes : "member_id"
+
+    boards {
+        uuid id PK "추정"
+        string name
+        string code "unique, URL/API 식별자"
+        string description
+        string board_type "자유 확장 분류값, marketing_programs.category(§3.34)와 동일 패턴"
+        string layout_type "LIST/CARD/GALLERY/FAQ/VIDEO"
+        bool is_active
+        bool menu_exposure
+        bool shop_exposure
+        bool shop_member_exposure
+        bool my_office_exposure
+        bool main_exposure
+        string menu_group "자유텍스트, 참조무결성 없음"
+        int sort_order
+        array country_codes "nullable=전체"
+        array language_codes "nullable=전체"
+        json feature_flags "댓글/답글/첨부/조회수/좋아요 등 ON-OFF"
+    }
+    board_categories {
+        uuid id PK "추정"
+        uuid board_id FK
+        string name
+        int sort_order
+    }
+    board_posts {
+        uuid id PK "추정"
+        uuid board_id FK
+        uuid category_id FK "nullable"
+        string title
+        string content
+        string thumbnail_image_ref "File Manager(files, §3.39) 참조"
+        string slug
+        string status "DRAFT/SCHEDULED/PENDING_APPROVAL/PUBLISHED/UNPUBLISHED"
+        timestamp scheduled_publish_at "nullable"
+        timestamp published_at
+        bool is_public
+        json tags "배열"
+        json metadata "nullable, 유형별 특수필드 확장 포인트 — FK 아님, 속성으로만 표시"
+        int view_count_cache "파생캐시, 원본은 content_view_events"
+        int like_count_cache "파생캐시, 원본은 board_post_likes"
+    }
+    board_post_comments {
+        uuid id PK "추정"
+        uuid post_id FK
+        uuid parent_comment_id FK "nullable, self-ref, 값 있으면 답글"
+        uuid member_id FK
+        string content
+        bool is_active "소프트삭제"
+    }
+    board_post_likes {
+        uuid post_id FK "복합 unique(post_id+member_id)"
+        uuid member_id FK
+    }
+```
+
+> 비고: `board_post_comments.parent_comment_id`는 동일 테이블을 자기참조(self-relationship)하여 답글을 표현한다 — 별도 답글 테이블 없음. `board_posts.metadata`/`boards.feature_flags`는 JSON 컬럼으로 FK 화살표를 그리지 않고 속성으로만 나열했다. 첨부파일(`files`, §3.39)/SEO(`content_seo_metadata`, §3.55)/다국어(`cms_translations`, §3.33)/조회수(`content_view_events`, §3.35)/공유클릭(`content_click_events`, §3.35)/승인후게시(`workflow_instances`, 클러스터 12-A)는 모두 기존 범용 엔진 재사용이라 본 다이어그램에 별도 엔터티나 관계선으로 표시하지 않는다(DATABASE.md §3.58 재사용 매핑 표 참조). 기존 5종 CMS 콘텐츠를 Board Engine으로 통합할지 여부는 미확정(O-200).
+
+---
+
+## 클러스터 17. 한국 공제조합 연동·E-Wallet·글로벌 결제 — §3.59~§3.61
+
+D-075에서 신규로 추가된 3개 영역(전부 Tenant별 선택 기능, MLM 보상플랜·정산 계산 로직 변경 없음). 엔터티 수가 많아 3개 다이어그램으로 분할한다.
+
+### 17-A. 한국 공제조합 연동 보강 — §3.59
+
+기존 §3.16(`compliance_report_definitions`/`compliance_report_submissions`, 클러스터 7)은 "보고서 단위"만 다뤘다. 본 절은 회원/후원관계/매출/수당/환불/반품/취소를 항목 단위로 전송·추적하는 운영 레이어를 추가한다. 신규 연동 엔진을 만들지 않고 API Center(§3.38)/Scheduler Center(§3.40)를 재사용한다.
+
+```mermaid
+erDiagram
+    members ||--o{ compliance_member_registrations : "member_id"
+    external_api_connections ||--o{ compliance_member_registrations : "connection_id"
+    external_api_connections ||--o{ compliance_transmission_items : "connection_id"
+    compliance_transmission_items }o--o| external_api_call_logs : "call_log_id"
+
+    compliance_member_registrations {
+        uuid member_id FK
+        uuid connection_id FK "external_api_connections(§3.38) 참조"
+        string registration_number
+        string certificate_file_ref "File Manager(files, §3.39) 참조"
+        string status "등록대기/등록완료/등록실패/해지"
+        timestamp registered_at
+    }
+    compliance_transmission_items {
+        uuid connection_id FK
+        string item_type "MEMBER/SPONSOR_RELATION/REVENUE/COMMISSION/REFUND/RETURN/CANCEL, 자유 확장값"
+        string source_type "범용 참조"
+        uuid source_id "범용 참조 (members/orders/commission_records/returns 등)"
+        string period
+        string status "대기/전송중/성공/실패"
+        string failure_reason
+        int retry_count
+        timestamp last_attempted_at
+        uuid call_log_id FK "external_api_call_logs(§3.38) 참조"
+    }
+```
+
+> 비고: `compliance_transmission_items.source_type`/`source_id`는 `content_view_events.content_type`/`content_id`(클러스터 10)와 동일한 "범용 참조"(polymorphic association) 패턴이라 특정 엔터티와의 FK 화살표 대신 텍스트로만 표시했다. `compliance_report_definitions`(클러스터 7) 컬럼 추가(`tenant_id`/`auto_transmit`/`manual_transmit_allowed`)는 신규 테이블이 아니므로 본 다이어그램에 표시하지 않는다.
+
+### 17-B. 전자지갑 (E-Wallet) — §3.60
+
+반드시 append-only Ledger 구조 — 잔액은 항상 `wallet_transactions` 원장에서 파생하며 직접 UPDATE하지 않는다(`commission_records`/`settlement_items`와 동일 원칙). 포인트(`point_transactions`, 클러스터 9-B)와는 별개의 병행 시스템이다.
+
+```mermaid
+erDiagram
+    members ||--o{ member_wallets : "member_id (1:N, 통화별)"
+    member_wallets ||--o{ wallet_transactions : "wallet_id (append-only)"
+    member_wallets ||--o{ wallet_withdrawal_requests : "wallet_id"
+    members ||--o{ wallet_withdrawal_requests : "member_id"
+    wallet_withdrawal_requests }o--|| workflow_instances : "workflow_instance_id"
+
+    member_wallets {
+        uuid id PK "추정"
+        uuid member_id FK
+        string currency_code "자유 확장값, marketing_programs.category와 동일 패턴"
+        string status "ACTIVE/LOCKED"
+        decimal available_balance_cache "파생캐시, 원본은 wallet_transactions 집계"
+        decimal pending_balance_cache "파생캐시"
+        decimal withdrawable_balance_cache "파생캐시"
+        decimal used_balance_cache "파생캐시"
+        decimal hold_balance_cache "파생캐시"
+    }
+    wallet_transactions {
+        uuid id PK "추정 (append-only)"
+        uuid wallet_id FK
+        string transaction_type "CHARGE/EARN/USE/CANCEL/REFUND/WITHDRAWAL_REQUEST/WITHDRAWAL_COMPLETED/ADJUSTMENT/HOLD/RELEASE"
+        decimal amount "부호로 증감 표현"
+        string balance_type_affected "available/pending/withdrawable/used/hold"
+        string source_type "범용 참조"
+        uuid source_id "범용 참조 (commission_records/settlement_items/orders 등)"
+        string reason "ADJUSTMENT/HOLD/RELEASE 시 필수"
+        string created_by
+    }
+    wallet_withdrawal_requests {
+        uuid id PK "추정"
+        uuid wallet_id FK
+        uuid member_id FK
+        decimal amount
+        string bank_account_ref "기존 계좌참조 또는 1회성 입력, 방식 미확정"
+        string status "REQUESTED/APPROVED/REJECTED/COMPLETED"
+        uuid workflow_instance_id FK "workflow_instances(§3.37), subject_type='WALLET_WITHDRAWAL'"
+        timestamp requested_at
+    }
+```
+
+> 비고: `wallet_transactions.source_type`/`source_id`는 17-A와 동일한 범용 참조 패턴이다. 은행송금/지갑적립 분배 정책은 미확정(O-201), 포인트-지갑 간 전환 여부는 미확정(O-202), 쇼핑몰 결제 시 지갑/포인트 우선순위는 미확정(O-203) — DATABASE.md §3.60 본문에 명시된 번호를 그대로 인용했다.
+
+### 17-C. 글로벌 결제 — §3.61
+
+한국 결제(신용카드/계좌이체/가상계좌/무통장입금)는 이미 §3.53(클러스터 14-A)이 다룬다. 본 절은 PG의 국가별 스코프 컬럼 1개 추가, 글로벌 PG 등록, 인바운드 Webhook 수신만 신규로 다룬다.
+
+```mermaid
+erDiagram
+    external_api_connections ||--o{ payment_webhook_events : "connection_id"
+    orders ||--o| payment_webhook_events : "related_order_id (nullable, 매칭실패시 null)"
+
+    payment_webhook_events {
+        uuid id PK "추정 (append-only)"
+        uuid connection_id FK "external_api_connections(§3.38) 참조"
+        string event_type "결제승인/결제실패/취소/부분취소/환불/부분환불/정기결제성공/정기결제실패 등, PG사별 원본 이벤트명 정규화"
+        string raw_payload_ref "원문 페이로드 저장방식 미확정"
+        bool signature_verified
+        uuid related_order_id FK "nullable, 매칭 실패시 null"
+        string status "수신/처리중/처리완료/처리실패"
+        timestamp received_at
+    }
+```
+
+> 비고: `external_api_connections`(§3.38, 클러스터 12-A) 컬럼 추가(`country_code`)는 신규 테이블이 아니므로 본 다이어그램에 표시하지 않는다. PG사 구체 선정은 미확정(O-204), Webhook 서명 검증 실패 시 처리는 미확정(O-205) — DATABASE.md §3.61 본문에 명시된 번호를 그대로 인용했다. 자동결제(정기결제)는 기존 `recurring_order_payment_attempts`(클러스터 5)/`payment_methods.pg_token`(클러스터 5)을 그대로 재사용하므로 별도 엔터티가 없다.
+
+---
+
 ## 마스터 테이블
 
 전체 테이블/엔터티 목록. "append-only" 열은 DATABASE.md에서 명시적으로 append-only 원장으로 서술된 테이블만 "Y"로 표시한다(§4 설계원칙 1 적용 대상). PK/FK 컬럼명이 본문에 명시되지 않은 경우 "(미확정)"으로 표기했다.
@@ -1347,6 +1571,20 @@ erDiagram
 | `product_seo` | 14-C. 쇼핑몰운영Phase2 | product_id(PK=FK, 1:1) | product_id | product_id(unique, 1:1) | N(신규테이블 vs 컬럼추가 미확정 O-193) | §3.55 |
 | `tenant_share_images` | 14-C. 쇼핑몰운영Phase2 | id(추정) | tenant_id | — | N | §3.55 |
 | `content_seo_metadata` | 14-C. 쇼핑몰운영Phase2 | id(추정) | related_entity_type+related_entity_id(범용) | — | N(신규테이블 vs 컬럼추가 미확정 O-193) | §3.55 |
+| `carts` | 15. 쇼핑몰UX보강 | id(추정) | member_id(nullable, 비회원 처리 미확정 O-197) | — | N(현재값) | §3.57 |
+| `cart_items` | 15. 쇼핑몰UX보강 | (미확정) | cart_id, product_id, product_option_combination_id(nullable) | — | N | §3.57 |
+| `product_price_alerts` | 15. 쇼핑몰UX보강 | (미확정) | member_id, product_id | — | N(알림신청, restock_notifications와 동일 패턴) | §3.57 |
+| `boards` | 16. Dynamic Board Engine | id(추정) | — | code(unique) | N | §3.58 |
+| `board_categories` | 16. Dynamic Board Engine | id(추정) | board_id | — | N | §3.58 |
+| `board_posts` | 16. Dynamic Board Engine | id(추정) | board_id, category_id(nullable) | slug(unique 추정) | N | §3.58 |
+| `board_post_comments` | 16. Dynamic Board Engine | id(추정) | post_id, parent_comment_id(self-ref, nullable), member_id | — | N(소프트삭제) | §3.58 |
+| `board_post_likes` | 16. Dynamic Board Engine | (미확정) | post_id, member_id | post_id+member_id(unique) | N | §3.58 |
+| `compliance_member_registrations` | 17-A. 공제조합/E-Wallet/글로벌결제 | (미확정) | member_id, connection_id | — | N(상태전이) | §3.59 |
+| `compliance_transmission_items` | 17-A. 공제조합/E-Wallet/글로벌결제 | (미확정) | connection_id, source_type+source_id(범용), call_log_id | — | N(상태전이) | §3.59 |
+| `member_wallets` | 17-B. 공제조합/E-Wallet/글로벌결제 | id(추정) | member_id | member_id+currency_code(unique 추정) | N(파생캐시) | §3.60 |
+| `wallet_transactions` | 17-B. 공제조합/E-Wallet/글로벌결제 | id(추정) | wallet_id, source_type+source_id(범용) | — | **Y(핵심 원장)** | §3.60 |
+| `wallet_withdrawal_requests` | 17-B. 공제조합/E-Wallet/글로벌결제 | id(추정) | wallet_id, member_id, workflow_instance_id | — | N(상태전이) | §3.60 |
+| `payment_webhook_events` | 17-C. 공제조합/E-Wallet/글로벌결제 | id(추정) | connection_id, related_order_id(nullable) | — | **Y(append-only)** | §3.61 |
 
 ### 폐기/일반화로 ERD에서 제외된 엔터티 (참고용)
 
@@ -1379,5 +1617,8 @@ erDiagram
 | 12 | ERP Core 공통 엔진 | §3.23, §3.37~§3.47 | 2 (12-A, 12-B) |
 | 13 | 감사로그 | §3.8 | 1 |
 | 14 | 쇼핑몰 운영 Phase 2/SEO/공유이미지 | §3.52~§3.56 | 3 (14-A, 14-B, 14-C) |
+| 15 | 쇼핑몰 UX 보강(Cart/Price Alert) | §3.57 | 1 |
+| 16 | Dynamic Board Engine | §3.58 | 1 |
+| 17 | 한국 공제조합 연동·E-Wallet·글로벌 결제 | §3.59~§3.61 | 3 (17-A, 17-B, 17-C) |
 
-**총 클러스터 14개, Mermaid `erDiagram` 다이어그램 18개, 마스터 테이블 수록 엔터티 135개**(폐기/일반화 제외 목록 6개는 별도 표). 클러스터 14는 D-070(쇼핑몰 운영 Phase 2 및 문서 동기화) 시점에 D-069(§3.52~§3.56) 신규 테이블 18개를 동기화 반영한 것이다(이전 117개 + 18개 = 135개).
+**총 클러스터 17개, Mermaid `erDiagram` 다이어그램 23개, 마스터 테이블 수록 엔터티 149개**(폐기/일반화 제외 목록 6개는 별도 표). 클러스터 14는 D-070(쇼핑몰 운영 Phase 2 및 문서 동기화) 시점에 D-069(§3.52~§3.56) 신규 테이블 18개를 동기화 반영한 것이다(이전 117개 + 18개 = 135개). 본 라운드(2026-06-26)는 클러스터 15/16/17을 추가하여 D-072(§3.57, `carts`/`cart_items`/`product_price_alerts` 3개)·D-074(§3.58, `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5개)·D-075(§3.59~§3.61, `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events` 6개) 시점에 ERD에 동기화되지 않고 누적되어 있던 신규 테이블 14개를 한 번에 반영한 것이다(135개 + 14개 = 149개).

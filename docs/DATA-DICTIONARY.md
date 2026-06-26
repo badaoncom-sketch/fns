@@ -1,6 +1,6 @@
 # DATA-DICTIONARY.md — Data Dictionary
 
-> 상태: v0.4 (D-074 — Dynamic Board Engine: `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes`(신규 5종)를 §9로 반영, Dictionary Gaps §10으로 재배치. **기존 CMS(`cms_pages`/FAQ/팝업/배너) 무변경.** D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: `carts`/`cart_items`/`product_price_alerts`(신규 3종) + `shipments`/`notification_templates` 컬럼 명료화를 §8로 반영) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.5 (D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events`(신규 6종) + `compliance_report_definitions`/`external_api_connections` 컬럼 추가를 §11로 반영, Dictionary Gaps §12로 재배치. **MLM 보상플랜·정산 계산 로직·기존 Business Rule·ERP Core 구조 무변경.** D-074 — Dynamic Board Engine: `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes`(신규 5종)를 §9로 반영. **기존 CMS(`cms_pages`/FAQ/팝업/배너) 무변경.** D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: `carts`/`cart_items`/`product_price_alerts`(신규 3종) + `shipments`/`notification_templates` 컬럼 명료화를 §8로 반영) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 목적: [DATABASE.md](DATABASE.md)에 흩어진 테이블/컬럼 개념을 구현자가 빠르게 찾을 수 있도록 정리한다. 본 문서는 DB 스키마를 변경하지 않는다.
 
 ## 0. 작성 원칙
@@ -270,7 +270,54 @@
 | board_post_comments | member_id / content / is_active | 작성회원/내용/소프트삭제 | uuid/text/boolean | 미정 | members.id | N | 미정 | DATABASE §3.58 | - |
 | board_post_likes | post_id / member_id | 복합 unique(회원당 1회) | uuid | Y(복합) | board_posts.id / members.id | N | `feature_flags.좋아요=true`일 때만 사용 | DATABASE §3.58 | - |
 
-## 10. Dictionary Gaps
+## 11. 한국 공제조합 연동·E-Wallet·글로벌 결제 (D-075)
+
+> 전부 **Tenant별 선택 기능**이며, 신규 연동/정산 엔진을 만들지 않고 기존 API Center(§3.38)/Scheduler Center(§3.40)/Audit Center(§3.42)/Report Builder(§3.44)/Workflow Engine(§3.37)/Payment(§3.53) 구조를 재사용한다. 신규 테이블은 `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events` 6종뿐이다. **MLM 보상플랜·정산 계산 로직·기존 Business Rule·ERP Core 구조는 전혀 변경하지 않았다.** [DATABASE.md](DATABASE.md) §3.59~§3.61 참조.
+
+| Table | Column | 설명 | 자료형(개념) | PK | FK | Nullable | Enum/Default | Source of Truth | 관련 Rule |
+|---|---|---|---|---|---|---|---|---|---|
+| compliance_member_registrations | member_id / connection_id | 대상 회원 / 어느 공제조합 연동인지 | uuid | 미정 | members.id / external_api_connections.id | N | 미정 | DATABASE §3.59 | - |
+| compliance_member_registrations | registration_number | 공제번호 | string | N | N | Y | 미정 | DATABASE §3.59 | - |
+| compliance_member_registrations | certificate_file_ref | 공제증서 — File Manager(`files`, §3.39) 참조, 신규 파일 테이블 없음 | ref | N | files.id(논리참조) | Y | 미정 | DATABASE §3.59 | - |
+| compliance_member_registrations | status | 등록 상태 | enum | N | N | N | 등록대기/등록완료/등록실패/해지 | DATABASE §3.59 | - |
+| compliance_member_registrations | registered_at | 등록 완료 시각 | timestamp | N | N | Y | 미정 | DATABASE §3.59 | - |
+| compliance_transmission_items | connection_id | 어느 공제조합 연동인지 | uuid | N | external_api_connections.id | N | 미정 | DATABASE §3.59 | - |
+| compliance_transmission_items | item_type | 전송 항목 유형 | string | N | N | N | MEMBER/SPONSOR_RELATION/REVENUE/COMMISSION/REFUND/RETURN/CANCEL — 자유 확장값(`marketing_programs.category`와 동일 패턴), 고정 enum 아님 | DATABASE §3.59 | - |
+| compliance_transmission_items | source_type / source_id | 범용 다형 참조(예: `members`/`orders`/`commission_records`/`returns`) — File Manager와 동일한 패턴 | string/uuid | N | 다형(미정) | N | 미정 | DATABASE §3.59 | - |
+| compliance_transmission_items | period | 대상 기간(해당하는 경우) | date range | N | N | Y | 미정 | DATABASE §3.59 | - |
+| compliance_transmission_items | status | 전송 상태 | enum | N | N | N | 대기/전송중/성공/실패 | DATABASE §3.59 | - |
+| compliance_transmission_items | failure_reason / retry_count / last_attempted_at | 실패 사유 / 재전송 횟수 / 마지막 시도 시각 | text/integer/timestamp | N | N | Y/N/Y | 미정 | DATABASE §3.59 | - |
+| compliance_transmission_items | call_log_id | `external_api_call_logs`(§3.38) 참조 — 실제 HTTP 호출 1건과 연결(재시도마다 새 호출 로그, 1:N) | uuid | N | external_api_call_logs.id | Y | 미정 | DATABASE §3.59 | - |
+| compliance_report_definitions | tenant_id | 테넌트별 보고서 정의 차등(§3.16 기존 테이블에 컬럼 추가) | uuid | N | tenants.id | Y | 미정 | DATABASE §3.59 | - |
+| compliance_report_definitions | auto_transmit / manual_transmit_allowed | 자동 전송 여부 / 수동 전송 허용 여부 | boolean | N | N | N | 미정 | DATABASE §3.59 | - |
+| member_wallets | id / member_id | 회원별 × 통화별 지갑(1:N) | uuid | Y(id) | members.id | N | 미정 | DATABASE §3.60 | - |
+| member_wallets | currency_code | 지갑 통화 | string | N | N | N | KRW/USD/THB/JPY 등 — `marketing_programs.category`와 동일한 자유 확장값, 고정 enum 아님 | DATABASE §3.60 | - |
+| member_wallets | status | 지갑 상태(관리자 잠금/해제) | enum | N | N | N | ACTIVE/LOCKED | DATABASE §3.60 | - |
+| member_wallets | available_balance_cache / pending_balance_cache / withdrawable_balance_cache / used_balance_cache / hold_balance_cache | **파생 캐시** — 원본은 항상 `wallet_transactions` 집계, 직접 UPDATE 금지(`board_posts.view_count_cache`와 동일 원칙) | decimal | N | N | N | 미정, Source of Truth = wallet_transactions | DATABASE §3.60 | - |
+| member_wallets | created_at | | timestamp | N | N | N | 미정 | DATABASE §3.60 | - |
+| wallet_transactions | id / wallet_id | append-only 원장 — 잔액 직접 수정 금지, 모든 변경은 새 행 추가로만 표현 | uuid | Y(id) | member_wallets.id | N | 미정 | DATABASE §3.60 | - |
+| wallet_transactions | transaction_type | 거래 유형 | enum | N | N | N | CHARGE/EARN/USE/CANCEL/REFUND/WITHDRAWAL_REQUEST/WITHDRAWAL_COMPLETED/ADJUSTMENT/HOLD/RELEASE | DATABASE §3.60 | - |
+| wallet_transactions | amount | 부호로 증감 표현(양수=증가, 음수=감소) | decimal | N | N | N | 미정 | DATABASE §3.60 | - |
+| wallet_transactions | balance_type_affected | 영향받는 잔액 종류 | enum | N | N | N | available/pending/withdrawable/used/hold | DATABASE §3.60 | - |
+| wallet_transactions | source_type / source_id | 범용 다형 참조 — EARN이면 `commission_records`/`settlement_items` 참조(정산 결과 인용, 정산 계산 로직 자체는 불변경), USE면 `orders` 참조 등 | string/uuid | N | 다형(미정) | Y | 미정 | DATABASE §3.60 | - |
+| wallet_transactions | reason | ADJUSTMENT/HOLD/RELEASE일 때 사유 기록 | text | N | N | 조건부(해당 유형일 때 필수) | 미정 | DATABASE §3.60 | - |
+| wallet_transactions | created_by / created_at | 시스템(배치) 또는 관리자(수동 보정) | uuid/timestamp | N | N | N | 미정 | DATABASE §3.60 | - |
+| wallet_withdrawal_requests | id / wallet_id / member_id | 출금 신청(신규 승인 구조 아님, Workflow Engine 재사용) | uuid | Y(id) | member_wallets.id / members.id | N | 미정 | DATABASE §3.60 | - |
+| wallet_withdrawal_requests | amount | 신청 금액 | decimal | N | N | N | 미정 | DATABASE §3.60 | - |
+| wallet_withdrawal_requests | bank_account_ref | 출금 계좌 — 기존 회원 계좌 정보 참조 또는 1회성 입력 | string | N | N | Y | 정확한 방식 미확정(O-201 — 은행송금/지갑적립 분배 정책과 연계) | DATABASE §3.60 | - |
+| wallet_withdrawal_requests | status | 출금 상태 | enum | N | N | N | REQUESTED/APPROVED/REJECTED/COMPLETED | DATABASE §3.60 | - |
+| wallet_withdrawal_requests | workflow_instance_id | `workflow_instances`(§3.37, `subject_type='WALLET_WITHDRAWAL'`) 참조 — 신규 승인 구조를 만들지 않고 Workflow Engine 재사용 | uuid | N | workflow_instances.id | N | 미정 | DATABASE §3.60 | - |
+| wallet_withdrawal_requests | requested_at / processed_at / processed_by | | timestamp/timestamp/uuid | N | N | N/Y/Y | 미정 | DATABASE §3.60 | - |
+| external_api_connections | country_code | PG 연동을 국가별로 스코프(예: 태국 PromptPay는 `country_code='TH'`, §3.38 기존 테이블에 컬럼 추가, 기존 `tenant_id`와 결합) | string | N | N | Y | 미정 | DATABASE §3.61 | - |
+| payment_webhook_events | connection_id | 어느 PG 연동인지 | uuid | N | external_api_connections.id | N | 미정 | DATABASE §3.61 | - |
+| payment_webhook_events | event_type | PG사별 원본 이벤트명을 정규화 | string | N | N | N | 결제승인/결제실패/취소/부분취소/환불/부분환불/정기결제성공/정기결제실패 — 자유 확장값, 매핑 규칙 미확정 | DATABASE §3.61 | - |
+| payment_webhook_events | raw_payload_ref | 원문 페이로드 참조 | ref | N | N | Y | 저장 메커니즘 미확정(O-205 — Webhook 서명검증과 연계) | DATABASE §3.61 | - |
+| payment_webhook_events | signature_verified | Webhook 서명 검증 통과 여부 | boolean | N | N | N | 검증 방식/실패 시 처리 미확정(O-205) | DATABASE §3.61 | - |
+| payment_webhook_events | related_order_id | 매칭된 주문(매칭 실패 시 null, 수동 매칭 필요) | uuid | N | orders.id | Y | 미정 | DATABASE §3.61 | - |
+| payment_webhook_events | status | 처리 상태 | enum | N | N | N | 수신/처리중/처리완료/처리실패 | DATABASE §3.61 | - |
+| payment_webhook_events | received_at / processed_at | | timestamp | N | N | N/Y | 미정 | DATABASE §3.61 | - |
+
+## 12. Dictionary Gaps
 
 | 영역 | 현재 상태 |
 |---|---|
@@ -287,4 +334,9 @@
 | 관리자 저장된 검색조건/즐겨찾기 메뉴 | 테이블 도입 여부 미확정(O-199) |
 | 기존 CMS ↔ Board Engine 통합 | `cms_pages`/FAQ/팝업/배너를 Board Engine으로 마이그레이션할지 여부 미확정(O-200) — 결정 전까지 두 구조가 병렬로 유지된다 |
 | 게시판/게시글 삭제 시 하위 데이터 처리 | 게시판 삭제 시 `board_posts`/`board_categories`/`board_post_comments`/`board_post_likes` cascade vs 소프트삭제 정책 미확정 — 기존 소프트삭제 원칙(§4 설계원칙 3)과의 정합 필요 |
+| 후원수당 지급 채널 분배 정책 | 은행송금(기존 정산) vs E-Wallet 적립 — 전액/회원선택/병행 미확정(O-201) — `wallet_transactions`(EARN) 도입의 전제조건 |
+| 포인트↔E-Wallet 상호 전환 | `point_transactions`(§3.36)와 `wallet_transactions`(§3.60) 간 전환 허용 여부 미확정(O-202) — 현재는 별개 병행 시스템 |
+| 쇼핑몰 결제 시 포인트/지갑 차감 우선순위 | 포인트 먼저 / 지갑 먼저 / 회원 선택 미확정(O-203) |
+| 글로벌 결제 PG사 구체 선정 | 한국 신용카드/계좌이체 PG사명, 일본 신용카드 PG사명 등 실제 업체 미확정(O-204) |
+| 결제 Webhook 서명 검증 방식 | 검증 방식 및 검증 실패 시 처리(거부/격리 후 검토 등) 미확정(O-205) — `payment_webhook_events.signature_verified` 의미와 직결 |
 

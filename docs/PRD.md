@@ -1,6 +1,6 @@
 # PRD.md — Product Requirements Document
 
-> 상태: Draft v0.31 (D-074 — Dynamic Board Engine: §5.67 신규 — 공지사항/보도자료/갤러리/FAQ/자료실/이벤트/홍보영상 등을 관리자가 직접 생성하는 범용 게시판 엔진. `boards`/`board_posts`(DATABASE.md §3.58) 공통 구조 + `board_type`/`metadata`(JSON) 확장, 게시판 유형마다 고정 테이블 없음. **기존 CMS(cms_pages/FAQ/팝업/배너)는 변경하지 않음.** 신규 Business Rule 없음, 신규 Open Decision O-200 1건뿐. D-073 — §5.62~§5.66 신규(Abandoned Cart/Saved Cart/Customer Timeline/My Dashboard/Customer Service 보강), Database 구조 무변경) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.32 (D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §5.68~§5.70 신규. **전부 Tenant별 선택 기능.** 공제조합(항목단위 전송/공제번호·증서), E-Wallet(append-only Ledger, KRW/USD/THB/JPY), 글로벌 결제(태국/일본/Stripe/PayPal). MLM 보상플랜·정산 계산 로직·기존 Business Rule·ERP Core 구조 변경 없음, 신규 Open Decision O-201~O-205(5건). D-074 — Dynamic Board Engine: §5.67 신규, 기존 CMS는 변경하지 않음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 전제 문서: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md)
 
 ## 1. 제품 비전
@@ -1651,6 +1651,56 @@ Google 검색결과 미리보기, Naver 검색결과 미리보기, KakaoTalk 공
 관리자가 게시판을 정적 메뉴 그룹(예: "회사소개") 하위에 연결하고 순서를 정한다 — `boards.menu_group`/`sort_order`(DATABASE.md §3.58)로 충분하며, 별도의 범용 "메뉴 엔진"을 신설하지 않는다(요청 범위를 Board Engine에 한정 — 전체 사이트 내비게이션의 완전한 동적화는 본 라운드 범위 밖).
 
 - 본 절 전체의 데이터 모델은 [DATABASE.md](DATABASE.md) §3.58 참조. **신규 Business Rule을 만들지 않았다** — 게시판 운영 규칙(예: 예약게시 전이, 승인후게시)은 기존 BR-045(자동전이 패턴)/BR-036(Workflow 범용 승인) 원칙을 그대로 따르는 운영 흐름이며 별도 BR 번호를 부여하지 않는다. 신규 Open Decision은 **O-200**(기존 CMS 콘텐츠의 Board Engine 통합 마이그레이션 여부) 1건이다. 기존 쇼핑몰/MLM/ERP Core/Workflow 구조는 변경하지 않았다.
+
+### 5.68 한국 공제조합 연동 (New Feature — [DECISIONS.md](DECISIONS.md) D-075, **Tenant별 선택 기능**, API Center/Scheduler Center/Audit Center/Report Builder 재사용 — 신규 연동 엔진 없음)
+
+> 직접판매공제조합/한국특수판매공제조합 연동을 고객사(Tenant)가 선택적으로 사용한다. 기존 §5.7 공제조합 보고센터("보고서 단위" 생성/제출)에, 회원/후원관계/매출/수당/환불/반품/취소를 **항목 단위로 전송·추적**하는 운영 레이어를 보강한다.
+
+| 항목 | 설계 |
+|---|---|
+| 연동 대상 | 직접판매공제조합 / 한국특수판매공제조합 — `external_api_connections.api_name` 자유값(§3.59), 동시 등록 가능 |
+| Tenant별 설정 | 사용/미사용, 연동 대상 선택, 테스트/운영 모드(기존 `status`), API Key/인증정보(기존 `auth_key_ref`), 보고 주기(기존 `compliance_report_definitions.frequency`), 자동/수동 전송 여부(`auto_transmit`/`manual_transmit_allowed`, §3.59 신규 컬럼) |
+| 연동 항목 | 회원/후원관계/매출/수당/환불/반품/취소 — `compliance_transmission_items.item_type`(§3.59, 자유 확장값) |
+| 공제번호/공제증서 | 회원별 `compliance_member_registrations`(§3.59, 신규) — 증서 파일은 File Manager 재사용 |
+| 전송 이력/오류 이력/재전송 | `compliance_transmission_items`(비즈니스 항목 단위) + `external_api_call_logs`(§3.38, 실제 호출 단위) 2단 구조 — 재전송은 새 호출 로그를 생성하고 항목 상태를 갱신 |
+| 관리 기능 | 전송대상조회/전송상태/성공·실패/실패사유/재전송/수동전송/전송로그/보고서 다운로드 — 모두 위 테이블 조회 + Audit Center/Report Builder 화면 재사용, 신규 화면 엔진 없음 |
+
+- 본 절은 신규 Business Rule을 만들지 않는다 — 공제조합 보고 의무 자체는 이미 [LEGAL-CHECKLIST.md](LEGAL-CHECKLIST.md) §2가 다루며 본 절은 그 보고를 자동화하는 운영 설계다.
+
+### 5.69 전자지갑 (E-Wallet) (New Feature — [DECISIONS.md](DECISIONS.md) D-075, **Tenant별 선택 기능**, append-only Ledger 구조)
+
+> 회원별·통화별 지갑으로 수당 적립/쇼핑 결제 사용/출금 신청을 지원한다. **반드시 Ledger 구조** — 잔액은 항상 `wallet_transactions`(DATABASE.md §3.60)에서 파생하며 직접 UPDATE하지 않는다. 포인트(`point_transactions`)와는 별개의 병행 시스템이다.
+
+| 항목 | 설계 |
+|---|---|
+| 회원 지갑 | 회원별×통화별 지갑(`member_wallets`), 사용가능/대기/출금가능/사용/보류 잔액은 전부 원장에서 파생(캐시는 비정규화일 뿐) |
+| 지원 통화 | KRW/USD/THB/JPY 기본 제공 — `currency_code`가 자유 확장값이라 신규 통화 추가에 스키마 변경 불필요 |
+| 지갑 사용처 | 수당 적립(EARN, `settlement_items` 참조 — **정산 계산 로직 자체는 변경하지 않음**)/쇼핑몰 결제 사용(USE)/출금 신청·승인·반려·완료. 포인트 전환 여부는 미확정(O-202), 결제 시 포인트·지갑 우선순위도 미확정(O-203) |
+| 원장(Ledger) 타입 | 충전/적립/사용/취소/환불/출금신청/출금완료/보정/보류/해제 — append-only, [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) append-only 원칙과 동일 |
+| 출금 워크플로우 | 신청→Workflow Engine 승인(`subject_type='WALLET_WITHDRAWAL'`, 신규 승인 구조 아님)→완료. 신청 시 HOLD, 반려 시 RELEASE, 완료 시 WITHDRAWAL_COMPLETED 원장 행 생성 |
+| 관리자 기능 | 회원 지갑 조회/거래내역 조회/출금신청 관리·승인·반려·완료/수동 보정(ADJUSTMENT, 사유 필수)/지갑 잠금·해제(`member_wallets.status`)/통화별 통계(Dashboard Builder 재사용) |
+
+- **정산(Settlement) 경계**: 후원수당 1차 산정·35% 법적 한도 검증·세금 계산은 전혀 변경하지 않는다. 지갑 적립은 정산이 이미 확정한 금액을 인용하는 **추가 지급 채널**일 뿐이며, 은행송금/지갑적립 분배 정책(전액/선택/병행)은 미확정(O-201).
+- 본 절은 신규 Business Rule을 만들지 않는다 — append-only/잔액파생 원칙은 기존 [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md) 원칙의 적용일 뿐이다.
+
+### 5.70 글로벌 결제 (New Feature — [DECISIONS.md](DECISIONS.md) D-075, **Tenant별 선택 기능**, Payment/API Center/Webhook/Audit/Scheduler 재사용)
+
+> 국가별 PG 연동을 고객사가 선택한다. **한국 결제(신용카드/계좌이체/가상계좌/무통장입금)는 이미 §5.45.2(D-069)가 다룬다 — 재등록하지 않는다.** 본 절은 태국(PromptPay)/일본(신용카드)/글로벌(Stripe/PayPal) PG 등록과 인바운드 Webhook만 신규로 다룬다.
+
+| 항목 | 설계 |
+|---|---|
+| 국가별 결제수단 | 한국(§5.45.2 기존) / 태국 PromptPay / 일본 신용카드 / 글로벌 Stripe·PayPal — 전부 `external_api_connections`(category=PG) 행 + 신규 `country_code` 컬럼(DATABASE.md §3.61)으로 스코프 |
+| Tenant별 설정 | 국가별 결제수단 사용여부(`is_enabled`+`tenant_id`+`country_code`)/PG사 선택/Test·Live Mode(기존 `status`)/API Key·Secret Key(기존 `auth_key_ref`)/Webhook URL(기존 `endpoint_url`)/자동결제·환불·부분환불·정기결제 지원여부(PG별 속성, 정확한 항목은 PG사 선정 후 확정 — O-204) |
+| 결제 공통 기능 | 결제요청/승인/실패/취소/부분취소/부분환불/자동결제 — 기존 §5.45.2(`order_payment_attempts` 등) 패턴을 글로벌 PG에도 그대로 적용 |
+| Webhook 수신 | `payment_webhook_events`(DATABASE.md §3.61, 신규) — 기존 `external_api_call_logs`는 아웃바운드(우리가 PG를 호출)라 인바운드(PG가 우리를 호출) 수신에는 별도 테이블이 불가피 |
+| 결제 로그/PG 응답 로그 | 아웃바운드는 기존 `external_api_call_logs`(§3.38) 재사용 |
+| 재시도/Idempotency Key | 기존 **O-054**(Idempotency Key 도입 범위)로 이미 추적 중 — 재등록하지 않음 |
+
+- 정기결제는 기존 `payment_methods.pg_token`(PG 무관 토큰화 패턴, §3.30)을 글로벌 PG에도 그대로 적용한다 — 정확한 토큰화 방식은 기존 **O-087**로 추적 중.
+- Webhook 서명 검증 방식 및 검증 실패 처리는 미확정 — **O-205**.
+- 본 절은 신규 Business Rule을 만들지 않는다 — 결제 승인/실패/취소 흐름은 기존 §5.45.2 패턴의 국가/PG 확장일 뿐이다.
+
+> §5.68~§5.70 전체는 [DECISIONS.md](DECISIONS.md) D-075(한국 공제조합 연동·E-Wallet·글로벌 결제) 참조. **신규 Business Rule 없음. 기존 MLM 보상플랜·정산 계산 로직·ERP Core 구조는 변경하지 않았다. 모든 신규 기능은 Tenant별 선택 기능이다.** 신규 Open Decision은 **O-201~O-205 5건**이다.
 
 ## 6. 비기능 요구사항
 

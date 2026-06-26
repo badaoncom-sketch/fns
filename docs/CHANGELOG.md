@@ -3,6 +3,35 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v2.1.0] - 2026-06-26 (한국 공제조합 연동·E-Wallet·글로벌 결제 — 설계 최종 종료)
+
+> 사용자 요청: "플랫폼이 한국 MLM, 글로벌 MLM, 쇼핑몰, 정산, 공제조합, 전자지갑, 글로벌 결제를 모두 Tenant별 선택 기능으로 지원할 수 있도록 설계한다." [DECISIONS.md](DECISIONS.md) D-075. **전부 Tenant별 선택 기능.** MLM 수당 정책/기존 보상플랜/기존 정산 구조/기존 Business Rule/ERP Core 구조 변경 없음. 실제 API/실제 DB Migration/코드는 작성하지 않음. 신규 Open Decision은 O-201~O-205(5건), 기존 삭제 없음. **본 라운드를 끝으로 설계를 최종 종료하며, 이후 신규 요구사항은 Change Request(CR)로만 관리한다.**
+
+### Added
+
+- [PRD.md](PRD.md) §5.68(한국 공제조합 연동) — 직접판매공제조합/한국특수판매공제조합 동시 등록, 회원/후원관계/매출/수당/환불/반품/취소 항목단위 전송·추적, 공제번호/공제증서 관리. 연동 등록은 기존 `external_api_connections` 재사용
+- [PRD.md](PRD.md) §5.69(전자지갑/E-Wallet) — 회원별·통화별 지갑(KRW/USD/THB/JPY, 확장 가능), append-only Ledger, 출금 신청·승인·반려·완료(Workflow Engine 재사용). 정산 계산 로직 무변경, 지갑 적립은 정산 확정액 인용만
+- [PRD.md](PRD.md) §5.70(글로벌 결제) — 태국 PromptPay/일본 신용카드/Stripe/PayPal, `external_api_connections.country_code` 컬럼 추가, 인바운드 Webhook 수신(`payment_webhook_events` 신규)
+- [DATABASE.md](DATABASE.md) §3.59~§3.61 — 신규 테이블 6종(`compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events`) + 기존 테이블 컬럼 추가 2건(`compliance_report_definitions.tenant_id`/`auto_transmit`/`manual_transmit_allowed`, `external_api_connections.country_code`)
+- [STATE-MACHINE.md](STATE-MACHINE.md) §21(공제조합 회원 등록 상태)/§22(공제조합 항목 전송 상태)/§23(E-Wallet 출금 신청 상태)/§24(결제 Webhook 처리 상태) — 모두 권장안
+- [API-SPEC.md](API-SPEC.md) §2.29(Compliance Transmission)/§2.30(E-Wallet)/§2.31(Global Payment) — 17개 엔드포인트 행
+- [DATA-DICTIONARY.md](DATA-DICTIONARY.md) §11(한국 공제조합 연동·E-Wallet·글로벌 결제) 신설, Dictionary Gaps §12로 재배치
+- [ERD.md](ERD.md) 클러스터15(D-072 Cart/Price Alert)/16(D-074 Board Engine)/17(D-075 공제조합·E-Wallet·글로벌결제) — **D-072/D-074부터 누적된 ERD 동기화 공백을 이번 라운드에서 일괄 catch-up**, 17개 클러스터/엔터티 149개+로 갱신
+- [ROLE-MATRIX.md](ROLE-MATRIX.md) §28(공제조합 연동 관리)/§29(E-Wallet 관리)/§30(글로벌 결제 관리) — 출금 승인은 정산 승인 구조와 명확히 분리. 기존 §31(舊 §28) "미확정 항목"으로 재배치
+- [TEST-PLAN.md](TEST-PLAN.md) §2.14(한국 공제조합 연동·E-Wallet·글로벌 결제 테스트) — E-Wallet append-only 원장 불변성, 정산↔지갑 경계 회귀(최상위 tier) 포함
+- [DECISIONS.md](DECISIONS.md) D-075 + **O-201**(정산↔지갑 분배)/**O-202**(포인트↔지갑 전환)/**O-203**(결제 우선순위)/**O-204**(PG사 선정)/**O-205**(Webhook 서명검증) — 5건
+
+### Changed
+
+- [MASTER-INDEX.md](MASTER-INDEX.md) §1/§6 — PRD/DATABASE/DECISIONS/STATE-MACHINE/API-SPEC/DATA-DICTIONARY/ERD/ROLE-MATRIX/TEST-PLAN/CHANGELOG/MASTER-INDEX 행 갱신, "한국 공제조합 연동·E-Wallet·글로벌 결제 설계 완료(최종 보강)" 체크 추가, "D-075가 마지막 라운드" 명시로 갱신
+- README.md — Open Decision 범위(O-002~O-205), API 모듈 수(31개), ERD 클러스터·엔터티 수(17개/149개+, 누적 catch-up 반영), "한국 공제조합 연동·E-Wallet·글로벌 결제(D-075)" 절 신설
+
+### 비고
+
+- WIREFRAME.md/SITEMAP.md/BUSINESS-RULE-CATALOG.md는 본 라운드의 대상 문서 목록에 없어 수정하지 않았다 — 공제조합/E-Wallet/글로벌결제 관리자 화면·메뉴 반영은 후속 라운드 과제.
+- COMPENSATION-RULES.md/SETTLEMENT-RULES.md/ARCHITECTURE.md/BUSINESS-RULE-CATALOG.md는 본 라운드에서 수정하지 않았다 — MLM/정산/ERP Core 구조 및 BR 카탈로그 무변경 확인(BR 총 54개 유지).
+- E-Wallet의 후원수당 지급 분배 정책(O-201)이 미확정이므로, 실제 "지갑 적립 vs 은행송금" 운영은 그 결정 이후 구체화된다 — 본 라운드는 데이터 모델·API·권한 설계까지만 완료했다.
+
 ## [v2.0.0] - 2026-06-26 (Dynamic Board Engine — CMS 최종 보강, 설계 최종 종료)
 
 > 사용자 요청: "Multi-Tenant ERP에서 회사마다 공지사항/보도자료/갤러리/자료실/FAQ/이벤트/홍보영상 등을 관리자가 직접 생성하고 메뉴에 연결하며 운영할 수 있는 범용 Dynamic Board Engine을 설계로 완성한다." [DECISIONS.md](DECISIONS.md) D-074. **기존 CMS(`cms_pages`/FAQ/팝업/배너)는 변경하지 않음.** 신규 MLM 정책/Business Rule 없음. 기존 쇼핑몰/ERP Core/Workflow 구조 변경 없음. 신규 Open Decision은 O-200 1건뿐(최소화 원칙), 기존 삭제 없음. 코드는 생성하지 않음. **본 라운드를 끝으로 설계를 최종 종료하며, 이후 신규 기능은 Change Request(CR)로만 관리한다.**

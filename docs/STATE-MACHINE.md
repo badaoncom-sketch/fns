@@ -1,6 +1,6 @@
 # STATE-MACHINE.md — State Machine Catalog
 
-> 상태: v0.3 ([DECISIONS.md](DECISIONS.md) D-072 — §17 배송 상세 상태/§18 결제(PG) 시도 상태/§19 자동결제 재시도 상태/§20 알림 발송 상태 추가(모두 권장안). D-069 — §15 상품 판매상태, §16 반품/교환 통합 상태머신(권장안) 추가) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.4 ([DECISIONS.md](DECISIONS.md) D-075 — §21 공제조합 회원 등록 상태/§22 공제조합 항목 전송 상태/§23 E-Wallet 출금 신청 상태/§24 결제 Webhook 처리 상태 추가(모두 권장안). D-072 — §17 배송 상세 상태/§18 결제(PG) 시도 상태/§19 자동결제 재시도 상태/§20 알림 발송 상태 추가(모두 권장안). D-069 — §15 상품 판매상태, §16 반품/교환 통합 상태머신(권장안) 추가) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
 > 목적: 기존 문서에 이미 정의된 상태값과 전이를 Mermaid 다이어그램으로 모아본다. 본 문서는 새로운 상태값을 만들지 않는다.
 
 ## 0. 작성 원칙
@@ -273,6 +273,8 @@ stateDiagram-v2
 | 반품/교환 상태머신 | §16에 권장 다이어그램 추가(D-069) — 반품/교환 통합 여부는 여전히 미확정(O-180) |
 | CMS 콘텐츠 상태 | DRAFT/IN_REVIEW/SCHEDULED/PUBLISHED 도입 여부 미확정(O-137) |
 | CRM 상담/예약 상태 | 진행중/완료/Follow-up필요 등 표기 있으나 상세 전이 미확정 |
+| E-Wallet 출금/지갑 적립 관련 정책 | §23에 권장 다이어그램 추가(D-075) — 정산↔지갑 분배(O-201)·포인트↔지갑 전환(O-202)·결제 시 우선순위(O-203)는 여전히 미확정 |
+| 결제 Webhook 서명검증 실패 처리 | §24에 권장 다이어그램 추가(D-075) — 검증 실패 시 거부/격리 후 검토 등 처리 방식은 여전히 미확정(O-205) |
 
 
 ## 15. 상품 판매상태 (신규, D-069 — [DATABASE.md](DATABASE.md) §3.52, BR-045)
@@ -416,3 +418,96 @@ stateDiagram-v2
     RESENT --> SENT: 재발송 성공
     RESENT --> FAILED: 재발송도 실패
 ```
+
+## 21. 공제조합 회원 등록 상태 (권장안, D-075 — [DATABASE.md](DATABASE.md) §3.59 `compliance_member_registrations`)
+
+Source: [DATABASE.md](DATABASE.md) §3.59 `compliance_member_registrations.status`. 한국 공제조합(직접판매공제조합/한국특수판매공제조합) 연동 — **Tenant별 선택 기능**. **권장 상태값**이며 최종 확정은 아니다.
+
+```mermaid
+stateDiagram-v2
+    PENDING: 등록대기
+    REGISTERED: 등록완료
+    FAILED: 등록실패
+    TERMINATED: 해지
+
+    [*] --> PENDING: 등록 신청(`connection_id`/`registration_number`/`certificate_file_ref`)
+    PENDING --> REGISTERED: 공제조합 등록 확인(`registered_at` 기록)
+    PENDING --> FAILED: 등록 실패
+    FAILED --> PENDING: 재시도
+    REGISTERED --> TERMINATED: 해지(REGISTERED에서만 전이 가능)
+```
+
+> `TERMINATED`는 `REGISTERED` 상태에서만 도달할 수 있다 — `PENDING`/`FAILED`에서 직접 해지로 전이하지 않는다(해지는 "등록되어 있던 것을 끝내는" 행위이므로).
+
+## 22. 공제조합 항목 전송 상태 (권장안, D-075 — [DATABASE.md](DATABASE.md) §3.59 `compliance_transmission_items`)
+
+Source: [DATABASE.md](DATABASE.md) §3.59 `compliance_transmission_items.status`. 회원/후원관계/매출/수당/환불/반품/취소 등 항목 단위 전송 추적. 기존 **§20 알림 발송 상태**(QUEUED→SENDING→SENT/FAILED→RESENT)와 구조적으로 동일한 패턴이며, 이를 재사용한 권장안이다. **권장 상태값**이며 최종 확정은 아니다.
+
+```mermaid
+stateDiagram-v2
+    PENDING: 대기
+    SENDING: 전송중
+    SUCCESS: 성공
+    FAILED: 실패
+
+    [*] --> PENDING: 전송 대상 항목 생성(Scheduler Center Job 또는 수동전송)
+    PENDING --> SENDING: 호출 시작(`external_api_call_logs` 신규 행, §3.38)
+    SENDING --> SUCCESS: PG/공제조합 응답 성공
+    SENDING --> FAILED: 응답 실패/오류(`failure_reason` 기록)
+    FAILED --> SENDING: 재전송(`retry_count` 증가, `last_attempted_at` 갱신, 새 `call_log_id` 연결)
+```
+
+> §20과 달리 별도 `RESENT` 상태를 두지 않았다 — 재전송은 동일 행의 `status`를 `SENDING`으로 되돌리고 `retry_count`/`last_attempted_at`을 갱신하는 것으로 표현된다(새로운 시도이지만 같은 항목 행이 갱신되는 구조, §3.59). 실제 호출 시도·성공/실패 이력 자체는 `external_api_call_logs`(§3.38, 재시도마다 새 로그)가 1:N으로 따로 보존한다.
+
+## 23. E-Wallet 출금 신청 상태 (권장안, D-075 — [DATABASE.md](DATABASE.md) §3.60 `wallet_withdrawal_requests`)
+
+Source: [DATABASE.md](DATABASE.md) §3.60 `wallet_withdrawal_requests.status`. 신규 승인 구조를 만들지 않고 기존 **Workflow Engine**(§11, `workflow_instances.subject_type='WALLET_WITHDRAWAL'`)을 재사용한다. **권장 상태값**이며 최종 확정은 아니다.
+
+```mermaid
+stateDiagram-v2
+    REQUESTED: REQUESTED
+    APPROVED: APPROVED
+    REJECTED: REJECTED
+    COMPLETED: COMPLETED
+
+    [*] --> REQUESTED: 출금 신청(`amount`/`bank_account_ref`)
+    REQUESTED --> APPROVED: Workflow Engine 승인(`subject_type='WALLET_WITHDRAWAL'`, §11)
+    REQUESTED --> REJECTED: Workflow Engine 반려
+    APPROVED --> COMPLETED: 출금 실행(`processed_at`/`processed_by` 기록)
+```
+
+> **상태 전이마다 `wallet_transactions`에 대응 원장 행이 생긴다**([DATABASE.md](DATABASE.md) §3.60) — `REQUESTED`는 `HOLD` 원장 행(가용잔액 차감, 보류잔액 증가), `REJECTED`는 `RELEASE` 원장 행(보류 해제, 가용잔액 복원), `COMPLETED`는 `WITHDRAWAL_COMPLETED` 원장 행(보류잔액 소진)을 각각 발생시킨다. `wallet_transactions`는 append-only 원장이며 위 4개 상태 간 전이가 아니라 독립된 거래 유형 나열이다(§10 Point Transaction과 동일한 원칙).
+
+추가로 `member_wallets.status`는 별도의 단순 2-state 토글이다(관리자 수동 잠금/해제, [PRD.md](PRD.md) §5.69):
+
+```mermaid
+stateDiagram-v2
+    ACTIVE: ACTIVE
+    LOCKED: LOCKED
+
+    [*] --> ACTIVE: 지갑 생성
+    ACTIVE --> LOCKED: 관리자 수동 잠금
+    LOCKED --> ACTIVE: 관리자 수동 해제
+```
+
+> 지갑이 `LOCKED`인 동안 출금 신청(`wallet_withdrawal_requests`)이 가능한지 여부는 본 문서가 임의로 정하지 않는다 — 미확정.
+
+## 24. 결제 Webhook 처리 상태 (권장안, D-075 — [DATABASE.md](DATABASE.md) §3.61 `payment_webhook_events`)
+
+Source: [DATABASE.md](DATABASE.md) §3.61 `payment_webhook_events.status`. **인바운드**(PG가 우리를 호출) Webhook 수신 처리 흐름이다 — 기존 **§18 결제(PG) 시도 상태**는 **아웃바운드**(우리가 PG를 호출)인 `order_payment_attempts`를 다루므로 방향이 반대다. 두 상태머신은 서로 다른 테이블/트랙이며 혼동하지 않아야 한다. **권장 상태값**이며 최종 확정은 아니다.
+
+```mermaid
+stateDiagram-v2
+    RECEIVED: 수신
+    PROCESSING: 처리중
+    PROCESSED: 처리완료
+    FAILED: 처리실패
+
+    [*] --> RECEIVED: PG Webhook 수신(`raw_payload_ref` 저장, `signature_verified` 기록)
+    RECEIVED --> PROCESSING: 서명 검증 통과 후 처리 시작
+    PROCESSING --> PROCESSED: 주문 매칭/반영 성공(`related_order_id` 연결)
+    PROCESSING --> FAILED: 주문 매칭 실패 또는 처리 오류
+```
+
+> `signature_verified=false`(서명 검증 실패)일 때 즉시 거부할지, 격리 후 검토할지는 **O-205**(Webhook 서명 검증 방식, [DECISIONS.md](DECISIONS.md))로 이미 등록된 미확정 항목이다 — 본 다이어그램은 검증 통과 이후의 처리 흐름만 다루며, 검증 실패 분기를 임의로 추가하지 않는다.
+> **§18(결제(PG) 시도 상태)과의 구분**: §18은 "우리가 결제를 요청하고 PG 응답을 기다리는" 아웃바운드 흐름(`order_payment_attempts`)이고, 본 §24는 "PG가 비동기로 결과를 알려오는" 인바운드 흐름(`payment_webhook_events`)이다 — 동일 결제 1건에 대해 양쪽 상태머신이 독립적으로 존재할 수 있다(예: §18은 `SUCCEEDED`인데 §24 Webhook이 아직 `PROCESSING`인 구간이 있을 수 있음).
