@@ -1,6 +1,6 @@
 # ERD.md — Entity Relationship Diagram
 
-> 상태: v0.3 ([DECISIONS.md](DECISIONS.md) D-063 — 개발 착수 준비 문서 세트 / D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(§3.52~§3.56) 신규 테이블 18개를 ERD에 반영하는 동기화 작업, 클러스터 14 추가. D-070 자체는 신규 테이블을 추가하지 않음 / **본 라운드(2026-06-26) — 동기화 누락분 일괄 반영**: D-072(§3.57, 클러스터 15)·D-074(§3.58, 클러스터 16)·D-075(§3.59~§3.61, 클러스터 17) 세 라운드에서 추가된 신규 테이블 14개가 ERD에 반영되지 않은 채 누적되어 있던 것을 클러스터 15/16/17 추가로 한 번에 동기화함) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.4 ([DECISIONS.md](DECISIONS.md) D-077 — ERD 동기화·API Sequence·Event Flow 완성: 클러스터 18(§3.62, D-076의 `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5개) 추가 — **Database와 ERD가 100% 일치한다.** 신규 기능/테이블/Business Rule 없음, 순수 동기화 작업. D-063 — 개발 착수 준비 문서 세트 / D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(§3.52~§3.56) 신규 테이블 18개를 ERD에 반영하는 동기화 작업, 클러스터 14 추가 / 2026-06-26 — 동기화 누락분 일괄 반영: D-072(§3.57, 클러스터 15)·D-074(§3.58, 클러스터 16)·D-075(§3.59~§3.61, 클러스터 17) 세 라운드에서 추가된 신규 테이블 14개를 클러스터 15/16/17 추가로 동기화함) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 전제 문서: [DATABASE.md](DATABASE.md)
 > 본 문서는 DATABASE.md §3의 텍스트 기반 엔터티 정의를 시각화한 것이며, 실제 마이그레이션 스키마를 대체하지 않는다.
 
@@ -1430,6 +1430,62 @@ erDiagram
 
 ---
 
+## 클러스터 18. ERP 운영 생산성 및 관리자 UX 완성 — §3.62
+
+D-076에서 신규로 추가된 영역. 새 ERP 기능이 아니라 운영자(본사/Tenant 관리자/CS/물류/마케팅) 생산성 보강이며, 신규 Engine을 만들지 않고 Workflow Engine/Notification Center/Dashboard Builder/Report Builder/Scheduler Center/API Center/File Manager/Audit Center를 재사용한다. PRD.md §5.71~§5.82가 다루는 12개 기능 영역 중 8개(Global Search/Approval Center/Approval History/Recent Activity/Tenant Usage Dashboard/Personal Workspace/Command Palette/Universal Clipboard)는 기존 테이블 federated 조회 또는 순수 프론트엔드로 해결되어 ERD에 신규 엔터티가 없다. 진짜 신규 엔터티는 아래 5개뿐이다.
+
+```mermaid
+erDiagram
+    notifications ||--o{ notification_inbox_states : "notification_id"
+    workflow_instances ||--o| approval_delegations : "위임 정보 참조(위성 테이블, Workflow Engine 자체 구조는 변경 없음)"
+
+    admin_favorite_menus {
+        uuid admin_id FK "members 참조(관리자도 회원 테이블 재사용, 기존 owner_admin_id와 동일 패턴)"
+        string menu_key "SITEMAP.md 메뉴 트리 노드 키"
+        int sort_order
+        timestamp pinned_at
+    }
+    saved_filters {
+        uuid admin_id FK
+        string name
+        string target_module "자유 확장값"
+        json filter_criteria
+        bool is_default
+        bool is_shared
+        timestamp created_at
+    }
+    notification_inbox_states {
+        uuid notification_id FK "notifications(§3.20) 참조 — 원본 불변, 상태만 오버레이"
+        string recipient_type "MEMBER/ADMIN"
+        uuid recipient_id
+        bool is_read
+        bool is_important
+        bool is_archived
+        json tags
+    }
+    admin_notes {
+        string related_entity_type "범용 참조 — MEMBER/ORDER/PRODUCT/BOARD_POST/WORKFLOW_INSTANCE/SETTLEMENT_BATCH 등"
+        uuid related_entity_id "범용 참조"
+        string content
+        bool is_important
+        bool is_internal "회원 노출 화면에 절대 노출 금지"
+        uuid created_by FK
+        timestamp created_at
+    }
+    approval_delegations {
+        uuid delegator_id FK "원래 승인자"
+        uuid delegate_id FK "대리 승인자"
+        date start_date
+        date end_date
+        string reason
+        uuid created_by FK
+    }
+```
+
+> 비고: `admin_notes.related_entity_type`/`related_entity_id`는 17-A `compliance_transmission_items.source_type`/`source_id`와 동일한 범용 참조(polymorphic association) 패턴이라 특정 엔터티와의 FK 화살표 대신 텍스트로만 표시했다. `admin_notes`(범용)는 기존 주문 전용 `order_admin_notes`(클러스터 14-B, §3.53)를 변경하지 않으며 병렬로 존재한다 — 통합 여부는 미확정(O-206). `approval_delegations`는 Workflow Engine(`workflow_definitions`/`workflow_instances`/`workflow_step_actions`, 클러스터 12-A) 자체 테이블을 변경하지 않는 위성 테이블이며, 위임 가능 범위는 미확정(O-207). `notification_inbox_states`는 기존 `notifications`/`notification_logs`(클러스터 8, §3.20)를 변경하지 않는 상태 오버레이다 — `cms_translations`(클러스터 9-A)가 `cms_pages`를 오버레이하는 것과 동일한 패턴.
+
+---
+
 ## 마스터 테이블
 
 전체 테이블/엔터티 목록. "append-only" 열은 DATABASE.md에서 명시적으로 append-only 원장으로 서술된 테이블만 "Y"로 표시한다(§4 설계원칙 1 적용 대상). PK/FK 컬럼명이 본문에 명시되지 않은 경우 "(미확정)"으로 표기했다.
@@ -1585,6 +1641,11 @@ erDiagram
 | `wallet_transactions` | 17-B. 공제조합/E-Wallet/글로벌결제 | id(추정) | wallet_id, source_type+source_id(범용) | — | **Y(핵심 원장)** | §3.60 |
 | `wallet_withdrawal_requests` | 17-B. 공제조합/E-Wallet/글로벌결제 | id(추정) | wallet_id, member_id, workflow_instance_id | — | N(상태전이) | §3.60 |
 | `payment_webhook_events` | 17-C. 공제조합/E-Wallet/글로벌결제 | id(추정) | connection_id, related_order_id(nullable) | — | **Y(append-only)** | §3.61 |
+| `admin_favorite_menus` | 18. ERP 운영생산성 | (미확정) | admin_id | admin_id+menu_key(unique 추정) | N | §3.62 |
+| `saved_filters` | 18. ERP 운영생산성 | (미확정) | admin_id | — | N | §3.62 |
+| `notification_inbox_states` | 18. ERP 운영생산성 | (미확정) | notification_id, recipient_type+recipient_id(범용) | — | N(상태오버레이) | §3.62 |
+| `admin_notes` | 18. ERP 운영생산성 | (미확정) | related_entity_type+related_entity_id(범용), created_by | — | N | §3.62 |
+| `approval_delegations` | 18. ERP 운영생산성 | (미확정) | delegator_id, delegate_id, created_by | — | N(상태전이) | §3.62 |
 
 ### 폐기/일반화로 ERD에서 제외된 엔터티 (참고용)
 
@@ -1620,5 +1681,6 @@ erDiagram
 | 15 | 쇼핑몰 UX 보강(Cart/Price Alert) | §3.57 | 1 |
 | 16 | Dynamic Board Engine | §3.58 | 1 |
 | 17 | 한국 공제조합 연동·E-Wallet·글로벌 결제 | §3.59~§3.61 | 3 (17-A, 17-B, 17-C) |
+| 18 | ERP 운영 생산성 및 관리자 UX 완성 | §3.62 | 1 |
 
-**총 클러스터 17개, Mermaid `erDiagram` 다이어그램 23개, 마스터 테이블 수록 엔터티 149개**(폐기/일반화 제외 목록 6개는 별도 표). 클러스터 14는 D-070(쇼핑몰 운영 Phase 2 및 문서 동기화) 시점에 D-069(§3.52~§3.56) 신규 테이블 18개를 동기화 반영한 것이다(이전 117개 + 18개 = 135개). 본 라운드(2026-06-26)는 클러스터 15/16/17을 추가하여 D-072(§3.57, `carts`/`cart_items`/`product_price_alerts` 3개)·D-074(§3.58, `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5개)·D-075(§3.59~§3.61, `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events` 6개) 시점에 ERD에 동기화되지 않고 누적되어 있던 신규 테이블 14개를 한 번에 반영한 것이다(135개 + 14개 = 149개).
+**총 클러스터 18개, Mermaid `erDiagram` 다이어그램 24개, 마스터 테이블 수록 엔터티 154개**(폐기/일반화 제외 목록 6개는 별도 표). 클러스터 14는 D-070(쇼핑몰 운영 Phase 2 및 문서 동기화) 시점에 D-069(§3.52~§3.56) 신규 테이블 18개를 동기화 반영한 것이다(이전 117개 + 18개 = 135개). 2026-06-26 라운드는 클러스터 15/16/17을 추가하여 D-072(§3.57, `carts`/`cart_items`/`product_price_alerts` 3개)·D-074(§3.58, `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5개)·D-075(§3.59~§3.61, `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events` 6개) 시점에 ERD에 동기화되지 않고 누적되어 있던 신규 테이블 14개를 한 번에 반영한 것이다(135개 + 14개 = 149개). **본 라운드(2026-06-27, D-077 — ERD 최종 동기화)는 클러스터 18을 추가하여 D-076(§3.62, `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5개)에서 추가되었으나 ERD에 반영되지 않았던 신규 테이블 5개를 동기화했다(149개 + 5개 = 154개). D-073은 신규 테이블이 0건이라 ERD 변경 대상이 없다. 이로써 Database(DATABASE.md §3.1~§3.62)와 ERD가 100% 일치한다.**

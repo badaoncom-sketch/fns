@@ -1,6 +1,6 @@
 # DATABASE.md — 데이터 모델
 
-> 상태: Draft v0.29 (D-076 — ERP 운영 생산성 및 관리자 UX 완성: §3.62 신규(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5종뿐 — Global Search/Approval Center/Recent Activity/Personal Workspace 등 대부분은 기존 테이블 federated 조회). **O-199 해소**(즐겨찾기 메뉴/저장된 검색조건). 신규 Engine 없음, Business Rule·MLM·Settlement·ERP Core·Workflow 구조 변경 없음. D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §3.59~§3.61 신규(전부 Tenant별 선택 기능)) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
+> 상태: Draft v0.30 (D-077 — ERD 동기화·API Sequence·Event Flow 완성: 신규 기능/테이블/컬럼 없음 — 본 문서는 이미 Source of Truth이므로 내용 변경 없이, [ERD.md](ERD.md)가 본 문서(§3.1~§3.62, 154개+ 엔터티)와 100% 일치하도록 동기화되었음을 확인·명시한다. [EVENT-FLOW.md](EVENT-FLOW.md)/[API-SEQUENCE.md](API-SEQUENCE.md)(신규)가 본 문서의 테이블/컬럼을 인용해 시각화했으며 충돌 없음 확인. D-076 — ERP 운영 생산성 및 관리자 UX 완성: §3.62 신규(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5종뿐 — Global Search/Approval Center/Recent Activity/Personal Workspace 등 대부분은 기존 테이블 federated 조회). **O-199 해소**(즐겨찾기 메뉴/저장된 검색조건). 신규 Engine 없음, Business Rule·MLM·Settlement·ERP Core·Workflow 구조 변경 없음. D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §3.59~§3.61 신규(전부 Tenant별 선택 기능)) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 전제 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [COMPENSATION-RULES.md](COMPENSATION-RULES.md), [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md)
 > 본 문서는 테이블 구조의 **개념 설계**이며, 실제 마이그레이션 파일/스키마는 구현 단계에서 작성한다. 코드/마이그레이션은 생성하지 않는다.
 

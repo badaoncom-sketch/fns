@@ -3,6 +3,36 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v2.3.0] - 2026-06-27 (ERD 동기화·API Sequence·Event Flow 완성 — 개발 착수 직전 최종 기술 문서)
+
+> 사용자 요청: "이번 작업은 새로운 기능을 추가하는 작업이 아니다. 현재 설계를 개발자가 바로 구현할 수 있도록 최종 기술 문서를 완성하는 작업이다." [DECISIONS.md](DECISIONS.md) D-077. 신규 기능/테이블/Business Rule/Engine/Open Decision 모두 0건 — 순수 시각화·동기화 작업. **이번 작업 완료 후 Development Governance 단계로 진행한다.**
+
+### Added
+
+- [ERD.md](ERD.md) 클러스터18(§3.62) — D-076의 신규 5테이블(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations`)을 동기화 반영. D-072/D-074/D-075/D-076 누적 동기화 공백 완전 해소 — **DATABASE.md와 100% 일치**(18클러스터/Mermaid `erDiagram` 24개/마스터 테이블 154엔터티). D-073은 신규 테이블 0건이라 변경 대상 없음
+- [API-SEQUENCE.md](API-SEQUENCE.md)(신규 문서) — 19개 흐름(회원가입/로그인/상품조회/주문/결제/배송/환불/반품/교환/정산/MLM/E-Wallet/공제조합/Notification/Workflow/CMS/Dynamic Board/Global Search/Approval Center)을 Mermaid `sequenceDiagram` 19개로 시각화. 모든 엔드포인트는 기존 API-SPEC.md를 그대로 인용 — 신규 엔드포인트 없음
+- [EVENT-FLOW.md](EVENT-FLOW.md)(신규 문서) — Worker 중심 Event 처리 흐름 10개(마스터 체인 3개: 회원가입→...→Audit / Workflow→Approval→...→Audit / Order→Worker→...→Audit, 도메인별 7개: MLM/정산/E-Wallet/공제조합/Abandoned Cart/Dynamic Board/Approval 위임)를 Mermaid `flowchart` 10개로 시각화
+
+### Changed
+
+- [API-SPEC.md](API-SPEC.md) §0 — [API-SEQUENCE.md](API-SEQUENCE.md) 교차참조 1줄 추가(엔드포인트 표면 §2.1~§2.38 자체는 변경 없음)
+- [DATABASE.md](DATABASE.md) 헤더 — ERD.md 100% 동기화 확인 문구 추가(테이블/컬럼 자체는 변경 없음)
+- [MASTER-INDEX.md](MASTER-INDEX.md) §1/§6/의존관계 다이어그램 — ERD/API-SPEC 행 갱신, API-SEQUENCE.md/EVENT-FLOW.md 행 신설, "ERD 동기화·API Sequence·Event Flow 완성" 체크 추가, 문서 수 34→36 갱신
+- README.md — ERD 절(154엔터티/18클러스터/100% 일치)·API 절(38개 모듈, API-SEQUENCE.md 인용) 갱신, "ERD 동기화·API Sequence·Event Flow 완성(D-077)" 절 신설, 과거 "프로젝트 마지막 라운드" 표현을 D-077에만 남기고 D-076 절에서 제거
+
+### Source of Truth 교차검증 결과
+
+- Database↔ERD↔API↔Event Flow↔Sequence↔State Machine↔Business Rule 7개 문서 간 충돌 점검 — **충돌 0건**
+- BR 총 54개 유지(`grep` 검증), Open Decision 최대 번호 O-207 유지(API-SEQUENCE.md/EVENT-FLOW.md가 인용한 모든 O-번호는 기존 등록분)
+- `wallet_withdrawal_requests`/`compliance_transmission_items` 상태값이 [STATE-MACHINE.md](STATE-MACHINE.md) §22~§23과 정확히 일치
+- 35% 법적 한도 Hard Gate([ARCHITECTURE.md](ARCHITECTURE.md) §8.1.3)를 API-SEQUENCE.md/EVENT-FLOW.md 양쪽에서 완화 없이 동일하게 표현
+
+### 비고
+
+- [EVENT-CATALOG.md](EVENT-CATALOG.md)는 본 라운드의 대상 문서 목록에 없어 수정하지 않았다 — D-064 시점 작성 이후 D-069~D-076에서 추가된 이벤트(Cart/Board Engine/E-Wallet/공제조합/ERP운영생산성)가 미등재 상태로 남아있다. EVENT-FLOW.md가 이 중 15개 이벤트명을 "EVENT-CATALOG.md 미등재 — 명명 규칙만 일치"로 명시 표시했다 — 후속 EVENT-CATALOG.md 동기화 라운드의 과제로 남긴다.
+- COMPENSATION-RULES.md/SETTLEMENT-RULES.md/ARCHITECTURE.md/BUSINESS-RULE-CATALOG.md는 본 라운드에서 수정하지 않았다 — MLM/정산/ERP Core 구조 및 BR 카탈로그 무변경 확인(BR 총 54개 유지).
+- WIREFRAME.md/SITEMAP.md/ROLE-MATRIX.md/TEST-PLAN.md/DATA-DICTIONARY.md/PRD.md는 본 라운드의 대상 문서 목록에 없어 수정하지 않았다 — 순수 ERD/API Sequence/Event Flow 시각화 라운드였기 때문이다.
+
 ## [v2.2.0] - 2026-06-27 (ERP 운영 생산성 및 관리자 UX 완성 — 설계 최종 종료)
 
 > 사용자 요청: "목적은 새로운 기능을 만드는 것이 아니라 실제 상용 ERP를 운영하는 본사 관리자, 고객사 관리자, CS 담당자, 물류 담당자, 마케팅 담당자의 생산성을 극대화하는 것이다." [DECISIONS.md](DECISIONS.md) D-076. **신규 Engine 없음** — Workflow Engine/Notification Center/Dashboard Builder/Report Builder/Form Builder/Scheduler Center/API Center/File Manager/Audit Center 최대 재사용. MLM 보상플랜/정산 계산 로직/기존 Business Rule/ERP Core/Workflow/쇼핑몰 구조 변경 없음. 실제 API/실제 DB Migration/코드는 작성하지 않음. 신규 Open Decision은 O-206~O-207(2건), 기존 삭제 없음(O-199는 해소). **본 라운드를 끝으로 설계를 최종 종료하며, 이후 신규 요구사항은 Change Request(CR)로만 관리한다. 다음 단계는 Development Governance 문서 작업이다.**
