@@ -1,6 +1,6 @@
 # ERD.md — Entity Relationship Diagram
 
-> 상태: v0.5 ([DECISIONS.md](DECISIONS.md) D-078 — Marketing Reward System 및 Lifestyle Wallet 구조 개선: 클러스터 19(§3.63, `reward_policies` 1종 신규) 추가 — 클러스터 17-B(`member_wallets`/`wallet_transactions`, §3.60)는 컬럼/허용값 확장만(`wallet_type`/`counts_toward_compliance_limit` 컬럼 추가, `transaction_type`에 RESTORE/EXPIRE 허용값 추가) 다이어그램 재작성 없이 비고로 반영. 새 MLM 정책 아님, Business Rule 변경 없음, O-208/O-209 등록. D-077 — ERD 동기화·API Sequence·Event Flow 완성: 클러스터 18(§3.62, D-076의 `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5개) 추가 — **Database와 ERD가 100% 일치한다.** 신규 기능/테이블/Business Rule 없음, 순수 동기화 작업. D-063 — 개발 착수 준비 문서 세트 / D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(§3.52~§3.56) 신규 테이블 18개를 ERD에 반영하는 동기화 작업, 클러스터 14 추가 / 2026-06-26 — 동기화 누락분 일괄 반영: D-072(§3.57, 클러스터 15)·D-074(§3.58, 클러스터 16)·D-075(§3.59~§3.61, 클러스터 17) 세 라운드에서 추가된 신규 테이블 14개를 클러스터 15/16/17 추가로 동기화함) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
+> 상태: v0.6 ([DECISIONS.md](DECISIONS.md) D-079 — Reward Policy 고도화 및 운영 시뮬레이션: 클러스터 20(§3.64, `reward_formula_versions` 1종 신규, append-only Formula 버전 원장) 추가 — `reward_policies`(클러스터 19, §3.63)는 `active_formula_version_id` 컬럼 추가만(다이어그램 재작성 없이 비고로 반영). Reward Simulation/Formula Test는 신규 테이블 없이 계산만 수행(결과 미저장), 실행 이력은 기존 `audit_logs` 재사용. 새 MLM 정책·Business Rule 없음, O-210 등록. D-078 — Marketing Reward System 및 Lifestyle Wallet 구조 개선: 클러스터 19(§3.63, `reward_policies` 1종 신규) 추가 — 클러스터 17-B(`member_wallets`/`wallet_transactions`, §3.60)는 컬럼/허용값 확장만(`wallet_type`/`counts_toward_compliance_limit` 컬럼 추가, `transaction_type`에 RESTORE/EXPIRE 허용값 추가) 다이어그램 재작성 없이 비고로 반영. 새 MLM 정책 아님, Business Rule 변경 없음, O-208/O-209 등록. D-077 — ERD 동기화·API Sequence·Event Flow 완성: 클러스터 18(§3.62, D-076의 `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5개) 추가 — **Database와 ERD가 100% 일치한다.** 신규 기능/테이블/Business Rule 없음, 순수 동기화 작업. D-063 — 개발 착수 준비 문서 세트 / D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(§3.52~§3.56) 신규 테이블 18개를 ERD에 반영하는 동기화 작업, 클러스터 14 추가 / 2026-06-26 — 동기화 누락분 일괄 반영: D-072(§3.57, 클러스터 15)·D-074(§3.58, 클러스터 16)·D-075(§3.59~§3.61, 클러스터 17) 세 라운드에서 추가된 신규 테이블 14개를 클러스터 15/16/17 추가로 동기화함) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 전제 문서: [DATABASE.md](DATABASE.md)
 > 본 문서는 DATABASE.md §3의 텍스트 기반 엔터티 정의를 시각화한 것이며, 실제 마이그레이션 스키마를 대체하지 않는다.
 
@@ -1517,6 +1517,32 @@ erDiagram
 
 ---
 
+## 클러스터 20. Reward Policy 고도화 및 운영 시뮬레이션 — §3.64
+
+D-079에서 신규로 추가된 영역. Marketing Reward System(클러스터 19, §3.63, D-078)을 완성하는 보강이며, **새 MLM 정책이 아니다.** 진짜 신규 엔터티는 `reward_formula_versions` 1개뿐이다 — Reward Simulation/Formula Test는 신규 테이블 없이 계산만 수행(결과 미저장)하므로 본 다이어그램에 포함되지 않는다.
+
+```mermaid
+erDiagram
+    reward_policies ||--o{ reward_formula_versions : "reward_policy_id"
+
+    reward_formula_versions {
+        uuid id PK "추정"
+        uuid reward_policy_id FK "reward_policies(§3.63) 참조"
+        int version_number "정책당 순번(1부터 증가)"
+        string formula_type "자유 확장값 — REVENUE_RATE/PV_RATE/BV_RATE/FIXED_POINT/CUSTOM 등"
+        json formula_definition "계산식 정의(JSON, marketing_plan_versions.plan_definition과 동일 패턴) — CUSTOM 표현 방식·안전한 평가 방식 미확정 O-210"
+        decimal accrual_rate "이 버전의 적립률 — reward_policies.accrual_rate 캐시의 원본"
+        bool is_active "정책당 단 1개만 true"
+        uuid created_by FK
+        timestamp created_at
+        date effective_from "nullable — 즉시 적용"
+    }
+```
+
+> 비고: `reward_policies`(§3.63, 클러스터 19에서 이미 그려짐)는 본 라운드(D-079, §3.64)에서 `active_formula_version_id`(신규, `reward_formula_versions` 참조 — 현재 활성 Formula Version, nullable) 컬럼 1개가 추가되나, **컬럼 추가는 신규 테이블이 아니므로 본 다이어그램에 표시하지 않는다**(클러스터 19의 기존 다이어그램은 변경하지 않음). 기존 `reward_policies.accrual_basis`/`accrual_method`/`accrual_rate`(§3.63) 컬럼은 그대로 유지되나, 본 라운드 이후로는 `active_formula_version_id`가 가리키는 행의 값을 복제한 파생 캐시로 의미가 바뀐다(`member_wallets.*_balance_cache`와 동일한 비정규화 원칙) — 신뢰 가능한 원본은 항상 `reward_formula_versions`다. `reward_formula_versions`는 append-only 원장이며(정책 수정 시 새 행만 추가, 기존 행 수정 없음), Reward Simulation/Formula Test 실행 이력은 신규 테이블 없이 기존 `audit_logs`(§3.8)를 재사용한다. 본 절은 Settlement·MLM 보상플랜 계산 로직·ERP Core·Workflow 구조를 변경하지 않는다.
+
+---
+
 ## 마스터 테이블
 
 전체 테이블/엔터티 목록. "append-only" 열은 DATABASE.md에서 명시적으로 append-only 원장으로 서술된 테이블만 "Y"로 표시한다(§4 설계원칙 1 적용 대상). PK/FK 컬럼명이 본문에 명시되지 않은 경우 "(미확정)"으로 표기했다.
@@ -1678,6 +1704,7 @@ erDiagram
 | `admin_notes` | 18. ERP 운영생산성 | (미확정) | related_entity_type+related_entity_id(범용), created_by | — | N | §3.62 |
 | `approval_delegations` | 18. ERP 운영생산성 | (미확정) | delegator_id, delegate_id, created_by | — | N(상태전이) | §3.62 |
 | `reward_policies` | 19. Marketing Reward/Lifestyle Wallet | id(추정) | program_id | — | N | §3.63 |
+| `reward_formula_versions` | 20. Reward Policy 고도화/운영 시뮬레이션 | id(추정) | reward_policy_id, created_by | reward_policy_id+version_number(unique 추정) | **Y(append-only)** | §3.64 |
 
 ### 폐기/일반화로 ERD에서 제외된 엔터티 (참고용)
 
@@ -1715,5 +1742,6 @@ erDiagram
 | 17 | 한국 공제조합 연동·E-Wallet·글로벌 결제 | §3.59~§3.61 | 3 (17-A, 17-B, 17-C) |
 | 18 | ERP 운영 생산성 및 관리자 UX 완성 | §3.62 | 1 |
 | 19 | Marketing Reward System 및 Lifestyle Wallet 구조 개선 | §3.63 | 1 |
+| 20 | Reward Policy 고도화 및 운영 시뮬레이션 | §3.64 | 1 |
 
-**총 클러스터 19개, Mermaid `erDiagram` 다이어그램 25개, 마스터 테이블 수록 엔터티 155개**(폐기/일반화 제외 목록 6개는 별도 표). 클러스터 14는 D-070(쇼핑몰 운영 Phase 2 및 문서 동기화) 시점에 D-069(§3.52~§3.56) 신규 테이블 18개를 동기화 반영한 것이다(이전 117개 + 18개 = 135개). 2026-06-26 라운드는 클러스터 15/16/17을 추가하여 D-072(§3.57, `carts`/`cart_items`/`product_price_alerts` 3개)·D-074(§3.58, `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5개)·D-075(§3.59~§3.61, `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events` 6개) 시점에 ERD에 동기화되지 않고 누적되어 있던 신규 테이블 14개를 한 번에 반영한 것이다(135개 + 14개 = 149개). 2026-06-27(D-077 — ERD 최종 동기화) 라운드는 클러스터 18을 추가하여 D-076(§3.62, `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5개)에서 추가되었으나 ERD에 반영되지 않았던 신규 테이블 5개를 동기화했다(149개 + 5개 = 154개). D-073은 신규 테이블이 0건이라 ERD 변경 대상이 없다. **본 라운드(D-078 — Marketing Reward System 및 Lifestyle Wallet 구조 개선)는 클러스터 19를 추가하여 §3.63 신규 테이블 `reward_policies` 1개를 반영했다(154개 + 1개 = 155개). `member_wallets`/`wallet_transactions`(클러스터 17-B)는 컬럼/허용값만 확장되었을 뿐 신규 테이블이 아니므로 엔터티 수에는 포함하지 않는다. 이로써 Database(DATABASE.md §3.1~§3.63)와 ERD가 100% 일치한다.**
+**총 클러스터 20개, Mermaid `erDiagram` 다이어그램 26개, 마스터 테이블 수록 엔터티 156개**(폐기/일반화 제외 목록 6개는 별도 표). 클러스터 14는 D-070(쇼핑몰 운영 Phase 2 및 문서 동기화) 시점에 D-069(§3.52~§3.56) 신규 테이블 18개를 동기화 반영한 것이다(이전 117개 + 18개 = 135개). 2026-06-26 라운드는 클러스터 15/16/17을 추가하여 D-072(§3.57, `carts`/`cart_items`/`product_price_alerts` 3개)·D-074(§3.58, `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5개)·D-075(§3.59~§3.61, `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events` 6개) 시점에 ERD에 동기화되지 않고 누적되어 있던 신규 테이블 14개를 한 번에 반영한 것이다(135개 + 14개 = 149개). 2026-06-27(D-077 — ERD 최종 동기화) 라운드는 클러스터 18을 추가하여 D-076(§3.62, `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5개)에서 추가되었으나 ERD에 반영되지 않았던 신규 테이블 5개를 동기화했다(149개 + 5개 = 154개). D-073은 신규 테이블이 0건이라 ERD 변경 대상이 없다. D-078(Marketing Reward System 및 Lifestyle Wallet 구조 개선)은 클러스터 19를 추가하여 §3.63 신규 테이블 `reward_policies` 1개를 반영했다(154개 + 1개 = 155개). `member_wallets`/`wallet_transactions`(클러스터 17-B)는 컬럼/허용값만 확장되었을 뿐 신규 테이블이 아니므로 엔터티 수에는 포함하지 않는다. **본 라운드(D-079 — Reward Policy 고도화 및 운영 시뮬레이션)는 클러스터 20을 추가하여 §3.64 신규 테이블 `reward_formula_versions` 1개를 반영했다(155개 + 1개 = 156개). `reward_policies`(클러스터 19)에 추가된 `active_formula_version_id` 컬럼은 컬럼 추가일 뿐 신규 테이블이 아니므로 엔터티 수에는 포함하지 않는다. Reward Simulation/Formula Test는 신규 테이블 없이 계산만 수행하므로 ERD 대상이 아니다. 이로써 Database(DATABASE.md §3.1~§3.64)와 ERD가 100% 일치한다.**

@@ -3,6 +3,34 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v2.5.0] - 2026-06-27 (Reward Policy 고도화 및 운영 시뮬레이션)
+
+> 사용자 요청: "Reward Policy 하나에서 Reward Formula, Reward Simulation, Reward Version, Reward History를 모두 관리한다. 모든 적립률과 계산식은 관리자가 설정한다. 하드코딩은 절대 하지 않는다. Settlement와 Lifestyle Wallet은 완전히 분리된 구조를 유지한다." [DECISIONS.md](DECISIONS.md) D-079. **새 MLM 정책 아님.** Marketing Reward System(D-078)을 완성하는 보강. 신규 Business Rule 없음. Settlement·ERP Core·Workflow 구조 변경 없음. 신규 Open Decision은 O-210(1건).
+
+### Added
+
+- [DATABASE.md](DATABASE.md) §3.64 — `reward_formula_versions`(신규 1종, append-only Formula 버전 원장) — reward_policy_id/version_number/formula_type(REVENUE_RATE/PV_RATE/BV_RATE/FIXED_POINT/CUSTOM)/formula_definition(JSON)/accrual_rate/is_active/created_by/created_at/effective_from. 정책당 활성 버전은 항상 정확히 1개
+- [DATABASE.md](DATABASE.md) §3.63 — `reward_policies.active_formula_version_id`(신규 컬럼) — 기존 `accrual_basis`/`accrual_method`/`accrual_rate`는 활성 Formula Version의 파생 캐시로 의미 변경(컬럼 자체는 추가/삭제 없음)
+- [PRD.md](PRD.md) §5.87(Reward Formula/Formula Version)/§5.88(Reward Simulation)/§5.89(Formula Test)/§5.90(Reward Dashboard/History) 신설
+- [WIREFRAME.md](WIREFRAME.md) — Reward Policy 등록/수정 화면 내 Formula 관리 패널(활성 버전 표시/새 Version 생성/과거 버전 목록/인라인 Simulation·Formula Test 패널) + Reward History 조회 화면(Formula/Policy/Simulation·Test 이력 3탭) 신규 행 추가
+- [API-SPEC.md](API-SPEC.md) §2.39 보강 — `/v1/reward-policies/{id}/formula-versions` GET/POST(append-only, PUT/PATCH/DELETE 없음), `/v1/reward-policies/{id}/formula-versions/{versionId}/activate`, `/v1/reward-policies/{id}/simulate`, `/v1/reward-policies/formula-test` (5개 엔드포인트 행 추가)
+- [DATA-DICTIONARY.md](DATA-DICTIONARY.md) §14(Reward Policy 고도화 및 운영 시뮬레이션) 신설, Dictionary Gaps §14→§15로 재배치
+- [ERD.md](ERD.md) 클러스터20(§3.64, `reward_formula_versions`) — 20클러스터/Mermaid `erDiagram` 26개/마스터 테이블 156엔터티로 갱신. 클러스터19(`reward_policies`) 기존 다이어그램은 재작성하지 않고 컬럼 추가 사실만 프로즈로 명시
+- [TEST-PLAN.md](TEST-PLAN.md) §2.18(Reward Policy 고도화 및 운영 시뮬레이션 테스트) — Formula Version append-only 불변성(최상위 우선순위), 단일 활성 버전 무결성, Simulation/Formula Test 비영속성, 캐시 동기화, 버전 활성화 전환, Settlement/MLM 계산 로직 무영향 회귀, Custom Formula 하드코딩 금지, History 조회 정확성 — 8개 항목
+- [DECISIONS.md](DECISIONS.md) D-079 + **O-210**(Custom Formula 표현 방식·안전한 평가 메커니즘 미확정, 결정 전까지 CUSTOM 타입 비활성화 권고) — 1건
+
+### Changed
+
+- [MASTER-INDEX.md](MASTER-INDEX.md) §1/§6 — PRD/DATABASE/API-SPEC/DATA-DICTIONARY/ERD/WIREFRAME/TEST-PLAN/MASTER-INDEX 행 갱신, "Reward Policy 고도화 및 운영 시뮬레이션" 체크 추가, D-072~D-078의 "마지막 라운드" 표현 신뢰도가 낮았음을 재확인
+- README.md — ERD 절(156엔터티/20클러스터/26다이어그램) 갱신, "Reward Policy 고도화 및 운영 시뮬레이션(D-079)" 절 신설
+
+### 비고
+
+- **ROLE-MATRIX.md는 본 라운드의 대상 문서 목록에 없어 수정하지 않았다** — Formula Version/Simulation/Formula Test는 기존 Reward Policy 권한 구조 그대로 적용되며 신규 권한 복잡도가 없다.
+- COMPENSATION-RULES.md/SETTLEMENT-RULES.md/ARCHITECTURE.md/BUSINESS-RULE-CATALOG.md는 본 라운드에서 수정하지 않았다 — MLM/정산 구조 및 BR 카탈로그 무변경 확인(BR 총 54개 유지).
+- SITEMAP.md/STATE-MACHINE.md도 대상 목록에 없어 수정하지 않았다.
+- Reward Simulation/Formula Test는 신규 테이블이 전혀 없다 — "순수 계산, 결과 미저장" 원칙을 끝까지 지켰고, 실행 이력만 기존 `audit_logs`로 추적해 새로운 이력 테이블을 만들지 않았다.
+
 ## [v2.4.0] - 2026-06-27 (Marketing Reward System 및 Lifestyle Wallet 구조 개선)
 
 > 사용자 요청: "Lifestyle 보상은 현금성 수당이 아니라 Marketing Reward Program이다. 따라서 Reward → Point → Wallet 구조로 명확하게 재정리한다... 현금과 포인트는 절대 혼합하지 않는다." [DECISIONS.md](DECISIONS.md) D-078. **새 MLM 정책 아님.** 새 Business Rule 없음. Settlement·ERP Core·Workflow 구조 변경 없음. 신규 Open Decision은 O-208~O-209(2건).

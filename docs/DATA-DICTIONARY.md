@@ -1,6 +1,6 @@
 # DATA-DICTIONARY.md — Data Dictionary
 
-> 상태: v0.7 (D-078 — Marketing Reward System 및 Lifestyle Wallet 구조 개선: `reward_policies`(신규 1종) + `member_wallets.wallet_type`/`wallet_transactions.counts_toward_compliance_limit`(신규 컬럼) + `transaction_type` 허용값 추가(RESTORE/EXPIRE)를 §13으로 반영, Dictionary Gaps §13→§14로 재배치. **새 MLM 정책 아님** — Lifestyle 보상의 저장 위치만 point_transactions(D-041)에서 wallet_transactions로 재라우팅. O-208/O-209 등록. D-076 — ERP 운영 생산성 및 관리자 UX 완성: `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations`(신규 5종)를 §12로 반영, Dictionary Gaps §12→§13으로 재배치. **O-199 해소**(즐겨찾기 메뉴/저장된 검색조건). 신규 Business Rule·MLM·Settlement·ERP Core·Workflow 구조 변경 없음. D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events`(신규 6종) + `compliance_report_definitions`/`external_api_connections` 컬럼 추가를 §11로 반영. **MLM 보상플랜·정산 계산 로직·기존 Business Rule·ERP Core 구조 무변경.** D-074 — Dynamic Board Engine: `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes`(신규 5종)를 §9로 반영. **기존 CMS(`cms_pages`/FAQ/팝업/배너) 무변경.** D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: `carts`/`cart_items`/`product_price_alerts`(신규 3종) + `shipments`/`notification_templates` 컬럼 명료화를 §8로 반영) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
+> 상태: v0.8 (D-079 — Reward Policy 고도화 및 운영 시뮬레이션: `reward_policies`에 `active_formula_version_id`(신규 컬럼) 추가 + `reward_formula_versions`(신규 1종, append-only Formula 버전 원장)를 §14로 반영, Dictionary Gaps §14→§15로 재배치. **새 MLM 정책 아님** — Marketing Reward System(D-078)을 완성하는 보강이며, 기존 `reward_policies.accrual_basis`/`accrual_method`/`accrual_rate`(§13)는 이제 활성 Formula Version의 파생 캐시로 의미가 바뀐다. O-210 등록. D-078 — Marketing Reward System 및 Lifestyle Wallet 구조 개선: `reward_policies`(신규 1종) + `member_wallets.wallet_type`/`wallet_transactions.counts_toward_compliance_limit`(신규 컬럼) + `transaction_type` 허용값 추가(RESTORE/EXPIRE)를 §13으로 반영, Dictionary Gaps §13→§14로 재배치. **새 MLM 정책 아님** — Lifestyle 보상의 저장 위치만 point_transactions(D-041)에서 wallet_transactions로 재라우팅. O-208/O-209 등록. D-076 — ERP 운영 생산성 및 관리자 UX 완성: `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations`(신규 5종)를 §12로 반영, Dictionary Gaps §12→§13으로 재배치. **O-199 해소**(즐겨찾기 메뉴/저장된 검색조건). 신규 Business Rule·MLM·Settlement·ERP Core·Workflow 구조 변경 없음. D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events`(신규 6종) + `compliance_report_definitions`/`external_api_connections` 컬럼 추가를 §11로 반영. **MLM 보상플랜·정산 계산 로직·기존 Business Rule·ERP Core 구조 무변경.** D-074 — Dynamic Board Engine: `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes`(신규 5종)를 §9로 반영. **기존 CMS(`cms_pages`/FAQ/팝업/배너) 무변경.** D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: `carts`/`cart_items`/`product_price_alerts`(신규 3종) + `shipments`/`notification_templates` 컬럼 명료화를 §8로 반영) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 목적: [DATABASE.md](DATABASE.md)에 흩어진 테이블/컬럼 개념을 구현자가 빠르게 찾을 수 있도록 정리한다. 본 문서는 DB 스키마를 변경하지 않는다.
 
 ## 0. 작성 원칙
@@ -378,7 +378,28 @@
 - **마이그레이션**: 기존 `point_transactions.source_type=LIFESTYLE_BONUS`로 이미 적립된 과거 데이터를 Lifestyle Wallet으로 이전할지 여부는 **미확정 — O-209.**
 - Settlement(`settlement_batches`/`settlement_items`, §3.6)는 본 절로 전혀 변경되지 않으며, Lifestyle Point/Wallet은 Settlement Ledger를 절대 참조·합산하지 않는다.
 
-## 14. Dictionary Gaps
+## 14. Reward Policy 고도화 및 운영 시뮬레이션 (D-079)
+
+> Marketing Reward System(§13, D-078)을 완성하는 보강 — **새 MLM 정책이 아니다.** Reward Policy에 계산식(Reward Formula)을 추가하고 append-only로 버전 관리한다. 신규 테이블은 `reward_formula_versions` 1종뿐이다. [DATABASE.md](DATABASE.md) §3.64 참조.
+
+| Table | Column | 설명 | 자료형(개념) | PK | FK | Nullable | Enum/Default | Source of Truth | 관련 Rule |
+|---|---|---|---|---|---|---|---|---|---|
+| reward_policies | active_formula_version_id(신규) | `reward_formula_versions`(아래) 참조 — 현재 활성 Formula Version | uuid | N | reward_formula_versions.id | Y | 정책 등록 시점에는 Formula 미설정 상태로 시작 가능 | DATABASE §3.64 | - |
+| reward_formula_versions | id | | uuid | Y | N | N | 미정 | DATABASE §3.64 | - |
+| reward_formula_versions | reward_policy_id | `reward_policies`(§13) 참조 | uuid | N | reward_policies.id | N | 미정 | DATABASE §3.64 | - |
+| reward_formula_versions | version_number | 정책당 순번 | integer | N | N | N | 1부터 증가 | DATABASE §3.64 | - |
+| reward_formula_versions | formula_type | 계산식 유형 | string | N | N | N | 자유 확장값 — REVENUE_RATE/PV_RATE/BV_RATE/FIXED_POINT/CUSTOM 등, 고정 enum 아님 | DATABASE §3.64 | - |
+| reward_formula_versions | formula_definition | 계산식 정의 — `marketing_plan_versions.plan_definition`(D-032)과 동일한 "관리자 설정값 JSON" 패턴 | json | N | N | N | **CUSTOM(관리자 정의 계산식)의 정확한 표현 방식 및 안전한 평가 메커니즘 미확정 — O-210** | DATABASE §3.64 | - |
+| reward_formula_versions | accrual_rate | 이 버전의 적립률(% 또는 고정 Point) — `reward_policies.accrual_rate` 캐시의 원본 | numeric | N | N | N | 미정 | DATABASE §3.64 | - |
+| reward_formula_versions | is_active | 이 정책의 현재 활성 버전인지 | boolean | N | N | N | 정책당 단 1개만 true | DATABASE §3.64 | - |
+| reward_formula_versions | created_by / created_at | | uuid/timestamp | N | N | N | 미정 | DATABASE §3.64 | - |
+| reward_formula_versions | effective_from | 이 버전이 적용되기 시작하는 시점 | date | N | N | Y | nullable=즉시 적용 | DATABASE §3.64 | - |
+
+- **§13 기존 컬럼의 의미 변경(주의)**: `reward_policies.accrual_basis`/`accrual_method`/`accrual_rate`(§13에 이미 등록됨, 행 자체는 변경하지 않음)는 본 라운드 이후로 **`active_formula_version_id`가 가리키는 `reward_formula_versions` 행의 값을 그대로 복제한 파생 캐시**로 의미가 바뀐다(목록 화면 성능을 위한 비정규화 — `member_wallets.*_balance_cache`와 동일 원칙). Formula Version이 바뀌면 이 캐시도 함께 갱신되며, **신뢰 가능한 원본은 항상 `reward_formula_versions`다.**
+- **Reward Simulation/Formula Test**: 신규 테이블 없음 — 계산 결과는 어떤 테이블에도 저장하지 않으며("순수 계산"), 실행 이력만 `audit_logs`(§3.8, 기존)에 기록한다.
+- 본 절은 Settlement(`settlement_batches`/`settlement_items`)·MLM 보상플랜 계산 로직·ERP Core·Workflow 구조를 전혀 변경하지 않는다.
+
+## 15. Dictionary Gaps
 
 | 영역 | 현재 상태 |
 |---|---|

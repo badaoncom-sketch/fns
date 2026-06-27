@@ -1,6 +1,6 @@
 # DATABASE.md — 데이터 모델
 
-> 상태: Draft v0.31 (D-078 — Marketing Reward System 및 Lifestyle Wallet 구조 개선: §3.63 신규(`reward_policies` 1종) + §3.60 확장(`member_wallets.wallet_type`/`wallet_transactions.counts_toward_compliance_limit` 컬럼 추가, `transaction_type`에 RESTORE/EXPIRE 허용값 추가). Lifestyle Bonus 적립분의 저장 위치를 `point_transactions`(D-041)에서 `wallet_transactions`(wallet_type=LIFESTYLE_POINT)로 재라우팅 — `lifestyle_bonus_accumulations`(§3.25)의 산정 로직 자체는 변경 없음. 현금(Settlement/CASH Wallet)과 포인트(Lifestyle Point)는 절대 혼합하지 않음. 신규 MLM 정책·Business Rule 없음, O-208/O-209 등록. D-077 — ERD 동기화·API Sequence·Event Flow 완성: 신규 기능/테이블/컬럼 없음 — 본 문서는 이미 Source of Truth이므로 내용 변경 없이, [ERD.md](ERD.md)가 본 문서(§3.1~§3.62, 154개+ 엔터티)와 100% 일치하도록 동기화되었음을 확인·명시한다. [EVENT-FLOW.md](EVENT-FLOW.md)/[API-SEQUENCE.md](API-SEQUENCE.md)(신규)가 본 문서의 테이블/컬럼을 인용해 시각화했으며 충돌 없음 확인. D-076 — ERP 운영 생산성 및 관리자 UX 완성: §3.62 신규(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5종뿐 — Global Search/Approval Center/Recent Activity/Personal Workspace 등 대부분은 기존 테이블 federated 조회). **O-199 해소**(즐겨찾기 메뉴/저장된 검색조건). 신규 Engine 없음, Business Rule·MLM·Settlement·ERP Core·Workflow 구조 변경 없음. D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §3.59~§3.61 신규(전부 Tenant별 선택 기능)) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
+> 상태: Draft v0.32 (D-079 — Reward Policy 고도화 및 운영 시뮬레이션: §3.64 신규(`reward_formula_versions` 1종, append-only Formula 버전 원장) + `reward_policies.active_formula_version_id` 컬럼 추가(§3.63 확장). Reward Simulation/Formula Test는 신규 테이블 없이 계산만 수행(결과 미저장), 실행 이력은 기존 `audit_logs` 재사용. 새 MLM 정책·Business Rule 없음, Settlement·ERP Core·Workflow 구조 변경 없음, O-210 등록. D-078 — Marketing Reward System 및 Lifestyle Wallet 구조 개선: §3.63 신규(`reward_policies` 1종) + §3.60 확장(`member_wallets.wallet_type`/`wallet_transactions.counts_toward_compliance_limit` 컬럼 추가, `transaction_type`에 RESTORE/EXPIRE 허용값 추가). Lifestyle Bonus 적립분의 저장 위치를 `point_transactions`(D-041)에서 `wallet_transactions`(wallet_type=LIFESTYLE_POINT)로 재라우팅 — `lifestyle_bonus_accumulations`(§3.25)의 산정 로직 자체는 변경 없음. 현금(Settlement/CASH Wallet)과 포인트(Lifestyle Point)는 절대 혼합하지 않음. 신규 MLM 정책·Business Rule 없음, O-208/O-209 등록. D-077 — ERD 동기화·API Sequence·Event Flow 완성: 신규 기능/테이블/컬럼 없음 — 본 문서는 이미 Source of Truth이므로 내용 변경 없이, [ERD.md](ERD.md)가 본 문서(§3.1~§3.62, 154개+ 엔터티)와 100% 일치하도록 동기화되었음을 확인·명시한다. [EVENT-FLOW.md](EVENT-FLOW.md)/[API-SEQUENCE.md](API-SEQUENCE.md)(신규)가 본 문서의 테이블/컬럼을 인용해 시각화했으며 충돌 없음 확인. D-076 — ERP 운영 생산성 및 관리자 UX 완성: §3.62 신규(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5종뿐 — Global Search/Approval Center/Recent Activity/Personal Workspace 등 대부분은 기존 테이블 federated 조회). **O-199 해소**(즐겨찾기 메뉴/저장된 검색조건). 신규 Engine 없음, Business Rule·MLM·Settlement·ERP Core·Workflow 구조 변경 없음. D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §3.59~§3.61 신규(전부 Tenant별 선택 기능)) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 전제 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [COMPENSATION-RULES.md](COMPENSATION-RULES.md), [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md)
 > 본 문서는 테이블 구조의 **개념 설계**이며, 실제 마이그레이션 파일/스키마는 구현 단계에서 작성한다. 코드/마이그레이션은 생성하지 않는다.
 
@@ -1831,6 +1831,37 @@
 **쇼핑몰 사용 ([PRD.md](PRD.md) §5.84)** — Lifestyle Point의 쇼핑몰 사용 가능 여부는 Tenant별 설정이다. `tenant_settings`(§3.31.1)는 Multi-Tenant 활성화 보류 상태로 아직 생성되지 않으므로, 활성화 전까지는 System Settings(§3.46, 기존 활성 테이블)의 키-값 패턴을 재사용한다. **기본값(ON/OFF)은 미확정 — O-208.**
 
 **Settlement와의 경계(재확인)** — Settlement(`settlement_batches`/`settlement_items`, §3.6)는 Unilevel Sponsor Bonus/Product Sales Bonus/Pair Bonus(현금성 3종)만 처리하며 본 절로 전혀 변경되지 않는다. Lifestyle Point/Wallet은 Settlement Ledger를 절대 참조하거나 합산하지 않는다 — 두 원장은 구조적으로 완전히 분리된다.
+
+### 3.64 Reward Policy 고도화 및 운영 시뮬레이션 ([PRD.md](PRD.md) §5.87~§5.90, [DECISIONS.md](DECISIONS.md) D-079)
+
+> Marketing Reward System(§3.63, D-078)을 완성하는 보강 — **새 MLM 정책이 아니다.** Reward Policy에 계산식(Reward Formula)을 추가하고 append-only로 버전 관리하며, 저장하지 않는 Simulation/Test 기능을 제공한다. 신규 테이블은 `reward_formula_versions` 1종뿐이다.
+
+**`reward_policies`(§3.63 확장) — 컬럼 추가**
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| **active_formula_version_id**(신규) | `reward_formula_versions`(아래) 참조 — 현재 활성 Formula Version. 정책 등록 시점에는 nullable(Formula 미설정 상태로 시작 가능) |
+
+- 기존 `accrual_basis`/`accrual_method`/`accrual_rate`(§3.63) 컬럼은 그대로 유지하되, 본 라운드 이후로는 **`active_formula_version_id`가 가리키는 행의 값을 그대로 복제한 파생 캐시**로 의미가 바뀐다(목록 화면 성능을 위한 비정규화 — `member_wallets.*_balance_cache`와 동일 원칙) — Formula Version이 바뀌면 이 캐시도 함께 갱신된다. **신뢰 가능한 원본은 항상 `reward_formula_versions`다.**
+
+**`reward_formula_versions`(신규)** — Reward Formula의 append-only 버전 원장. 정책 수정 시 기존 행을 수정하지 않고 새 행을 추가하며, 기존 버전은 조회만 가능하다(append-only 원칙, [DO-NOT-TOUCH.md](DO-NOT-TOUCH.md)와 동일 정신).
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| id | |
+| reward_policy_id | `reward_policies`(§3.63) 참조 |
+| version_number | 정책당 순번(1부터 증가) |
+| formula_type | 자유 확장값 — `REVENUE_RATE`(매출×%)/`PV_RATE`/`BV_RATE`/`FIXED_POINT`/`CUSTOM`(관리자 정의 계산식) 등, 시스템이 강제하는 고정 목록 없음 |
+| formula_definition | 계산식 정의(JSON, 구조는 `formula_type`에 따라 다름) — `marketing_plan_versions.plan_definition`(D-032)과 동일한 "관리자 설정값 JSON" 패턴, 하드코딩 없음. **`CUSTOM`(관리자 정의 계산식)의 정확한 표현 방식(자유 수식 문자열 파싱 vs 구조화된 규칙) 및 안전한 평가 방식은 미확정 — O-210** |
+| accrual_rate | 이 버전의 적립률(% 또는 고정 Point) — `reward_policies.accrual_rate` 캐시의 원본 |
+| is_active | 이 정책의 현재 활성 버전인지(정책당 단 1개만 true) |
+| created_by / created_at | |
+| effective_from | 이 버전이 적용되기 시작하는 시점(nullable=즉시 적용) |
+
+- **Reward Simulation**([PRD.md](PRD.md) §5.88) — 관리자가 매출/PV/BV 등 가상 입력값을 넣어 예상 Point를 미리 계산한다. **신규 테이블 없음** — `reward_formula_versions`(임시 미저장 초안 포함) 또는 활성 버전을 worker/api가 그대로 읽어 계산만 수행하고 결과를 어떤 테이블에도 쓰지 않는다("순수 계산"). 실행 이력(요청자/시각/입력값)만 `audit_logs`(§3.8, 기존)에 기록하고, **계산 결과(가상의 Point 값)는 저장하지 않는다.**
+- **Formula Test**([PRD.md](PRD.md) §5.89) — Formula Version을 저장(새 버전 생성)하기 전에 입력값으로 미리 테스트한다. Simulation과 동일하게 **신규 테이블 없음, 계산 결과 미저장**이며, 실행 이력만 `audit_logs`에 기록한다. Simulation은 "이미 등록된 정책"을 대상으로, Formula Test는 "아직 저장하지 않은 Formula 초안"을 대상으로 한다는 점만 다르다 — 둘 다 동일한 계산 로직(worker 또는 경량 api)을 재사용하며 신규 계산 엔진을 만들지 않는다.
+- **Reward History**([PRD.md](PRD.md) §5.90) — Formula 변경 이력은 `reward_formula_versions`를 정책별로 시간순 조회, Policy 변경 이력은 `audit_logs`(기존, 관리자 설정 변경 추적 패턴 재사용)로 조회, Simulation/Formula Test 실행 이력도 `audit_logs`로 조회. **신규 이력 테이블 없음.**
+- 본 절은 Settlement(`settlement_batches`/`settlement_items`)·MLM 보상플랜 계산 로직·ERP Core·Workflow 구조를 전혀 변경하지 않는다.
 
 ## 4. 설계 원칙
 
