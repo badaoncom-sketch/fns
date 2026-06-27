@@ -3,6 +3,41 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v2.4.0] - 2026-06-27 (Marketing Reward System 및 Lifestyle Wallet 구조 개선)
+
+> 사용자 요청: "Lifestyle 보상은 현금성 수당이 아니라 Marketing Reward Program이다. 따라서 Reward → Point → Wallet 구조로 명확하게 재정리한다... 현금과 포인트는 절대 혼합하지 않는다." [DECISIONS.md](DECISIONS.md) D-078. **새 MLM 정책 아님.** 새 Business Rule 없음. Settlement·ERP Core·Workflow 구조 변경 없음. 신규 Open Decision은 O-208~O-209(2건).
+
+### Added
+
+- [DATABASE.md](DATABASE.md) §3.63 — `reward_policies`(신규 1종, Marketing Program Engine §3.34 산하) — program_id/reward_type/accrual_basis/accrual_method/accrual_rate/accumulation_period/accumulation_duration/min_condition/max_limit/start_date/end_date/usable_period/target_wallet_type/is_active. 관리자가 직접 설정, 하드코딩 없음
+- [DATABASE.md](DATABASE.md) §3.63 — `member_wallets.wallet_type`(CASH/LIFESTYLE_POINT, 신규 컬럼), `wallet_transactions.counts_toward_compliance_limit`(신규 컬럼, `point_transactions`의 기존 동일 패턴 포팅), `wallet_transactions.transaction_type` 허용값 추가(RESTORE/EXPIRE) — §3.60(E-Wallet, D-075)의 확장 재사용, 신규 테이블 아님
+- [PRD.md](PRD.md) §5.83(Reward Policy)/§5.84(Lifestyle Point·Wallet, 쇼핑몰 사용 포함)/§5.85(Program 신청 사용)/§5.86(관리자 화면) 신설
+- [WIREFRAME.md](WIREFRAME.md) — Reward Policy 관리/Lifestyle Wallet 관리/Point 적립·사용 내역/Program별 적립·사용 현황 화면, 기존 E-Wallet 관리 화면 레이아웃 패턴 재사용
+- [API-SPEC.md](API-SPEC.md) §2.39(Marketing Reward) 신설 — `/v1/reward-policies` CRUD·activate/deactivate, `/v1/lifestyle-wallet/balance`·`/transactions`, `/v1/reward-policies/{id}/accrual-report` (6개 엔드포인트). §2.30(E-Wallet)에 `wallet_type` 필드 설명 보강, §2.19(MarketingProgram) 승인 엔드포인트에 wallet_transactions(USE) 부수효과 비고 추가
+- [DATA-DICTIONARY.md](DATA-DICTIONARY.md) §13(Marketing Reward System 및 Lifestyle Wallet 구조 개선) 신설, Dictionary Gaps §13→§14로 재배치
+- [ROLE-MATRIX.md](ROLE-MATRIX.md) §34(Marketing Reward System 및 Lifestyle Wallet 구조 개선) — 기존 §29(E-Wallet 관리) 권한 패턴 재사용, Lifestyle Wallet은 출금 권한 자체가 없음을 명시. 기존 §33 "미확정 항목"은 §35로 재배치
+- [ERD.md](ERD.md) 클러스터19(§3.63, `reward_policies`) — 19클러스터/Mermaid `erDiagram` 25개/마스터 테이블 155엔터티로 갱신. 클러스터17-B(E-Wallet) 기존 다이어그램은 재작성하지 않고 컬럼 추가 사실만 프로즈로 명시
+- [TEST-PLAN.md](TEST-PLAN.md) §2.17(Marketing Reward System 및 Lifestyle Wallet 구조 개선 테스트) — Settlement↔Lifestyle Wallet 경계 회귀 테스트(최상위 우선순위), wallet_type 격리, append-only 불변성, counts_toward_compliance_limit 정확성, 라우팅 전환, Reward Policy 하드코딩 금지, Program 신청 사용, 쇼핑몰 사용 Tenant 격리 — 8개 항목
+- [DECISIONS.md](DECISIONS.md) D-078 + **O-208**(쇼핑몰 Lifestyle Point 사용 Tenant 기본값 미확정)/**O-209**(기존 point_transactions LIFESTYLE_BONUS 적립분의 마이그레이션 여부 미확정) — 2건
+
+### Changed
+
+- [DATABASE.md](DATABASE.md) §3.60 — E-Wallet 절에 §3.63 컬럼 확장 교차참조 1줄 추가(기존 컬럼/의미는 변경 없음)
+- [MASTER-INDEX.md](MASTER-INDEX.md) §1/§6 — DATABASE/PRD/ROLE-MATRIX/ERD/API-SPEC/WIREFRAME/TEST-PLAN/DATA-DICTIONARY/MASTER-INDEX 행 갱신, "Marketing Reward System 및 Lifestyle Wallet 구조 개선" 체크 추가, D-072~D-077의 "마지막 라운드" 표현 신뢰도가 낮았음을 메모
+- README.md — MLM Engine 절에 Lifestyle Bonus의 비현금성 명시 추가, ERD 절(155엔터티/19클러스터/25다이어그램) 갱신, "Marketing Reward System 및 Lifestyle Wallet 구조 개선(D-078)" 절 신설
+
+### D-041 라우팅 재조정 (충돌 방지 명시)
+
+- 기존 `lifestyle_bonus_accumulations`(§3.25)의 **적립 산정 로직 자체는 전혀 변경하지 않는다** — Travel/Car/자기계발의 적립률·누적기간(COMPENSATION-RULES.md §4.2, D-032)도 그대로 유지된다.
+- D-041이 정했던 "누적 기간 종료 시 `point_transactions`(EARN, source_type=LIFESTYLE_BONUS)로 라우팅"은, 본 라운드 이후 신규 적립분에 대해 `wallet_transactions`(EARN, wallet_type=LIFESTYLE_POINT)로 라우팅하는 것으로 재조정된다. D-041의 나머지(일반 쇼핑몰 구매 적립금이 `point_transactions`를 그대로 사용하는 것)는 전혀 영향받지 않는다.
+- 기존에 이미 `point_transactions`로 적립된 과거 데이터의 마이그레이션 여부는 O-209로 추적한다.
+
+### 비고
+
+- COMPENSATION-RULES.md/SETTLEMENT-RULES.md/ARCHITECTURE.md/BUSINESS-RULE-CATALOG.md는 본 라운드에서 수정하지 않았다 — MLM/정산/ERP Core 구조 및 BR 카탈로그 무변경 확인(BR 총 54개 유지). "+알파" 보너스의 적립률·누적기간 수치 자체는 COMPENSATION-RULES.md §4.2가 여전히 단일 출처다.
+- SITEMAP.md/STATE-MACHINE.md/BUSINESS-RULE-CATALOG.md는 본 라운드의 대상 문서 목록에 없어 수정하지 않았다.
+- 12개 기능 영역 중 신규 테이블은 `reward_policies` 1종뿐이며, 나머지는 기존 E-Wallet 구조 확장 재사용이다 — "기존 Wallet 구조를 최대한 재사용한다"는 원칙을 끝까지 지켰다.
+
 ## [v2.3.0] - 2026-06-27 (ERD 동기화·API Sequence·Event Flow 완성 — 개발 착수 직전 최종 기술 문서)
 
 > 사용자 요청: "이번 작업은 새로운 기능을 추가하는 작업이 아니다. 현재 설계를 개발자가 바로 구현할 수 있도록 최종 기술 문서를 완성하는 작업이다." [DECISIONS.md](DECISIONS.md) D-077. 신규 기능/테이블/Business Rule/Engine/Open Decision 모두 0건 — 순수 시각화·동기화 작업. **이번 작업 완료 후 Development Governance 단계로 진행한다.**

@@ -1,6 +1,6 @@
 # DATABASE.md — 데이터 모델
 
-> 상태: Draft v0.30 (D-077 — ERD 동기화·API Sequence·Event Flow 완성: 신규 기능/테이블/컬럼 없음 — 본 문서는 이미 Source of Truth이므로 내용 변경 없이, [ERD.md](ERD.md)가 본 문서(§3.1~§3.62, 154개+ 엔터티)와 100% 일치하도록 동기화되었음을 확인·명시한다. [EVENT-FLOW.md](EVENT-FLOW.md)/[API-SEQUENCE.md](API-SEQUENCE.md)(신규)가 본 문서의 테이블/컬럼을 인용해 시각화했으며 충돌 없음 확인. D-076 — ERP 운영 생산성 및 관리자 UX 완성: §3.62 신규(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5종뿐 — Global Search/Approval Center/Recent Activity/Personal Workspace 등 대부분은 기존 테이블 federated 조회). **O-199 해소**(즐겨찾기 메뉴/저장된 검색조건). 신규 Engine 없음, Business Rule·MLM·Settlement·ERP Core·Workflow 구조 변경 없음. D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §3.59~§3.61 신규(전부 Tenant별 선택 기능)) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
+> 상태: Draft v0.31 (D-078 — Marketing Reward System 및 Lifestyle Wallet 구조 개선: §3.63 신규(`reward_policies` 1종) + §3.60 확장(`member_wallets.wallet_type`/`wallet_transactions.counts_toward_compliance_limit` 컬럼 추가, `transaction_type`에 RESTORE/EXPIRE 허용값 추가). Lifestyle Bonus 적립분의 저장 위치를 `point_transactions`(D-041)에서 `wallet_transactions`(wallet_type=LIFESTYLE_POINT)로 재라우팅 — `lifestyle_bonus_accumulations`(§3.25)의 산정 로직 자체는 변경 없음. 현금(Settlement/CASH Wallet)과 포인트(Lifestyle Point)는 절대 혼합하지 않음. 신규 MLM 정책·Business Rule 없음, O-208/O-209 등록. D-077 — ERD 동기화·API Sequence·Event Flow 완성: 신규 기능/테이블/컬럼 없음 — 본 문서는 이미 Source of Truth이므로 내용 변경 없이, [ERD.md](ERD.md)가 본 문서(§3.1~§3.62, 154개+ 엔터티)와 100% 일치하도록 동기화되었음을 확인·명시한다. [EVENT-FLOW.md](EVENT-FLOW.md)/[API-SEQUENCE.md](API-SEQUENCE.md)(신규)가 본 문서의 테이블/컬럼을 인용해 시각화했으며 충돌 없음 확인. D-076 — ERP 운영 생산성 및 관리자 UX 완성: §3.62 신규(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5종뿐 — Global Search/Approval Center/Recent Activity/Personal Workspace 등 대부분은 기존 테이블 federated 조회). **O-199 해소**(즐겨찾기 메뉴/저장된 검색조건). 신규 Engine 없음, Business Rule·MLM·Settlement·ERP Core·Workflow 구조 변경 없음. D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §3.59~§3.61 신규(전부 Tenant별 선택 기능)) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 전제 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [COMPENSATION-RULES.md](COMPENSATION-RULES.md), [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md)
 > 본 문서는 테이블 구조의 **개념 설계**이며, 실제 마이그레이션 파일/스키마는 구현 단계에서 작성한다. 코드/마이그레이션은 생성하지 않는다.
 
@@ -1681,6 +1681,7 @@
 - **정산(Settlement)과의 경계**: 후원수당의 1차 산정·법적 한도 검증·세금 계산(③~④단계, [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md) §9)은 **전혀 변경하지 않는다.** 지갑 적립(EARN)은 정산이 이미 확정한 `settlement_items` 금액을 그대로 인용하는 **추가 지급 채널(은행송금 대신 또는 더불어)**일 뿐이다 — 정산 금액 계산 자체에는 영향을 주지 않는다. 은행송금/지갑적립 분배 정책(전액/선택/병행)은 **O-201**(아래)로 미확정 등록.
 - **포인트(`point_transactions`)와 지갑(`wallet_transactions`) 간 전환 여부**는 정책 미확정 — **O-202**.
 - **쇼핑몰 결제 시 지갑/포인트 우선순위**는 정책 미확정 — **O-203**.
+- **`member_wallets`/`wallet_transactions`는 D-078(§3.63)에서 `wallet_type`(CASH/LIFESTYLE_POINT) 컬럼이 추가되어 Lifestyle Point도 같은 구조로 수용한다 — 본 절(현금성 E-Wallet)의 기존 컬럼/의미는 변경되지 않는다.** 상세는 §3.63 참조.
 
 ### 3.61 글로벌 결제 ([PRD.md](PRD.md) §5.70, [DECISIONS.md](DECISIONS.md) D-075)
 
@@ -1780,6 +1781,56 @@
 | 관리자 Dashboard(로그인 첫 화면) | 신규 테이블 없음 — My Dashboard(§3.57)의 시스템 기본 템플릿 + §3.56(D-069, 오늘 지표)/§3.60(D-075, 공제조합 전송실패·E-Wallet 출금대기 위젯 추가) + §3.57(D-071, System Health) 위젯 묶음 |
 | System Health Widget | 신규 테이블 없음 — System Health Dashboard(PRD §5.54, D-071)를 별도 페이지가 아니라 관리자 Dashboard의 위젯으로도 노출 |
 | Quick Action(보강) | 신규 데이터 모델 없음 — 기존 Quick Action(PRD §5.61)에 정산 조회/게시글 등록/Workflow 생성 항목만 추가, 각 기존 화면 바로가기 |
+
+### 3.63 Marketing Reward System 및 Lifestyle Wallet 구조 개선 ([PRD.md](PRD.md) §5.83~§5.86, [DECISIONS.md](DECISIONS.md) D-078)
+
+> **새 MLM 정책이 아니다.** 목적은 "Lifestyle 보상은 현금성 수당이 아니라 Marketing Reward Program"이라는 점을 데이터 구조로 명확히 하는 것이다 — `Reward Policy → Lifestyle Point Ledger → Lifestyle Wallet` 구조를 표준화하고, **현금(Settlement/E-Wallet CASH)과 포인트(Lifestyle Point)를 절대 혼합하지 않는다.** 신규 테이블은 `reward_policies` 1종뿐이며, 나머지는 §3.60(E-Wallet)을 확장 재사용한다.
+
+**`member_wallets`(§3.60 확장) — 컬럼 추가**
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| **wallet_type**(신규) | `CASH`(§3.60 기존 5개 통화 지갑, 출금 가능) / `LIFESTYLE_POINT`(신규, 본 절) — 자유 확장값(Wallet Engine으로 향후 확장 가능, 현재는 두 값만 활성화). 기존 행은 `CASH`로 간주(개념상 backfill, 실제 마이그레이션은 구현 단계) |
+
+- `wallet_type='LIFESTYLE_POINT'`인 지갑은 `currency_code` 대신 "POINT" 등 비-화폐 식별값을 쓰거나 nullable로 둔다(정확한 값은 구현 단계 결정) — `currency_code`는 화폐 단위 개념이고 `wallet_type`은 그보다 상위의 "지갑 종류" 구분이라 의미를 혼용하지 않는다.
+
+**`wallet_transactions`(§3.60 확장) — 컬럼 추가 + 허용값 확장**
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| **counts_toward_compliance_limit**(신규) | 이 거래가 MLM 35% 법적 한도 산정에 포함되는지 — `point_transactions.counts_toward_compliance_limit`(§3.36, D-041)와 동일한 패턴을 그대로 포팅. `wallet_type=CASH`는 기존 §3.60 동작과 동일(EARN 시 항상 정산 인용이므로 사실상 산정에 이미 포함된 값), `wallet_type=LIFESTYLE_POINT`는 원천 `marketing_programs.links_to_compensation`(§3.34) 값을 그대로 따른다 |
+
+- `transaction_type` 허용값에 **RESTORE(복원)**/**EXPIRE(만료)**를 추가한다(기존 CHARGE/EARN/USE/CANCEL/REFUND/WITHDRAWAL_REQUEST/WITHDRAWAL_COMPLETED/ADJUSTMENT/HOLD/RELEASE는 그대로 유지) — `point_transactions.transaction_type`(§3.36)이 이미 가진 RESTORE/EXPIRE와 동일한 개념이며, Lifestyle Point의 "사용 가능 기간 만료"/"주문 취소 시 사용분 복원"을 표현하기 위해 필요하다. 이는 컬럼 추가가 아니라 기존 자유 확장값 컬럼의 허용값 추가다.
+- **`wallet_withdrawal_requests`(§3.60)는 `wallet_type=CASH`에만 적용된다 — `LIFESTYLE_POINT` 지갑은 출금(은행송금) 대상이 아니며, §3.63 §10/§11(쇼핑몰 사용/Program 신청 사용)으로만 차감(USE)된다.** 출금 신청 화면/API에 LIFESTYLE_POINT 지갑이 노출되지 않도록 한다.
+
+**`reward_policies`(신규)** — Marketing Program 산하 보상 정책. 관리자가 직접 설정하며 하드코딩하지 않는다.
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| id | |
+| program_id | `marketing_programs`(§3.34) 참조 — Program명은 이 참조로 가져오며 중복 저장하지 않는다 |
+| reward_type | 자유 확장값, 현재는 `LIFESTYLE_POINT` 단일값(향후 Wallet Engine 확장 시 다른 값 추가 가능) |
+| accrual_basis | 적립 기준 — 매출/PV/BV/주문금액/지급수당/기타 계산식, 자유 확장값(관리자 선택) |
+| accrual_method | 적립 방식 — %/고정POINT/누적/단계별/조건부, 자유 확장값(관리자 선택) |
+| accrual_rate | 적립률(%, 고정POINT 방식이면 고정 적립액으로 사용) — **Travel/Car/자기계발(§3.25, 기존) 3종은 본 컬럼에 수치를 별도 저장하지 않고 `plan_definition.lifestyle_bonus.*`(D-032)를 그대로 참조 표시한다** — 동일 수치를 두 곳에 중복 저장해 불일치 위험을 만들지 않는다. Golf 등 신규 Program만 본 컬럼에 실제 값을 관리자가 직접 입력한다 |
+| accumulation_period | 누적 방식 — 월/분기/반기/연/사용자지정, 자유 확장값 |
+| accumulation_duration | 누적 기간(예: 24개월/1개월/6개월/관리자설정) — Travel/Car/자기계발은 `plan_definition.lifestyle_bonus.*`(D-032) 참조와 동일하게 표시만 하고 별도 저장하지 않음 |
+| min_condition | 최소 조건(자유 텍스트/JSON) |
+| max_limit | 최대 한도 |
+| start_date / end_date | 정책 시작일/종료일 |
+| usable_period | 적립 후 사용 가능 기간(만료 계산 기준, `wallet_transactions.transaction_type=EXPIRE`와 연계) |
+| target_wallet_type | `wallet_type`(위) 참조 — 현재는 `LIFESTYLE_POINT`만 유효 |
+| is_active | 활성/비활성 |
+
+- **기존 `lifestyle_bonus_accumulations`(§3.25)는 변경하지 않는다** — Travel/Car/자기계발 3종의 **적립 산정(누적 계산) 자체는 그대로 §3.25가 수행**한다. 본 라운드가 바꾸는 것은 **산정 완료 후의 저장 위치(라우팅)** 뿐이다: D-041은 누적 기간 종료 시 `point_transactions`(EARN, source_type=LIFESTYLE_BONUS)로 넘겼으나, 본 라운드 이후 신규 적립분은 **`wallet_transactions`(EARN, wallet_type=LIFESTYLE_POINT, source_type=REWARD_POLICY, source_id=`reward_policies.id`)로 라우팅한다.** D-041의 나머지(일반 쇼핑몰 구매 적립금의 `point_transactions` 경유 자체)는 전혀 변경하지 않는다 — Lifestyle Bonus 적립분의 목적지만 바뀐다.
+- Golf 등 `lifestyle_bonus_accumulations`에 해당 `bonus_type`이 없는 신규 Program은 §3.25를 거치지 않고 worker가 `reward_policies` 설정을 직접 읽어 계산 후 `wallet_transactions`(EARN)을 생성한다 — 신규 산정 엔진을 만들지 않고 기존 worker 계산 패턴([ARCHITECTURE.md](ARCHITECTURE.md) §2.3과 동일한 "관리자 설정값을 입력 파라미터로 받는 계산" 원칙)을 그대로 따른다.
+- **기존 `point_transactions.source_type=LIFESTYLE_BONUS`로 이미 적립된 과거 데이터를 Lifestyle Wallet으로 이전할지 여부는 미확정 — O-209.**
+
+**Program 신청 사용 ([PRD.md](PRD.md) §5.85)** — `marketing_program_applications`(§3.34.1, 기존) 승인 시 `wallet_transactions`(USE, wallet_type=LIFESTYLE_POINT, source_type=PROGRAM_APPLICATION, source_id=`marketing_program_applications.id`) 1건을 생성한다. 승인 절차 자체(Workflow Engine 또는 §3.34.1의 경량 api 직접 승인)는 변경하지 않는다.
+
+**쇼핑몰 사용 ([PRD.md](PRD.md) §5.84)** — Lifestyle Point의 쇼핑몰 사용 가능 여부는 Tenant별 설정이다. `tenant_settings`(§3.31.1)는 Multi-Tenant 활성화 보류 상태로 아직 생성되지 않으므로, 활성화 전까지는 System Settings(§3.46, 기존 활성 테이블)의 키-값 패턴을 재사용한다. **기본값(ON/OFF)은 미확정 — O-208.**
+
+**Settlement와의 경계(재확인)** — Settlement(`settlement_batches`/`settlement_items`, §3.6)는 Unilevel Sponsor Bonus/Product Sales Bonus/Pair Bonus(현금성 3종)만 처리하며 본 절로 전혀 변경되지 않는다. Lifestyle Point/Wallet은 Settlement Ledger를 절대 참조하거나 합산하지 않는다 — 두 원장은 구조적으로 완전히 분리된다.
 
 ## 4. 설계 원칙
 

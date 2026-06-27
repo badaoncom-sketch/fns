@@ -1,6 +1,6 @@
 # ERD.md — Entity Relationship Diagram
 
-> 상태: v0.4 ([DECISIONS.md](DECISIONS.md) D-077 — ERD 동기화·API Sequence·Event Flow 완성: 클러스터 18(§3.62, D-076의 `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5개) 추가 — **Database와 ERD가 100% 일치한다.** 신규 기능/테이블/Business Rule 없음, 순수 동기화 작업. D-063 — 개발 착수 준비 문서 세트 / D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(§3.52~§3.56) 신규 테이블 18개를 ERD에 반영하는 동기화 작업, 클러스터 14 추가 / 2026-06-26 — 동기화 누락분 일괄 반영: D-072(§3.57, 클러스터 15)·D-074(§3.58, 클러스터 16)·D-075(§3.59~§3.61, 클러스터 17) 세 라운드에서 추가된 신규 테이블 14개를 클러스터 15/16/17 추가로 동기화함) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
+> 상태: v0.5 ([DECISIONS.md](DECISIONS.md) D-078 — Marketing Reward System 및 Lifestyle Wallet 구조 개선: 클러스터 19(§3.63, `reward_policies` 1종 신규) 추가 — 클러스터 17-B(`member_wallets`/`wallet_transactions`, §3.60)는 컬럼/허용값 확장만(`wallet_type`/`counts_toward_compliance_limit` 컬럼 추가, `transaction_type`에 RESTORE/EXPIRE 허용값 추가) 다이어그램 재작성 없이 비고로 반영. 새 MLM 정책 아님, Business Rule 변경 없음, O-208/O-209 등록. D-077 — ERD 동기화·API Sequence·Event Flow 완성: 클러스터 18(§3.62, D-076의 `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5개) 추가 — **Database와 ERD가 100% 일치한다.** 신규 기능/테이블/Business Rule 없음, 순수 동기화 작업. D-063 — 개발 착수 준비 문서 세트 / D-070 — 쇼핑몰 운영 Phase 2 및 문서 동기화: D-069(§3.52~§3.56) 신규 테이블 18개를 ERD에 반영하는 동기화 작업, 클러스터 14 추가 / 2026-06-26 — 동기화 누락분 일괄 반영: D-072(§3.57, 클러스터 15)·D-074(§3.58, 클러스터 16)·D-075(§3.59~§3.61, 클러스터 17) 세 라운드에서 추가된 신규 테이블 14개를 클러스터 15/16/17 추가로 동기화함) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 전제 문서: [DATABASE.md](DATABASE.md)
 > 본 문서는 DATABASE.md §3의 텍스트 기반 엔터티 정의를 시각화한 것이며, 실제 마이그레이션 스키마를 대체하지 않는다.
 
@@ -1486,6 +1486,37 @@ erDiagram
 
 ---
 
+## 클러스터 19. Marketing Reward System 및 Lifestyle Wallet 구조 개선 — §3.63
+
+D-078에서 신규로 추가된 영역. **새 MLM 정책이 아니다** — Lifestyle 보상(기존 "+알파" 보너스: Travel/Car/자기계발)이 현금성 수당이 아니라 Marketing Reward Program 산하의 비현금 지급이라는 점을 데이터 구조로 명확히 하는 것이며, `Reward Policy → Lifestyle Point Ledger → Lifestyle Wallet → 사용` 체인을 표준화한다. 현금(Settlement/E-Wallet CASH)과 포인트(Lifestyle Point)는 절대 혼합하지 않는다. 진짜 신규 엔터티는 `reward_policies` 1개뿐이며, 나머지는 클러스터 17-B(E-Wallet)를 컬럼 확장 재사용한다.
+
+```mermaid
+erDiagram
+    marketing_programs ||--o{ reward_policies : "program_id"
+
+    reward_policies {
+        uuid id PK "추정"
+        uuid program_id FK "marketing_programs(§3.34) 참조"
+        string reward_type "자유 확장값, 현재는 LIFESTYLE_POINT 단일값"
+        string accrual_basis "적립 기준 — 매출/PV/BV/주문금액/지급수당/기타 계산식, 자유 확장값"
+        string accrual_method "적립 방식 — %/고정POINT/누적/단계별/조건부, 자유 확장값"
+        decimal accrual_rate "적립률 또는 고정 적립액 — Travel/Car/자기계발은 plan_definition.lifestyle_bonus.*(D-032) 참조 표시만, Golf 등 신규 Program은 실제 값 직접 입력"
+        string accumulation_period "누적 방식 — 월/분기/반기/연/사용자지정, 자유 확장값"
+        string accumulation_duration "누적 기간 — Travel/Car/자기계발은 plan_definition.lifestyle_bonus.*(D-032) 참조와 동일하게 표시만"
+        string min_condition "최소 조건(자유 텍스트/JSON)"
+        decimal max_limit "최대 한도"
+        date start_date
+        date end_date
+        string usable_period "적립 후 사용 가능 기간, wallet_transactions.transaction_type=EXPIRE와 연계"
+        string target_wallet_type "wallet_type 참조, 현재는 LIFESTYLE_POINT만 유효"
+        bool is_active
+    }
+```
+
+> 비고: 클러스터 17-B(전자지갑/E-Wallet, §3.60)의 `member_wallets`/`wallet_transactions`는 본 라운드(D-078, §3.63)에서 컬럼/허용값이 확장되나, **컬럼 추가는 신규 테이블이 아니므로 본 다이어그램에 표시하지 않는다.** `member_wallets`는 `wallet_type`(CASH/LIFESTYLE_POINT) 컬럼이 추가되어 기존 행은 `CASH`로 간주한다. `wallet_transactions`는 `counts_toward_compliance_limit` 컬럼이 추가되고(`point_transactions.counts_toward_compliance_limit`, §3.36, D-041과 동일 패턴), 기존 `transaction_type`(자유 확장값) 허용값에 **RESTORE/EXPIRE**가 추가된다(기존 CHARGE/EARN/USE/CANCEL/REFUND/WITHDRAWAL_REQUEST/WITHDRAWAL_COMPLETED/ADJUSTMENT/HOLD/RELEASE는 그대로 유지) — 컬럼 추가가 아니라 자유 확장값 컬럼의 허용값 추가다. `wallet_withdrawal_requests`(17-B)는 구조 변경이 없으며 `wallet_type=CASH`에만 적용된다는 점만 재확인한다(LIFESTYLE_POINT 지갑은 출금 대상이 아님). 기존 `lifestyle_bonus_accumulations`(§3.25)도 변경되지 않으며, 적립 산정 로직 자체는 그대로이고 산정 완료 후 저장 위치(라우팅)만 `point_transactions`에서 `wallet_transactions`(wallet_type=LIFESTYLE_POINT)로 바뀐다. 쇼핑몰 사용 시 기본값(ON/OFF)은 미확정(O-208), `point_transactions.source_type=LIFESTYLE_BONUS` 과거 데이터의 Lifestyle Wallet 이전 여부는 미확정(O-209) — DATABASE.md §3.63 본문에 명시된 번호를 그대로 인용했다.
+
+---
+
 ## 마스터 테이블
 
 전체 테이블/엔터티 목록. "append-only" 열은 DATABASE.md에서 명시적으로 append-only 원장으로 서술된 테이블만 "Y"로 표시한다(§4 설계원칙 1 적용 대상). PK/FK 컬럼명이 본문에 명시되지 않은 경우 "(미확정)"으로 표기했다.
@@ -1646,6 +1677,7 @@ erDiagram
 | `notification_inbox_states` | 18. ERP 운영생산성 | (미확정) | notification_id, recipient_type+recipient_id(범용) | — | N(상태오버레이) | §3.62 |
 | `admin_notes` | 18. ERP 운영생산성 | (미확정) | related_entity_type+related_entity_id(범용), created_by | — | N | §3.62 |
 | `approval_delegations` | 18. ERP 운영생산성 | (미확정) | delegator_id, delegate_id, created_by | — | N(상태전이) | §3.62 |
+| `reward_policies` | 19. Marketing Reward/Lifestyle Wallet | id(추정) | program_id | — | N | §3.63 |
 
 ### 폐기/일반화로 ERD에서 제외된 엔터티 (참고용)
 
@@ -1682,5 +1714,6 @@ erDiagram
 | 16 | Dynamic Board Engine | §3.58 | 1 |
 | 17 | 한국 공제조합 연동·E-Wallet·글로벌 결제 | §3.59~§3.61 | 3 (17-A, 17-B, 17-C) |
 | 18 | ERP 운영 생산성 및 관리자 UX 완성 | §3.62 | 1 |
+| 19 | Marketing Reward System 및 Lifestyle Wallet 구조 개선 | §3.63 | 1 |
 
-**총 클러스터 18개, Mermaid `erDiagram` 다이어그램 24개, 마스터 테이블 수록 엔터티 154개**(폐기/일반화 제외 목록 6개는 별도 표). 클러스터 14는 D-070(쇼핑몰 운영 Phase 2 및 문서 동기화) 시점에 D-069(§3.52~§3.56) 신규 테이블 18개를 동기화 반영한 것이다(이전 117개 + 18개 = 135개). 2026-06-26 라운드는 클러스터 15/16/17을 추가하여 D-072(§3.57, `carts`/`cart_items`/`product_price_alerts` 3개)·D-074(§3.58, `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5개)·D-075(§3.59~§3.61, `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events` 6개) 시점에 ERD에 동기화되지 않고 누적되어 있던 신규 테이블 14개를 한 번에 반영한 것이다(135개 + 14개 = 149개). **본 라운드(2026-06-27, D-077 — ERD 최종 동기화)는 클러스터 18을 추가하여 D-076(§3.62, `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5개)에서 추가되었으나 ERD에 반영되지 않았던 신규 테이블 5개를 동기화했다(149개 + 5개 = 154개). D-073은 신규 테이블이 0건이라 ERD 변경 대상이 없다. 이로써 Database(DATABASE.md §3.1~§3.62)와 ERD가 100% 일치한다.**
+**총 클러스터 19개, Mermaid `erDiagram` 다이어그램 25개, 마스터 테이블 수록 엔터티 155개**(폐기/일반화 제외 목록 6개는 별도 표). 클러스터 14는 D-070(쇼핑몰 운영 Phase 2 및 문서 동기화) 시점에 D-069(§3.52~§3.56) 신규 테이블 18개를 동기화 반영한 것이다(이전 117개 + 18개 = 135개). 2026-06-26 라운드는 클러스터 15/16/17을 추가하여 D-072(§3.57, `carts`/`cart_items`/`product_price_alerts` 3개)·D-074(§3.58, `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5개)·D-075(§3.59~§3.61, `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events` 6개) 시점에 ERD에 동기화되지 않고 누적되어 있던 신규 테이블 14개를 한 번에 반영한 것이다(135개 + 14개 = 149개). 2026-06-27(D-077 — ERD 최종 동기화) 라운드는 클러스터 18을 추가하여 D-076(§3.62, `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5개)에서 추가되었으나 ERD에 반영되지 않았던 신규 테이블 5개를 동기화했다(149개 + 5개 = 154개). D-073은 신규 테이블이 0건이라 ERD 변경 대상이 없다. **본 라운드(D-078 — Marketing Reward System 및 Lifestyle Wallet 구조 개선)는 클러스터 19를 추가하여 §3.63 신규 테이블 `reward_policies` 1개를 반영했다(154개 + 1개 = 155개). `member_wallets`/`wallet_transactions`(클러스터 17-B)는 컬럼/허용값만 확장되었을 뿐 신규 테이블이 아니므로 엔터티 수에는 포함하지 않는다. 이로써 Database(DATABASE.md §3.1~§3.63)와 ERD가 100% 일치한다.**

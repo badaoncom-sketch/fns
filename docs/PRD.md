@@ -1,6 +1,6 @@
 # PRD.md — Product Requirements Document
 
-> 상태: Draft v0.33 (D-076 — ERP 운영 생산성 및 관리자 UX 완성: §5.71~§5.82 신규(Global Search/Approval Center/Favorite Menu·Saved Filter/Recent Activity/Notification Inbox/Tenant Usage Dashboard/Approval History/Personal Workspace/Operator Notes/관리자 Dashboard 보강/Command Palette/Universal Clipboard) + §5.61 보강(Quick Action 확장, **O-199 해소**). 신규 Engine 없음, 신규 Business Rule 없음, MLM·Settlement·ERP Core·Workflow·쇼핑몰 구조 변경 없음. 신규 Database 테이블 5종(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations`)뿐, 신규 Open Decision O-206~O-207(2건). D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §5.68~§5.70 신규, 전부 Tenant별 선택 기능) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
+> 상태: Draft v0.34 (D-078 — Marketing Reward System 및 Lifestyle Wallet 구조 개선: §5.83~§5.86 신규(Reward Policy/Lifestyle Point·Wallet/Program 신청 사용/관리자 화면). **새 MLM 정책 아님** — Lifestyle 보상(기존 "+알파" 보너스)의 저장 위치를 `point_transactions`(D-041)에서 기존 E-Wallet 구조 확장(`wallet_type=LIFESTYLE_POINT`)으로 재라우팅해 현금(Settlement)과 포인트를 명확히 분리. 신규 Database 테이블 1종(`reward_policies`)뿐, 신규 Open Decision O-208~O-209(2건). D-076 — ERP 운영 생산성 및 관리자 UX 완성: §5.71~§5.82 신규(Global Search/Approval Center/Favorite Menu·Saved Filter/Recent Activity/Notification Inbox/Tenant Usage Dashboard/Approval History/Personal Workspace/Operator Notes/관리자 Dashboard 보강/Command Palette/Universal Clipboard) + §5.61 보강(Quick Action 확장, **O-199 해소**). 신규 Engine 없음, 신규 Business Rule 없음, MLM·Settlement·ERP Core·Workflow·쇼핑몰 구조 변경 없음. 신규 Database 테이블 5종(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations`)뿐, 신규 Open Decision O-206~O-207(2건). D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §5.68~§5.70 신규, 전부 Tenant별 선택 기능) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 전제 문서: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md)
 
 ## 1. 제품 비전
@@ -1831,6 +1831,69 @@ Google 검색결과 미리보기, Naver 검색결과 미리보기, KakaoTalk 공
 > 회원번호/주문번호/송장번호/상품코드/URL 복사 + 복사 후 빠른 이동. 순수 프론트엔드 유틸리티이며 신규 데이터 모델이 없다.
 
 > §5.71~§5.82(+§5.59/§5.61 보강)는 [DECISIONS.md](DECISIONS.md) D-076(ERP 운영 생산성 및 관리자 UX 완성) 참조. **신규 Business Rule 없음. 신규 Engine 없음. MLM·Settlement·ERP Core·Workflow·쇼핑몰 구조 변경 없음.** 신규 Database 테이블은 `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5종뿐이다. **O-199가 본 라운드로 해소되었다.** 신규 Open Decision은 **O-206(admin_notes 통합 여부)/O-207(승인 위임 범위) 2건**이다.
+
+### 5.83 Marketing Reward Program — Reward Policy (New Feature — [DECISIONS.md](DECISIONS.md) D-078, 새 MLM 정책 아님 — Wallet 구조 정리)
+
+> **핵심 원칙**: Settlement는 현금성 수당(Unilevel Sponsor Bonus/Product Sales Bonus/Pair Bonus)만 처리한다. Lifestyle 보상("+알파" 보너스 등)은 현금성 수당이 아니라 **Marketing Reward Program**이며, `Reward Policy → Lifestyle Point → Lifestyle Wallet → 사용` 구조로 처리한다. **현금과 포인트는 절대 혼합하지 않는다.**
+
+Marketing Program Engine(§5.20, 기존 `marketing_programs`) 산하에 **Reward Policy**를 추가한다 — 관리자가 직접 설정하며 하드코딩하지 않는다.
+
+| 항목 | 설명 |
+|---|---|
+| Program명 | `marketing_programs`(기존) 참조 — 별도 입력 없음 |
+| Reward Type | 자유 확장값, 현재 `LIFESTYLE_POINT` 단일값 |
+| 적립 기준 | 매출/PV/BV/주문금액/지급수당/기타 계산식 — 관리자 선택(자유 확장값) |
+| 적립 방식 | %/고정 Point/누적/단계별/조건부 — 관리자 선택 |
+| 적립률 | 관리자 입력(% 또는 고정 Point) |
+| 누적 방식 | 월/분기/반기/연/사용자지정 — 관리자 선택 |
+| 누적 기간 | 예: Travel 24개월/Car 1개월/Education 6개월/Golf 관리자설정 |
+| 최소 조건 / 최대 한도 | 관리자 입력 |
+| 시작일 / 종료일 | 정책 적용 기간 |
+| 사용 가능 기간 | 적립 후 만료 전까지 사용 가능한 기간 |
+| Wallet 지정 | 현재는 Lifestyle Wallet만 유효 |
+| 활성 / 비활성 | |
+
+- **기존 Travel/자동차/자기계발 3종("+알파" 보너스, [COMPENSATION-RULES.md](COMPENSATION-RULES.md) §4.2)은 본 절의 Reward Policy 화면에서도 조회·관리할 수 있도록 노출되지만, 적립률/누적기간 수치 자체는 `plan_definition.lifestyle_bonus`(D-032)를 그대로 참조 표시한다 — 동일 수치를 중복 저장하지 않는다.** Golf 등 신규 Program만 본 화면에서 관리자가 직접 새 수치를 입력한다.
+- 본 절은 **신규 MLM 정책이 아니다** — 기존 "+알파" 보너스의 적립률·누적기간(COMPENSATION-RULES.md §4.2)·자격 조건은 전혀 변경하지 않는다. 변경되는 것은 **적립 결과가 어디에 저장되는지(라우팅)** 뿐이다(§5.85 참조).
+- 상세 데이터 모델: [DATABASE.md](DATABASE.md) §3.63 `reward_policies`.
+
+### 5.84 Lifestyle Point / Lifestyle Wallet (New Feature — [DECISIONS.md](DECISIONS.md) D-078, 기존 E-Wallet 구조 확장 재사용)
+
+> Lifestyle Wallet은 **Point 저장소**다. 현금을 저장하지 않으며, Lifestyle Point만 저장한다. 기존 E-Wallet(§5.69, D-075) 구조를 최대한 재사용한다 — `member_wallets`/`wallet_transactions`에 `wallet_type`(CASH/LIFESTYLE_POINT) 구분만 추가해, **Wallet Engine으로 향후 확장 가능하도록 하면서 현재는 Lifestyle Wallet만 활성화**한다.
+
+| 거래 유형 | 기존 E-Wallet 매핑 |
+|---|---|
+| 적립 | EARN |
+| 차감/사용 | USE |
+| 취소 | CANCEL |
+| 복원 | RESTORE(신규 허용값) |
+| 만료 | EXPIRE(신규 허용값) |
+| 보정 | ADJUSTMENT |
+
+- **Append-only 유지** — 잔액은 항상 `wallet_transactions` 원장에서 파생하며 직접 UPDATE하지 않는다(기존 E-Wallet과 동일 원칙).
+- **Lifestyle Wallet은 출금(은행송금) 대상이 아니다** — `wallet_withdrawal_requests`(§3.60)는 `wallet_type=CASH`에만 적용되며, Lifestyle Point는 쇼핑몰 사용(§5.84.1)/Program 신청 사용(§5.85)으로만 차감된다.
+- **35% 법적 한도 산정 포함 여부**는 `wallet_transactions.counts_toward_compliance_limit`(신규 컬럼, `point_transactions`의 기존 동일 패턴 포팅)으로 표시하며, 원천 `marketing_programs.links_to_compensation` 값을 그대로 따른다.
+
+#### 5.84.1 쇼핑몰 사용
+
+Lifestyle Point는 Tenant별 설정으로 쇼핑몰 결제에서 사용할 수 있다 — 관리자가 ON/OFF 설정한다. **기본값은 미확정 — O-208.** Multi-Tenant 활성화가 보류 상태(D-035)이므로, 활성화 전까지는 System Settings(§5.39, 기존)의 설정 패턴을 재사용한다.
+
+### 5.85 Program 신청 사용 (New Feature — [DECISIONS.md](DECISIONS.md) D-078, 기존 Marketing Program 신청 흐름 재사용)
+
+> Lifestyle Point는 Marketing Program 신청(Travel/Car/Education/Golf 등)에도 사용할 수 있다. 신청(`marketing_program_applications`, 기존) → 승인 → Point 차감 흐름이며, **승인 절차 자체는 변경하지 않는다.** 승인 시점에 `wallet_transactions`(USE, wallet_type=LIFESTYLE_POINT) 1건이 생성된다.
+
+### 5.86 Marketing Reward 관리자 화면 (New Feature — [DECISIONS.md](DECISIONS.md) D-078)
+
+| 화면 | 내용 |
+|---|---|
+| Reward Policy 관리 | 등록/수정/활성·비활성, Program 연결 |
+| Lifestyle Wallet 관리 | 회원별 잔액 조회, 잠금/해제(기존 E-Wallet 관리자 기능 재사용) |
+| Point 적립 내역 / Point 사용 내역 | `wallet_transactions`(wallet_type=LIFESTYLE_POINT) 조회 |
+| Program별 적립 현황 / Program별 사용 현황 | `reward_policies`+`wallet_transactions` 조인 집계 |
+
+Dashboard에 Program 적립 현황/사용 현황/Wallet 잔액/만료 예정 Point/Program별 통계 위젯 추가를 검토한다(Dashboard Builder 재사용, 신규 테이블 없음).
+
+> §5.83~§5.86은 [DECISIONS.md](DECISIONS.md) D-078(Marketing Reward System 및 Lifestyle Wallet 구조 개선) 참조. **신규 Business Rule 없음. 새 MLM 정책 없음. 기존 Settlement·ERP Core·Workflow 구조 변경 없음.** 신규 Database 테이블은 `reward_policies` 1종뿐이며, 나머지는 기존 E-Wallet(§3.60) 컬럼 확장(`wallet_type`/`counts_toward_compliance_limit`) 재사용이다. 신규 Open Decision은 **O-208(쇼핑몰 사용 기본값)/O-209(기존 point_transactions 적립분 마이그레이션 여부) 2건**이다.
 
 ## 6. 비기능 요구사항
 

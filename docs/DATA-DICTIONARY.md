@@ -1,6 +1,6 @@
 # DATA-DICTIONARY.md — Data Dictionary
 
-> 상태: v0.6 (D-076 — ERP 운영 생산성 및 관리자 UX 완성: `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations`(신규 5종)를 §12로 반영, Dictionary Gaps §12→§13으로 재배치. **O-199 해소**(즐겨찾기 메뉴/저장된 검색조건). 신규 Business Rule·MLM·Settlement·ERP Core·Workflow 구조 변경 없음. D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events`(신규 6종) + `compliance_report_definitions`/`external_api_connections` 컬럼 추가를 §11로 반영. **MLM 보상플랜·정산 계산 로직·기존 Business Rule·ERP Core 구조 무변경.** D-074 — Dynamic Board Engine: `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes`(신규 5종)를 §9로 반영. **기존 CMS(`cms_pages`/FAQ/팝업/배너) 무변경.** D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: `carts`/`cart_items`/`product_price_alerts`(신규 3종) + `shipments`/`notification_templates` 컬럼 명료화를 §8로 반영) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
+> 상태: v0.7 (D-078 — Marketing Reward System 및 Lifestyle Wallet 구조 개선: `reward_policies`(신규 1종) + `member_wallets.wallet_type`/`wallet_transactions.counts_toward_compliance_limit`(신규 컬럼) + `transaction_type` 허용값 추가(RESTORE/EXPIRE)를 §13으로 반영, Dictionary Gaps §13→§14로 재배치. **새 MLM 정책 아님** — Lifestyle 보상의 저장 위치만 point_transactions(D-041)에서 wallet_transactions로 재라우팅. O-208/O-209 등록. D-076 — ERP 운영 생산성 및 관리자 UX 완성: `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations`(신규 5종)를 §12로 반영, Dictionary Gaps §12→§13으로 재배치. **O-199 해소**(즐겨찾기 메뉴/저장된 검색조건). 신규 Business Rule·MLM·Settlement·ERP Core·Workflow 구조 변경 없음. D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events`(신규 6종) + `compliance_report_definitions`/`external_api_connections` 컬럼 추가를 §11로 반영. **MLM 보상플랜·정산 계산 로직·기존 Business Rule·ERP Core 구조 무변경.** D-074 — Dynamic Board Engine: `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes`(신규 5종)를 §9로 반영. **기존 CMS(`cms_pages`/FAQ/팝업/배너) 무변경.** D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: `carts`/`cart_items`/`product_price_alerts`(신규 3종) + `shipments`/`notification_templates` 컬럼 명료화를 §8로 반영) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 목적: [DATABASE.md](DATABASE.md)에 흩어진 테이블/컬럼 개념을 구현자가 빠르게 찾을 수 있도록 정리한다. 본 문서는 DB 스키마를 변경하지 않는다.
 
 ## 0. 작성 원칙
@@ -349,7 +349,36 @@
 | approval_delegations | reason | | text | N | N | 미정 | 미정 | DATABASE §3.62 | - |
 | approval_delegations | created_by | | uuid | N | N | N | 미정 | DATABASE §3.62 | - |
 
-## 13. Dictionary Gaps
+## 13. Marketing Reward System 및 Lifestyle Wallet 구조 개선 (D-078)
+
+> **새 MLM 정책이 아니다.** Lifestyle 보상("+알파" 보너스: 여행/자동차/자기계발)이 현금성 후원수당이 아니라 Marketing Reward Program이라는 점을 데이터 구조로 명확히 한다 — `Reward Policy → Lifestyle Point Ledger → Lifestyle Wallet` 구조를 표준화하고, **현금(Settlement/E-Wallet CASH)과 포인트(Lifestyle Point)는 절대 혼합하지 않는다.** 신규 테이블은 `reward_policies` 1종뿐이며, 나머지는 `member_wallets`/`wallet_transactions`(§3.60, 기존)를 확장 재사용한다. 기존 `lifestyle_bonus_accumulations`(§3.25)의 적립 산정 로직 자체는 변경 없음 — 산정 완료 후 저장 위치(라우팅)만 `point_transactions`(D-041)에서 `wallet_transactions`(wallet_type=LIFESTYLE_POINT)로 바뀐다. [DATABASE.md](DATABASE.md) §3.63 참조.
+
+| Table | Column | 설명 | 자료형(개념) | PK | FK | Nullable | Enum/Default | Source of Truth | 관련 Rule |
+|---|---|---|---|---|---|---|---|---|---|
+| member_wallets | wallet_type(신규) | `CASH`(§3.60 기존 5개 통화 지갑, 출금 가능) / `LIFESTYLE_POINT`(신규, 본 절) — 자유 확장값. 기존 행은 `CASH`로 간주(개념상 backfill) | string | N | N | N | 자유 확장값(현재 CASH/LIFESTYLE_POINT 2종 활성화) | DATABASE §3.63 | - |
+| wallet_transactions | counts_toward_compliance_limit(신규) | 이 거래가 MLM 35% 법적 한도 산정에 포함되는지 — `point_transactions.counts_toward_compliance_limit`(§3.36, D-041)와 동일한 패턴을 그대로 포팅. wallet_type=CASH는 기존 §3.60 동작과 동일, wallet_type=LIFESTYLE_POINT는 원천 `marketing_programs.links_to_compensation`(§3.34) 값을 따른다 | boolean | N | N | N | 미정 | DATABASE §3.63 | - |
+| wallet_transactions | transaction_type(기존 컬럼, 허용값 추가) | 기존 CHARGE/EARN/USE/CANCEL/REFUND/WITHDRAWAL_REQUEST/WITHDRAWAL_COMPLETED/ADJUSTMENT/HOLD/RELEASE는 그대로 유지하고 **RESTORE(복원)**를 추가 — `point_transactions.transaction_type`(§3.36)의 RESTORE와 동일한 개념, 주문 취소 시 Lifestyle Point 사용분 복원을 표현 | string(enum-like) | N | N | N | 허용값 추가: RESTORE | DATABASE §3.63 | - |
+| wallet_transactions | transaction_type(기존 컬럼, 허용값 추가) | **EXPIRE(만료)**를 추가 — `point_transactions.transaction_type`(§3.36)의 EXPIRE와 동일한 개념, Lifestyle Point의 사용 가능 기간(`reward_policies.usable_period`) 만료를 표현 | string(enum-like) | N | N | N | 허용값 추가: EXPIRE | DATABASE §3.63 | - |
+| reward_policies | id | | uuid | Y | N | N | 미정 | DATABASE §3.63 | - |
+| reward_policies | program_id | `marketing_programs`(§3.34) 참조 — Program명은 이 참조로 가져오며 중복 저장하지 않는다 | uuid | N | marketing_programs.id | N | 미정 | DATABASE §3.63 | - |
+| reward_policies | reward_type | 자유 확장값, 현재는 `LIFESTYLE_POINT` 단일값(향후 Wallet Engine 확장 시 다른 값 추가 가능) | string | N | N | N | 자유 확장값 | DATABASE §3.63 | - |
+| reward_policies | accrual_basis | 적립 기준 — 매출/PV/BV/주문금액/지급수당/기타, 자유 확장값(관리자 선택) | string | N | N | N | 자유 확장값 | DATABASE §3.63 | - |
+| reward_policies | accrual_method | 적립 방식 — %/고정Point/누적/단계별/조건부, 자유 확장값(관리자 선택) | string | N | N | N | 자유 확장값 | DATABASE §3.63 | - |
+| reward_policies | accrual_rate | 적립률(%, 고정POINT 방식이면 고정 적립액) — Travel/Car/자기계발(§3.25, 기존) 3종은 `plan_definition.lifestyle_bonus.*`(D-032)를 그대로 참조 표시(중복 저장 안 함). Golf 등 신규 Program만 실제 값을 관리자가 직접 입력 | numeric | N | N | N | 미정 | DATABASE §3.63 | - |
+| reward_policies | accumulation_period | 누적 방식 — 월/분기/반기/연/사용자지정, 자유 확장값 | string | N | N | N | 자유 확장값 | DATABASE §3.63 | - |
+| reward_policies | accumulation_duration | 누적 기간(예: 24개월/1개월/6개월/관리자설정) — Travel/Car/자기계발은 `plan_definition.lifestyle_bonus.*`(D-032) 참조와 동일하게 표시만 하고 별도 저장하지 않음 | string | N | N | N | 미정 | DATABASE §3.63 | - |
+| reward_policies | min_condition | 최소 조건 | text/json | N | N | Y | 미정 | DATABASE §3.63 | - |
+| reward_policies | max_limit | 최대 한도 | numeric | N | N | Y | 미정 | DATABASE §3.63 | - |
+| reward_policies | start_date / end_date | 정책 시작일/종료일 | date | N | N | 미정 | 미정 | DATABASE §3.63 | - |
+| reward_policies | usable_period | 적립 후 사용 가능 기간(만료 계산 기준, `wallet_transactions.transaction_type=EXPIRE`와 연계) | string | N | N | N | 미정 | DATABASE §3.63 | - |
+| reward_policies | target_wallet_type | `member_wallets.wallet_type`(위) 참조 — 현재는 `LIFESTYLE_POINT`만 유효 | string | N | N | N | 자유 확장값 | DATABASE §3.63 | - |
+| reward_policies | is_active | 활성/비활성 | boolean | N | N | N | 미정 | DATABASE §3.63 | - |
+
+- **쇼핑몰 사용**: Lifestyle Point의 쇼핑몰 사용 가능 여부는 Tenant별 설정이다. `tenant_settings`(§3.31.1)는 Multi-Tenant 활성화 보류 상태로 미생성이라, 활성화 전까지는 System Settings(§3.46, 기존)의 키-값 패턴을 재사용한다. **기본값(ON/OFF)은 미확정 — O-208.**
+- **마이그레이션**: 기존 `point_transactions.source_type=LIFESTYLE_BONUS`로 이미 적립된 과거 데이터를 Lifestyle Wallet으로 이전할지 여부는 **미확정 — O-209.**
+- Settlement(`settlement_batches`/`settlement_items`, §3.6)는 본 절로 전혀 변경되지 않으며, Lifestyle Point/Wallet은 Settlement Ledger를 절대 참조·합산하지 않는다.
+
+## 14. Dictionary Gaps
 
 | 영역 | 현재 상태 |
 |---|---|
