@@ -3,6 +3,45 @@
 > 문서 체계 변경 이력을 기록한다. [Keep a Changelog](https://keepachangelog.com/) 형식을 따른다.
 > 의사결정 자체의 배경/근거는 [DECISIONS.md](DECISIONS.md)에 기록한다. 본 문서는 "무엇이 바뀌었는가"만 기록한다.
 
+## [v2.2.0] - 2026-06-27 (ERP 운영 생산성 및 관리자 UX 완성 — 설계 최종 종료)
+
+> 사용자 요청: "목적은 새로운 기능을 만드는 것이 아니라 실제 상용 ERP를 운영하는 본사 관리자, 고객사 관리자, CS 담당자, 물류 담당자, 마케팅 담당자의 생산성을 극대화하는 것이다." [DECISIONS.md](DECISIONS.md) D-076. **신규 Engine 없음** — Workflow Engine/Notification Center/Dashboard Builder/Report Builder/Form Builder/Scheduler Center/API Center/File Manager/Audit Center 최대 재사용. MLM 보상플랜/정산 계산 로직/기존 Business Rule/ERP Core/Workflow/쇼핑몰 구조 변경 없음. 실제 API/실제 DB Migration/코드는 작성하지 않음. 신규 Open Decision은 O-206~O-207(2건), 기존 삭제 없음(O-199는 해소). **본 라운드를 끝으로 설계를 최종 종료하며, 이후 신규 요구사항은 Change Request(CR)로만 관리한다. 다음 단계는 Development Governance 문서 작업이다.**
+
+### Added
+
+- [PRD.md](PRD.md) §5.71(Global Search) — 회원/상품/주문/배송/송장/정산/Workflow/게시글/FAQ/공지/보도자료/갤러리/Board/프로그램/파일/Report/Audit/Notification/API/Scheduler/오류로그 횡단 검색, 신규 인덱스 테이블 없음, 호출자 기존 권한 그대로 적용
+- [PRD.md](PRD.md) §5.72(Approval Center) — 회원변경/조직이동/환불/반품/교환/E-Wallet출금/Workflow/게시글승인/프로그램신청 통합 승인 큐(관리자 업무 Queue의 일반화) + 승인 위임(`approval_delegations`, 신규)/SLA/지연알림
+- [PRD.md](PRD.md) §5.73(Favorite Menu/Saved Filter) — `admin_favorite_menus`/`saved_filters`(신규) — **O-199 해소**
+- [PRD.md](PRD.md) §5.74(Recent Activity/Activity Timeline-관리자) — 기존 테이블 federated 조회, 신규 테이블 없음
+- [PRD.md](PRD.md) §5.75(Notification Inbox) — `notification_inbox_states`(신규, 기존 `notifications` 변경 없는 상태 오버레이)
+- [PRD.md](PRD.md) §5.76(Tenant Usage Dashboard) — 신규 테이블 없음, 기존 O-170/O-146/§5.55에 귀속
+- [PRD.md](PRD.md) §5.77(Approval History) — Audit Center와 별개, 승인 이력 전용, 신규 테이블 없음
+- [PRD.md](PRD.md) §5.78(Personal Workspace) — My Dashboard/Favorite Menu/Recent Activity/Quick Action 집약 화면, 신규 데이터 모델 없음
+- [PRD.md](PRD.md) §5.79(Operator Notes) — `admin_notes`(신규, 범용 폴리모픽 메모) — 기존 `order_admin_notes`와 병렬, 통합 여부 O-206
+- [PRD.md](PRD.md) §5.80(관리자 Dashboard 보강) — My Dashboard 기본 템플릿 + 공제조합 전송실패/E-Wallet 출금대기 위젯 2종 + System Health 위젯 노출
+- [PRD.md](PRD.md) §5.81(Command Palette)/§5.82(Universal Clipboard) — 순수 프론트엔드, DB 영향 없음
+- [PRD.md](PRD.md) §5.61 보강 — Quick Action에 정산조회/게시글등록/Workflow생성 추가, 즐겨찾기/저장된 검색조건 해소 반영
+- [DATABASE.md](DATABASE.md) §3.62 — 신규 테이블 5종(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations`)
+- [WIREFRAME.md](WIREFRAME.md) §2(ERP 운영생산성 모듈 블록 8화면)/§3(GlobalSearchBar/FavoriteMenuToggle/SavedFilterDropdown/UniversalClipboardButton)
+- [API-SPEC.md](API-SPEC.md) §2.32~§2.38(Global Search/Approval Center/Approval History/Favorite Menu·Saved Filter/Notification Inbox/Operator Notes/Recent Activity) — 14개 엔드포인트 행 + §2.22.1 `tenant-usage` type 추가
+- [DATA-DICTIONARY.md](DATA-DICTIONARY.md) §12(ERP 운영 생산성 및 관리자 UX 완성) 신설, Dictionary Gaps §13으로 재배치
+- [ROLE-MATRIX.md](ROLE-MATRIX.md) §32(ERP 운영 생산성 및 관리자 UX 완성) — 기존 §31 "미확정 항목"은 §33으로 재배치
+- [TEST-PLAN.md](TEST-PLAN.md) §2.15(ERP 운영 생산성 및 관리자 UX 완성 테스트) — Global Search 권한 준수/Approval Center 권한 우회 방지 최상위 tier 포함
+- [DECISIONS.md](DECISIONS.md) D-076 + **O-206**(`admin_notes` 통합 여부)/**O-207**(승인 위임 범위) — 2건
+
+### Changed
+
+- [DECISIONS.md](DECISIONS.md) §2 — **O-199 해소**(취소선 처리, `admin_favorite_menus`/`saved_filters`로 구현 확정)
+- [MASTER-INDEX.md](MASTER-INDEX.md) §1/§6 — PRD/DATABASE/DECISIONS/ROLE-MATRIX/API-SPEC/WIREFRAME/TEST-PLAN/DATA-DICTIONARY/MASTER-INDEX 행 갱신, "ERP 운영 생산성 및 관리자 UX 완성" 체크 추가, "D-076이 마지막 라운드" 명시로 갱신(D-072~D-075의 동일 표현이 매번 갱신되어 온 패턴 명기)
+- README.md — Open Decision 범위(O-002~O-207, O-199 해소), "현재 단계" 체크리스트 갱신, "ERP 운영 생산성 및 관리자 UX 완성(D-076)" 절 신설, 중복 문단 제거, 과거 "프로젝트 마지막 라운드" 표현을 현재 라운드(D-076)에만 남기고 D-071~D-074 절에서 제거(중복·모순 방지)
+
+### 비고
+
+- ERD.md는 본 라운드의 대상 문서 목록에 없어 수정하지 않았다 — D-076의 신규 5테이블 반영은 1라운드 지연(다음 ERD 동기화 라운드 과제).
+- SITEMAP.md/BUSINESS-RULE-CATALOG.md도 대상 목록에 없어 수정하지 않았다.
+- COMPENSATION-RULES.md/SETTLEMENT-RULES.md/ARCHITECTURE.md/BUSINESS-RULE-CATALOG.md는 본 라운드에서 수정하지 않았다 — MLM/정산/ERP Core 구조 및 BR 카탈로그 무변경 확인(BR 총 54개 유지).
+- 12개 기능 영역 중 8개(Global Search/Approval Center/Approval History/Recent Activity/Tenant Usage Dashboard/Personal Workspace/Command Palette/Universal Clipboard)는 신규 테이블 없이 기존 테이블 federated 조회 또는 순수 프론트엔드로 해결되었다 — 신규 Engine을 만들지 않는다는 원칙을 끝까지 지켰다.
+
 ## [v2.1.0] - 2026-06-26 (한국 공제조합 연동·E-Wallet·글로벌 결제 — 설계 최종 종료)
 
 > 사용자 요청: "플랫폼이 한국 MLM, 글로벌 MLM, 쇼핑몰, 정산, 공제조합, 전자지갑, 글로벌 결제를 모두 Tenant별 선택 기능으로 지원할 수 있도록 설계한다." [DECISIONS.md](DECISIONS.md) D-075. **전부 Tenant별 선택 기능.** MLM 수당 정책/기존 보상플랜/기존 정산 구조/기존 Business Rule/ERP Core 구조 변경 없음. 실제 API/실제 DB Migration/코드는 작성하지 않음. 신규 Open Decision은 O-201~O-205(5건), 기존 삭제 없음. **본 라운드를 끝으로 설계를 최종 종료하며, 이후 신규 요구사항은 Change Request(CR)로만 관리한다.**

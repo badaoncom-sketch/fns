@@ -1,6 +1,6 @@
 # DATA-DICTIONARY.md — Data Dictionary
 
-> 상태: v0.5 (D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events`(신규 6종) + `compliance_report_definitions`/`external_api_connections` 컬럼 추가를 §11로 반영, Dictionary Gaps §12로 재배치. **MLM 보상플랜·정산 계산 로직·기존 Business Rule·ERP Core 구조 무변경.** D-074 — Dynamic Board Engine: `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes`(신규 5종)를 §9로 반영. **기존 CMS(`cms_pages`/FAQ/팝업/배너) 무변경.** D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: `carts`/`cart_items`/`product_price_alerts`(신규 3종) + `shipments`/`notification_templates` 컬럼 명료화를 §8로 반영) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.6 (D-076 — ERP 운영 생산성 및 관리자 UX 완성: `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations`(신규 5종)를 §12로 반영, Dictionary Gaps §12→§13으로 재배치. **O-199 해소**(즐겨찾기 메뉴/저장된 검색조건). 신규 Business Rule·MLM·Settlement·ERP Core·Workflow 구조 변경 없음. D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: `compliance_member_registrations`/`compliance_transmission_items`/`member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests`/`payment_webhook_events`(신규 6종) + `compliance_report_definitions`/`external_api_connections` 컬럼 추가를 §11로 반영. **MLM 보상플랜·정산 계산 로직·기존 Business Rule·ERP Core 구조 무변경.** D-074 — Dynamic Board Engine: `boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes`(신규 5종)를 §9로 반영. **기존 CMS(`cms_pages`/FAQ/팝업/배너) 무변경.** D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: `carts`/`cart_items`/`product_price_alerts`(신규 3종) + `shipments`/`notification_templates` 컬럼 명료화를 §8로 반영) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 목적: [DATABASE.md](DATABASE.md)에 흩어진 테이블/컬럼 개념을 구현자가 빠르게 찾을 수 있도록 정리한다. 본 문서는 DB 스키마를 변경하지 않는다.
 
 ## 0. 작성 원칙
@@ -317,7 +317,39 @@
 | payment_webhook_events | status | 처리 상태 | enum | N | N | N | 수신/처리중/처리완료/처리실패 | DATABASE §3.61 | - |
 | payment_webhook_events | received_at / processed_at | | timestamp | N | N | N/Y | 미정 | DATABASE §3.61 | - |
 
-## 12. Dictionary Gaps
+## 12. ERP 운영 생산성 및 관리자 UX 완성 (D-076)
+
+> 신규 테이블은 5종(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations`)뿐이다 — Global Search/Approval Center/Recent Activity/Tenant Usage Dashboard/Personal Workspace/Command Palette/Universal Clipboard/관리자 Dashboard/System Health Widget/Quick Action 보강 등 나머지는 모두 기존 테이블 federated 조회이거나 DB 영향이 없는 프론트엔드 컴포넌트이므로 본 절에 재등록하지 않는다. **`admin_favorite_menus`/`saved_filters`가 O-199(관리자 저장된 검색조건/즐겨찾기 메뉴 테이블 도입 여부)를 해소한다 — 즐겨찾기 메뉴는 `admin_favorite_menus`, 저장된 검색조건은 `saved_filters`.** [DATABASE.md](DATABASE.md) §3.62 참조.
+
+| Table | Column | 설명 | 자료형(개념) | PK | FK | Nullable | Enum/Default | Source of Truth | 관련 Rule |
+|---|---|---|---|---|---|---|---|---|---|
+| admin_favorite_menus | admin_id | 관리자 — O-199(해소) 전반부: 즐겨찾기 메뉴 | uuid | 미정 | admins/members | N | 미정 | DATABASE §3.62 | - |
+| admin_favorite_menus | menu_key | 메뉴 식별자(SITEMAP.md 메뉴 트리의 노드 키) | string | N | N | N | 미정 | DATABASE §3.62 | - |
+| admin_favorite_menus | sort_order | 즐겨찾기 내 순서 | integer | N | N | N | 미정 | DATABASE §3.62 | - |
+| admin_favorite_menus | pinned_at | | timestamp | N | N | 미정 | 미정 | DATABASE §3.62 | - |
+| saved_filters | admin_id | 작성자 — O-199(해소) 후반부: 저장된 검색조건 | uuid | 미정 | admins/members | N | 미정 | DATABASE §3.62 | - |
+| saved_filters | name | 필터명(예: "승인 대기"/"환불 대기"/"배송 지연"/"재고 부족"/"신규 가입"/"정산 보류") | string | N | N | N | 미정 | DATABASE §3.62 | - |
+| saved_filters | target_module | 적용 대상 모듈 | string | N | N | N | 자유 확장값(`marketing_programs.category`와 동일 패턴) | DATABASE §3.62 | - |
+| saved_filters | filter_criteria | 필터 조건 | json | N | N | N | 미정 | DATABASE §3.62 | - |
+| saved_filters | is_default | 해당 모듈 진입 시 기본 적용 여부 | boolean | N | N | N | 미정 | DATABASE §3.62 | - |
+| saved_filters | is_shared | 다른 관리자에게 공유 여부 | boolean | N | N | N | 미정 | DATABASE §3.62 | - |
+| saved_filters | created_at | | timestamp | N | N | N | 미정 | DATABASE §3.62 | - |
+| notification_inbox_states | notification_id | `notifications`(§3.20) 참조 — 상태 오버레이, 원본 테이블 무변경 | uuid | 미정 | notifications.id | N | 미정 | DATABASE §3.62 | - |
+| notification_inbox_states | recipient_type / recipient_id | MEMBER/ADMIN 등 — `notifications.member_id`(회원 전용)와 별개로 관리자 수신 알림까지 다루는 범용 참조 | string/uuid | N | 다형(미정) | N | 미정 | DATABASE §3.62 | - |
+| notification_inbox_states | is_read / is_important / is_archived | | boolean | N | N | N | 미정 | DATABASE §3.62 | - |
+| notification_inbox_states | tags | 자유 태그 | json | N | N | Y | 배열 | DATABASE §3.62 | - |
+| admin_notes | related_entity_type / related_entity_id | 범용 polymorphic 참조(MEMBER/ORDER/PRODUCT/BOARD_POST/WORKFLOW_INSTANCE/SETTLEMENT_BATCH 등) — File Manager(§3.39) 패턴 재사용. 기존 `order_admin_notes`(§3.53, 주문 전용)는 무변경, 통합 여부는 **O-206** | string/uuid | N | 다형(미정) | N | 미정 | DATABASE §3.62 | - |
+| admin_notes | content | | text | N | N | N | 미정 | DATABASE §3.62 | - |
+| admin_notes | is_important | 중요 메모 표시 | boolean | N | N | N | 미정 | DATABASE §3.62 | - |
+| admin_notes | is_internal | 내부 전용(고객 노출 화면에 절대 노출 안 함) | boolean | N | N | N | 항상 true 전제이나 컬럼으로 명시 | DATABASE §3.62 | - |
+| admin_notes | created_by / created_at | | uuid/timestamp | N | N | N | 미정 | DATABASE §3.62 | - |
+| approval_delegations | delegator_id | 원래 승인자 — Workflow Engine(§3.37)이 승인자 결정 시 참조하는 위성 테이블, Workflow Engine 자체 구조는 무변경 | uuid | N | admins/members | N | 미정 | DATABASE §3.62 | - |
+| approval_delegations | delegate_id | 대리 승인자 — 위임 가능 범위(동일 역할 내 한정 여부, 권한 레벨 검증 방식) 미확정, **O-207** | uuid | N | admins/members | N | 미정 | DATABASE §3.62 | - |
+| approval_delegations | start_date / end_date | 위임 기간 | date | N | N | N | 미정 | DATABASE §3.62 | - |
+| approval_delegations | reason | | text | N | N | 미정 | 미정 | DATABASE §3.62 | - |
+| approval_delegations | created_by | | uuid | N | N | N | 미정 | DATABASE §3.62 | - |
+
+## 13. Dictionary Gaps
 
 | 영역 | 현재 상태 |
 |---|---|

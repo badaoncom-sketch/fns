@@ -1,6 +1,6 @@
 # PRD.md — Product Requirements Document
 
-> 상태: Draft v0.32 (D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §5.68~§5.70 신규. **전부 Tenant별 선택 기능.** 공제조합(항목단위 전송/공제번호·증서), E-Wallet(append-only Ledger, KRW/USD/THB/JPY), 글로벌 결제(태국/일본/Stripe/PayPal). MLM 보상플랜·정산 계산 로직·기존 Business Rule·ERP Core 구조 변경 없음, 신규 Open Decision O-201~O-205(5건). D-074 — Dynamic Board Engine: §5.67 신규, 기존 CMS는 변경하지 않음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.33 (D-076 — ERP 운영 생산성 및 관리자 UX 완성: §5.71~§5.82 신규(Global Search/Approval Center/Favorite Menu·Saved Filter/Recent Activity/Notification Inbox/Tenant Usage Dashboard/Approval History/Personal Workspace/Operator Notes/관리자 Dashboard 보강/Command Palette/Universal Clipboard) + §5.61 보강(Quick Action 확장, **O-199 해소**). 신규 Engine 없음, 신규 Business Rule 없음, MLM·Settlement·ERP Core·Workflow·쇼핑몰 구조 변경 없음. 신규 Database 테이블 5종(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations`)뿐, 신규 Open Decision O-206~O-207(2건). D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §5.68~§5.70 신규, 전부 Tenant별 선택 기능) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 전제 문서: [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md)
 
 ## 1. 제품 비전
@@ -1554,9 +1554,9 @@ Google 검색결과 미리보기, Naver 검색결과 미리보기, KakaoTalk 공
 
 | 기능 | 데이터 모델 |
 |---|---|
-| Quick Action/즐겨찾기 메뉴/최근 작업/최근 본 회원·주문·상품 | `member_activity_logs`(§3.22) 재사용 — 관리자 행위 로그도 이미 이 테이블에 기록되는 패턴과 동일. "즐겨찾기"만 신규 — 관리자별 메뉴 즐겨찾기 저장은 본 라운드에서 테이블을 만들지 않고 **O-199**(저장된 검색조건)와 함께 후속 확정 범위로 묶는다 |
-| Quick Action 목록(D-073 구체화) | 주문 조회/회원 조회/상품 등록/패키지 등록/송장 등록/환불 승인/공지 등록 — 각 기존 화면(주문관리/회원관리/상품관리/패키지관리/배송관리/CMS)으로의 **바로가기**일 뿐 별도 데이터 모델이 없다. 환불 승인은 기존 승인 절차(§3.53 `returns`)를 그대로 거치며 Quick Action이 승인 권한을 우회하지 않는다(Workflow/기존 권한 구조 재사용) |
-| 저장된 검색조건 | 본 라운드에서 테이블을 만들지 않음 — **O-199** |
+| Quick Action/즐겨찾기 메뉴/최근 작업/최근 본 회원·주문·상품 | `member_activity_logs`(§3.22) 재사용. **"즐겨찾기"는 D-076(§5.73)에서 `admin_favorite_menus`로 해소되었다(O-199 해소).** |
+| Quick Action 목록(D-073 구체화 + D-076 보강) | 주문 조회/회원 조회/상품 등록/패키지 등록/송장 등록/환불 승인/공지 등록(D-073) + **정산 조회/게시글 등록/Workflow 생성**(D-076) — 각 기존 화면으로의 **바로가기**일 뿐 별도 데이터 모델이 없다. 환불 승인은 기존 승인 절차(§3.53 `returns`)를 그대로 거치며 Quick Action이 승인 권한을 우회하지 않는다(Workflow/기존 권한 구조 재사용) |
+| 저장된 검색조건 | **D-076(§5.73)에서 `saved_filters`로 해소되었다(O-199 해소).** |
 | 일괄 처리/엑셀 업로드·다운로드 | Bulk Action 패턴(§3.51) 재사용 |
 | 처리 완료 Toast/실패 항목 상세 표시 | DB 영향 없음 — ERP UX Standard(§5.44)의 Toast/Error 컴포넌트 재사용 |
 | 작업 로그 연결 | `audit_logs`(§3.8) 재사용 |
@@ -1701,6 +1701,136 @@ Google 검색결과 미리보기, Naver 검색결과 미리보기, KakaoTalk 공
 - 본 절은 신규 Business Rule을 만들지 않는다 — 결제 승인/실패/취소 흐름은 기존 §5.45.2 패턴의 국가/PG 확장일 뿐이다.
 
 > §5.68~§5.70 전체는 [DECISIONS.md](DECISIONS.md) D-075(한국 공제조합 연동·E-Wallet·글로벌 결제) 참조. **신규 Business Rule 없음. 기존 MLM 보상플랜·정산 계산 로직·ERP Core 구조는 변경하지 않았다. 모든 신규 기능은 Tenant별 선택 기능이다.** 신규 Open Decision은 **O-201~O-205 5건**이다.
+
+### 5.71 Global Search (New Feature — [DECISIONS.md](DECISIONS.md) D-076, 신규 Engine 없음 — 기존 테이블 federated 조회)
+
+> ERP 전체 통합 검색 — 회원/상품/주문/배송/송장/정산/Workflow/게시글/FAQ/공지사항/보도자료/갤러리/Dynamic Board/프로그램/파일/Report/Audit/Notification/API/Scheduler/오류 로그를 한 화면에서 검색한다. **신규 검색 인덱스 테이블을 만들지 않는다** — 각 모듈의 기존 테이블에 대한 federated 쿼리이며, 성능을 위한 전문검색 인덱스(PostgreSQL Full-Text 등)는 구현 단계 최적화 사항이다.
+
+| 기능 | 설계 |
+|---|---|
+| 카테고리별 결과 | 검색 대상 모듈별로 결과를 그룹화해 표시 — 신규 데이터 모델 없음 |
+| 최근 검색 / 저장된 검색 / 즐겨찾기 검색 | §5.73(Favorite Menu/Saved Filter) 재사용 — 별도 검색 전용 저장구조를 만들지 않는다 |
+| 검색 권한(Role) | [ROLE-MATRIX.md](ROLE-MATRIX.md)의 기존 모듈별 조회 권한을 그대로 적용 — 권한 없는 모듈의 결과는 노출하지 않는다(신규 권한 체계 없음) |
+| 검색 통계 | `search_query_logs`(§3.35, 기존 — 쇼핑몰 검색용)와 동일한 패턴을 관리자 검색에도 적용 — 신규 테이블 없음 |
+| 자동완성 / Highlight | DB 영향 없음 — 프론트엔드 렌더링 |
+| 바로가기 | 검색 결과 클릭 시 해당 모듈의 기존 상세 화면으로 이동 |
+
+- **Command Palette(Ctrl+K)는 별도 기능이 아니다** — 본 절과 동일한 검색 API를 빠른 진입점 UI로 노출하는 프론트엔드 컴포넌트일 뿐이다(§5.81 참조).
+- 본 절은 신규 Business Rule을 만들지 않는다. 신규 Open Decision도 만들지 않는다.
+
+### 5.72 Approval Center (New Feature — [DECISIONS.md](DECISIONS.md) D-076, 관리자 업무 Queue(§5.60)의 일반화 — 신규 승인 구조 없음)
+
+> ERP 전체 승인센터 — 회원변경/조직이동/환불/반품/교환/출금(E-Wallet, §5.69)/Workflow/게시글(예약게시 포함)/프로그램 신청을 한 화면에서 처리한다. §5.60 관리자 업무 Queue가 쇼핑몰 운영 항목에 한정했던 것을 **ERP 전체 승인 대상으로 확장**한 것이며, 신규 승인 엔진을 만들지 않는다.
+
+| 기능 | 설계 |
+|---|---|
+| 승인 대기 / 승인 완료 / 반려 | 기존 `member_change_requests`/`organization_transfer_logs`/`returns`/`exchange_requests`/`wallet_withdrawal_requests`(§5.69)/`workflow_instances`+`workflow_step_actions`/`board_posts`(status=PENDING_APPROVAL)/`marketing_program_applications`를 federated 조회 — 신규 승인 테이블 없음 |
+| 긴급 승인 | 기존 각 모듈의 긴급 처리 경로(예: 조직 이동의 "긴급 조직 이동", §5.16.7) 그대로 인용 — 신규 긴급승인 구조를 만들지 않는다 |
+| 승인 위임 / 휴가 중 승인자 변경 | `approval_delegations`(DATABASE.md §3.62, 신규) — Workflow Engine 자체 구조는 변경하지 않으며, 위임 정보를 승인자 결정 시 참조하는 위성 테이블이다. 위임 가능 범위(동일 역할 내 한정 여부)는 미확정 — **O-207** |
+| 승인 SLA / 승인 지연 알림 | 신규 테이블 없음 — System Settings(§5.39) 패턴의 관리자 설정값(모듈별 SLA 시간) + Scheduler Center(§5.33) Job이 SLA 초과 항목을 주기 점검해 Notification Center(§5.34)로 발송. 정확한 기본 SLA 시간은 미확정(구현 단계 결정) |
+| 승인 이력/승인자/승인 시간/반려 사유 | §5.77 Approval History 참조 |
+| 검색 / PDF / Excel | 본 절의 검색은 §5.71 Global Search 패턴, PDF/Excel은 Report Builder(§5.37) 재사용 |
+
+- 본 절은 신규 Business Rule을 만들지 않는다 — 각 모듈의 기존 승인 권한·절차(예: 정산 운영자 승인 §5.30.3, 조직 이동 승인 §5.16)는 그대로 유지되며, Approval Center는 그것들을 한 화면에 모아 보여주는 조회·진입 레이어다. 신규 Open Decision은 **O-207**(승인 위임 범위) 1건이다.
+
+### 5.73 Favorite Menu / Saved Filter (New Feature — [DECISIONS.md](DECISIONS.md) D-076, **O-199 해소**)
+
+> 관리자 즐겨찾기 메뉴(Pin)와 검색조건 저장(예: "승인 대기"/"환불 대기"/"배송 지연"/"재고 부족"/"신규 가입"/"정산 보류"). §5.61이 D-072 시점에 "본 라운드에서 테이블을 만들지 않고 O-199로 묶는다"고 미뤘던 항목을 **이번 라운드에서 해소한다.**
+
+| 기능 | 데이터 모델 |
+|---|---|
+| 즐겨찾기 / 메뉴 Pin | `admin_favorite_menus`(DATABASE.md §3.62, 신규) |
+| 최근 메뉴 / 자주 사용하는 메뉴 | 신규 테이블 없음 — `member_activity_logs`(§3.22, 기존)의 관리자 행위 기록을 메뉴 진입 빈도로 집계(파생) |
+| 자동 추천 | 위 집계 결과 기반 — 신규 알고리즘 테이블 없음, 추천 로직 자체는 구현 단계 결정 |
+| 검색조건 저장 / 수정 / 삭제 | `saved_filters`(DATABASE.md §3.62, 신규) |
+| 기본 검색 | `saved_filters.is_default` |
+| 공유 | `saved_filters.is_shared` |
+
+- 본 절로 **O-199(관리자 저장된 검색조건/즐겨찾기 메뉴 테이블 도입 여부)가 해소되었다** — [DECISIONS.md](DECISIONS.md)에 반영한다. 신규 Business Rule은 만들지 않는다.
+
+### 5.74 Recent Activity / Activity Timeline(관리자) (New Feature — [DECISIONS.md](DECISIONS.md) D-076, Customer Timeline(§5.64)의 관리자 버전 — 신규 테이블 없음)
+
+> 운영자 본인의 최근 작업(최근 조회 회원/수정 회원/주문/상품/게시글/승인/Workflow/파일/로그인)을 시간순으로 본다. §5.64 Customer Timeline이 **회원** 활동을 federated 조회했던 것과 동일한 원리를 **관리자 자신**에게 적용한다.
+
+| 항목 | 데이터 소스(기존) |
+|---|---|
+| 최근 조회/수정 회원, 주문, 상품, 게시글 | `audit_logs`(§3.8)/`member_activity_logs`(§3.22, 관리자 행위 기록) |
+| 최근 승인 | `workflow_step_actions`(§3.37, `decision` 컬럼) + 각 승인 테이블의 `approved_by`/`approved_at` |
+| 최근 Workflow | `workflow_instances`(§3.37) |
+| 최근 파일 | File Manager `files`(§3.39, `uploaded_by`) |
+| 최근 로그인 | `member_activity_logs`(`activity_type=LOGIN`) — 관리자 로그인도 동일 패턴으로 기록된다는 전제(기존 컬럼 재사용, 신규 컬럼 없음) |
+
+- 본 절은 신규 테이블/Business Rule/Open Decision을 만들지 않는다 — 순수 federated 조회다.
+
+### 5.75 Notification Inbox (New Feature — [DECISIONS.md](DECISIONS.md) D-076, Notification Center(§5.34) 재사용)
+
+> 읍음/안읍음/중요/즐겨찾기/보관/삭제/첨부파일/태그/검색/날짜 필터/유형 필터/전체 읍음. 기존 `notifications`/`notification_logs`(§3.20)는 변경하지 않는다 — 상태(읍음 여부 등)만 오버레이로 추가한다.
+
+| 기능 | 데이터 모델 |
+|---|---|
+| 읍음/안읍음/중요/보관/삭제/태그 | `notification_inbox_states`(DATABASE.md §3.62, 신규 오버레이 테이블) |
+| 즐겨찾기 | 위 테이블의 태그/플래그로 표현(별도 테이블 없음) |
+| 첨부파일 | File Manager 재사용 |
+| 검색 / 날짜·유형 필터 | §5.71 Global Search 패턴 재사용 |
+| 전체 읍음 | 일괄 처리(Bulk Action 패턴, §5.44.6) 재사용 |
+
+- 마이오피스 알림함(회원용, D-070)과는 별개다 — 본 절은 **관리자**(본사/Tenant/CS/물류/마케팅 담당자)의 알림 수신함이며, `notification_inbox_states.recipient_type=ADMIN`으로 구분한다.
+- 본 절은 신규 Business Rule을 만들지 않는다.
+
+### 5.76 Tenant Usage Dashboard (New Feature — [DECISIONS.md](DECISIONS.md) D-076, Dashboard Builder(§5.36) 재사용)
+
+> 회원수/주문수/매출/Storage/API 호출/Queue 사용량/메일/SMS/Push/License/Plan/사용률. **신규 테이블 없음** — 기존 O-170(Multi-Tenant 활성화 시 테넌트별 사용량 모니터링 대시보드)·O-146(API 호출 쿼터)·§5.55(License 관리, D-071)가 이미 다루는 영역을 Dashboard Builder 위젯으로 구체화한 것이다.
+
+| 항목 | 데이터 소스(기존) |
+|---|---|
+| 회원수/주문수/매출 | 기존 트랜잭션 테이블 집계 |
+| Storage/API 호출 | `external_api_call_logs`(§3.38) |
+| 메일/SMS/Push | `notification_logs`(§3.20) |
+| Queue 사용량 | `scheduled_job_run_logs`(§3.40) |
+| License/Plan/사용률 | §5.55(D-071)가 이미 "Multi-Tenant 활성화 시점으로 deferred"로 명시 — 재등록하지 않음 |
+
+- 본 절은 신규 테이블/Business Rule/Open Decision을 만들지 않는다 — 모두 기존 O-170/O-146/§5.55에 귀속된다.
+
+### 5.77 Approval History (New Feature — [DECISIONS.md](DECISIONS.md) D-076, Audit Center(§5.35)와는 별개 — 승인 이력 전용 조회)
+
+> Audit Center는 시스템 전체 변경의 포렌식 기록이고, 본 절은 **승인/반려 이력만** 모아 보여주는 운영 화면이다. 신규 테이블 없음 — `workflow_step_actions.decision`(기존)과 각 승인 테이블(`member_change_requests`/`organization_transfer_logs`/`returns`/`wallet_withdrawal_requests` 등)의 `approved_by`/`approved_at`/반려 사유 컬럼을 federated 조회한다.
+
+| 기능 | 데이터 모델 |
+|---|---|
+| 승인 내역/승인자/승인 시간 | 기존 컬럼 조회 |
+| 반려/반려 사유 | 기존 컬럼 조회 |
+| PDF/Excel | Report Builder(§5.37) 재사용 |
+
+- 본 절은 신규 테이블/Business Rule/Open Decision을 만들지 않는다.
+
+### 5.78 Personal Workspace (New Feature — [DECISIONS.md](DECISIONS.md) D-076, 집약 화면 — 신규 데이터 모델 없음)
+
+> 관리자 개인 작업공간 — 내 Dashboard/최근 메뉴/최근 검색/즐겨찾기/내 위젯/내 바로가기/저장된 검색을 한 화면에 모은다. **신규 기능이 아니라 이미 설계된 기능들의 집약 화면**이다: My Dashboard(§5.65, D-073) + Favorite Menu/Saved Filter(§5.73) + Recent Activity(§5.74) + Quick Action(§5.61).
+
+- 본 절은 신규 테이블/Business Rule/Open Decision을 만들지 않는다 — 화면 구성(레이아웃)만 다룬다([WIREFRAME.md](WIREFRAME.md) 참조).
+
+### 5.79 Operator Notes (New Feature — [DECISIONS.md](DECISIONS.md) D-076, File Manager 패턴 재사용)
+
+> 회원/주문/상품/게시글/Workflow/정산 등에 대한 운영자 내부 메모(작성/수정/이력/중요메모/내부전용/작성자/작성일). 기존 `order_admin_notes`(§3.53, 주문 전용)는 변경하지 않는다 — `admin_notes`(DATABASE.md §3.62, 신규 범용 메모, File Manager의 `related_entity_type`/`related_entity_id` 패턴 재사용)를 신설한다.
+
+- `admin_notes`(범용)와 `order_admin_notes`(주문 전용, 기존)의 통합 여부는 본 라운드에서 결정하지 않는다 — **O-206**.
+- 본 절은 신규 Business Rule을 만들지 않는다.
+
+### 5.80 관리자 Dashboard 보강 — 로그인 첫 화면 (New Feature — [DECISIONS.md](DECISIONS.md) D-076, §5.59/§5.54/§5.65 통합 — 신규 테이블 없음)
+
+> 로그인 첫 화면 = My Dashboard(§5.65, D-073)의 시스템 기본 템플릿이며, 기본 위젯 구성은 §5.59(오늘 지표/긴급 처리 지표, D-072)에 **공제조합 전송 실패**(`compliance_transmission_items.status=실패`, §3.59)/**E-Wallet 출금 대기**(`wallet_withdrawal_requests.status=REQUESTED`, §3.60) 위젯을 추가하고, §5.54(System Health Dashboard, D-071)를 별도 페이지가 아니라 **위젯으로도** 노출한다.
+
+- 본 절은 신규 테이블을 만들지 않는다 — 기존 §5.54/§5.59/§5.65의 조합이며, 두 개의 신규 위젯(공제조합 전송실패/E-Wallet 출금대기)도 기존 테이블 조회일 뿐이다.
+
+### 5.81 Command Palette (New Feature — [DECISIONS.md](DECISIONS.md) D-076, DB 영향 없음)
+
+> Ctrl+K로 호출되는 빠른 이동/검색 UI — 회원/상품/주문/게시판/Workflow/메뉴/화면으로 즉시 이동한다. §5.71 Global Search와 **동일한 검색 API**를 사용하는 프론트엔드 컴포넌트이며, 신규 데이터 모델이 없다.
+
+### 5.82 Universal Clipboard (New Feature — [DECISIONS.md](DECISIONS.md) D-076, DB 영향 없음)
+
+> 회원번호/주문번호/송장번호/상품코드/URL 복사 + 복사 후 빠른 이동. 순수 프론트엔드 유틸리티이며 신규 데이터 모델이 없다.
+
+> §5.71~§5.82(+§5.59/§5.61 보강)는 [DECISIONS.md](DECISIONS.md) D-076(ERP 운영 생산성 및 관리자 UX 완성) 참조. **신규 Business Rule 없음. 신규 Engine 없음. MLM·Settlement·ERP Core·Workflow·쇼핑몰 구조 변경 없음.** 신규 Database 테이블은 `admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5종뿐이다. **O-199가 본 라운드로 해소되었다.** 신규 Open Decision은 **O-206(admin_notes 통합 여부)/O-207(승인 위임 범위) 2건**이다.
 
 ## 6. 비기능 요구사항
 

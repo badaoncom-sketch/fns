@@ -1,6 +1,6 @@
 # DATABASE.md — 데이터 모델
 
-> 상태: Draft v0.28 (D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §3.59(공제조합 연동 보강, `compliance_member_registrations`/`compliance_transmission_items` 신규)/§3.60(E-Wallet, `member_wallets`/`wallet_transactions`/`wallet_withdrawal_requests` 신규 — append-only Ledger)/§3.61(글로벌 결제, `payment_webhook_events` 신규 + `external_api_connections.country_code` 컬럼 추가). **전부 Tenant별 선택 기능**, MLM 보상플랜·정산 계산 로직·기존 Business Rule·ERP Core 구조 변경 없음. D-074 — Dynamic Board Engine: §3.58 신규(`boards`/`board_categories`/`board_posts`/`board_post_comments`/`board_post_likes` 5종). 기존 CMS 변경 없음) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: Draft v0.29 (D-076 — ERP 운영 생산성 및 관리자 UX 완성: §3.62 신규(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations` 5종뿐 — Global Search/Approval Center/Recent Activity/Personal Workspace 등 대부분은 기존 테이블 federated 조회). **O-199 해소**(즐겨찾기 메뉴/저장된 검색조건). 신규 Engine 없음, Business Rule·MLM·Settlement·ERP Core·Workflow 구조 변경 없음. D-075 — 한국 공제조합 연동·E-Wallet·글로벌 결제: §3.59~§3.61 신규(전부 Tenant별 선택 기능)) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 전제 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [COMPENSATION-RULES.md](COMPENSATION-RULES.md), [SETTLEMENT-RULES.md](SETTLEMENT-RULES.md)
 > 본 문서는 테이블 구조의 **개념 설계**이며, 실제 마이그레이션 파일/스키마는 구현 단계에서 작성한다. 코드/마이그레이션은 생성하지 않는다.
 
@@ -1705,6 +1705,81 @@
 - **부분취소/부분환불**: 주문 레벨 처리는 이미 §3.53(O-133/O-135/O-129)이 다룬다. 본 절은 PG로 보내는 **요청** 자체만 다루며, 그 요청·응답은 `external_api_call_logs`(아웃바운드) 재사용.
 - **PG사 구체 선정**(한국 신용카드/계좌이체 PG사명, 일본 신용카드 PG사명 등)은 미확정 — **O-204**.
 - **Webhook 서명 검증 방식 및 검증 실패 시 처리**(거부/격리 후 검토 등)는 미확정 — **O-205**.
+
+### 3.62 ERP 운영 생산성 및 관리자 UX 완성 ([PRD.md](PRD.md) §5.71~§5.78, [DECISIONS.md](DECISIONS.md) D-076)
+
+> 새 ERP 기능이 아니라 **운영자(본사/Tenant 관리자/CS/물류/마케팅)의 일상 생산성**을 높이는 보강이다. **신규 Engine을 만들지 않는다** — Workflow Engine/Notification Center/Dashboard Builder/Report Builder/Form Builder/Scheduler Center/API Center/File Manager/Audit Center를 최대한 재사용한다. 다수 항목은 신규 테이블 없이 **기존 테이블 federated 조회**(Customer Timeline §3.57, 관리자 업무 Queue §3.57과 동일 패턴)이며, 진짜 신규 테이블은 5종뿐이다.
+
+**`admin_favorite_menus`**(신규) — 메뉴 즐겨찾기/Pin. **O-199(저장된 검색조건/즐겨찾기 메뉴 테이블 도입 여부)를 본 라운드에서 해소한다.**
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| admin_id | 관리자 |
+| menu_key | 메뉴 식별자(SITEMAP.md 메뉴 트리의 노드 키) |
+| sort_order | 즐겨찾기 내 순서 |
+| pinned_at | |
+
+**`saved_filters`**(신규) — 검색조건/필터 저장. **O-199의 나머지 절반("저장된 검색조건")을 해소한다.**
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| admin_id | 작성자 |
+| name | 필터명(예: "승인 대기"/"환불 대기"/"배송 지연"/"재고 부족"/"신규 가입"/"정산 보류") |
+| target_module | 적용 대상 모듈(자유 확장값) |
+| filter_criteria | 필터 조건(JSON) |
+| is_default | 해당 모듈 진입 시 기본 적용 여부 |
+| is_shared | 다른 관리자에게 공유 여부 |
+| created_at | |
+
+**`notification_inbox_states`**(신규) — Notification Inbox의 읍음/중요/보관 등 **상태 오버레이**. 기존 `notifications`/`notification_logs`(§3.20)는 변경하지 않는다 — `cms_translations`(§3.33)가 `cms_pages`를 오버레이하는 것과 동일한 패턴.
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| notification_id | `notifications` 참조 |
+| recipient_type / recipient_id | MEMBER/ADMIN 등 — 기존 `notifications.member_id`는 회원 전용이라, 관리자 수신 알림(예: 결제실패/배송지연 운영 알림)까지 다루기 위한 범용 참조 |
+| is_read / is_important / is_archived | |
+| tags | 자유 태그(JSON 배열) |
+
+**`admin_notes`**(신규, 범용 운영자 메모) — 회원/주문/상품/게시글/Workflow/정산 등 **여러 대상에 적용되는 범용 메모**. 기존 `order_admin_notes`(§3.53, 주문 전용)는 변경하지 않는다 — File Manager(§3.39)의 `related_entity_type`/`related_entity_id` 패턴 재사용.
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| related_entity_type / related_entity_id | 범용 참조(MEMBER/ORDER/PRODUCT/BOARD_POST/WORKFLOW_INSTANCE/SETTLEMENT_BATCH 등) |
+| content | |
+| is_important | 중요 메모 표시 |
+| is_internal | 내부 전용(고객 노출 화면에 절대 노출 안 함, 항상 true 전제이나 컬럼으로 명시) |
+| created_by / created_at | |
+
+- **`admin_notes`(범용)와 `order_admin_notes`(주문 전용, 기존)의 관계는 본 라운드에서 통합/마이그레이션하지 않는다** — 기존 구조를 변경하지 않는다는 원칙에 따라 두 구조가 병렬로 존재한다. 통합 여부는 **O-206**.
+
+**`approval_delegations`**(신규) — 승인 위임/휴가 중 대리 승인자. Workflow Engine(§3.37) 자체 구조는 변경하지 않는다 — 위임 정보는 Workflow Engine이 승인자를 결정할 때 **참조하는 위성 테이블**일 뿐이다.
+
+| 컬럼(개념) | 설명 |
+|---|---|
+| delegator_id | 원래 승인자 |
+| delegate_id | 대리 승인자 |
+| start_date / end_date | 위임 기간 |
+| reason | |
+| created_by | |
+
+- 위임 가능 범위(동일 역할 내에서만 위임 가능한지, 권한 레벨 검증 방식)는 미확정 — **O-207**.
+- **승인 SLA**(모듈별 처리 기한 기준값)는 신규 테이블 없이 System Settings(§3.46) 패턴을 따르는 관리자 설정값으로 둔다 — 정확한 기본값(24시간/48시간 등)은 미확정. 지연 알림은 Scheduler Center(§3.40) Job이 SLA 초과 항목을 주기 점검해 Notification Center로 발송하는 기존 패턴 재사용.
+
+**기존 구조 재사용 매핑(신규 테이블 최소화)**
+
+| 기능 | 재사용 대상 |
+|---|---|
+| Global Search | 신규 검색 인덱스 테이블 없음 — `members`/`products`/`orders`/`shipments`/`workflow_instances`/`board_posts`/`cms_pages`/`faq_items`/`marketing_programs`/`files`/`audit_logs`/`notifications`/`external_api_connections`/`scheduled_job_definitions` 등 기존 테이블에 대한 federated 쿼리. 검색 통계는 `search_query_logs`(§3.35, 기존)를 관리자 검색에도 동일 패턴으로 재사용. 검색 권한은 ROLE-MATRIX.md 기존 모듈별 조회 권한을 그대로 적용(검색 결과는 권한 없는 모듈을 노출하지 않음) |
+| Approval Center / Approval History | 신규 승인 테이블 없음 — `member_change_requests`/`organization_transfer_logs`/`returns`/`exchange_requests`/`wallet_withdrawal_requests`(§3.60)/`workflow_instances`+`workflow_step_actions`/`board_posts`(status=PENDING_APPROVAL)/`marketing_program_applications`를 federated 조회하는 **관리자 업무 Queue(§3.57)의 일반화**. 이력 조회는 `workflow_step_actions.decision`(기존, 승인/반려)+각 테이블의 approved_by/approved_at 조회, PDF/Excel은 Report Builder 재사용 |
+| Recent Activity / Activity Timeline(관리자) | `audit_logs`(§3.8)/`member_activity_logs`(§3.22, 관리자 행위 기록 패턴 기존 확인)/`workflow_step_actions`/`external_api_call_logs`/`scheduled_job_run_logs` federated 조회 — Customer Timeline(§3.57)과 동일 원리의 관리자용 버전 |
+| Notification Inbox | `notifications`/`notification_logs`(§3.20, 기존) + `notification_inbox_states`(신규, 위 참조). 첨부파일은 File Manager 재사용 |
+| Tenant Usage Dashboard | 신규 테이블 없음 — 회원수/주문수/매출은 기존 트랜잭션 테이블 집계, Storage/API호출은 `external_api_call_logs`(§3.38), 메일/SMS/Push는 `notification_logs`(§3.20), Queue 사용량은 `scheduled_job_run_logs`(§3.40) — Dashboard Builder 위젯. License/Plan/사용률은 이미 O-170/O-146/§5.55(D-071, Multi-Tenant 활성화 시점으로 deferred)로 추적 중 |
+| Personal Workspace | 신규 데이터 모델 없음 — My Dashboard(§3.57 `dashboard_definitions.owner_admin_id`)/Favorite Menu(위 신규)/Recent Activity/Saved Filter(위 신규)를 한 화면에 모은 것일 뿐 |
+| Command Palette | DB 영향 없음 — Global Search와 동일한 검색 API를 빠른 진입 UI로 노출하는 프론트엔드 컴포넌트 |
+| Universal Clipboard | DB 영향 없음 — 순수 프론트엔드 유틸리티(복사 후 기존 화면으로 이동) |
+| 관리자 Dashboard(로그인 첫 화면) | 신규 테이블 없음 — My Dashboard(§3.57)의 시스템 기본 템플릿 + §3.56(D-069, 오늘 지표)/§3.60(D-075, 공제조합 전송실패·E-Wallet 출금대기 위젯 추가) + §3.57(D-071, System Health) 위젯 묶음 |
+| System Health Widget | 신규 테이블 없음 — System Health Dashboard(PRD §5.54, D-071)를 별도 페이지가 아니라 관리자 Dashboard의 위젯으로도 노출 |
+| Quick Action(보강) | 신규 데이터 모델 없음 — 기존 Quick Action(PRD §5.61)에 정산 조회/게시글 등록/Workflow 생성 항목만 추가, 각 기존 화면 바로가기 |
 
 ## 4. 설계 원칙
 

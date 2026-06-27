@@ -1,6 +1,6 @@
 # WIREFRAME.md — 화면 레이아웃 구조
 
-> 상태: v0.6 ([DECISIONS.md](DECISIONS.md) D-074 — Dynamic Board Engine(신규, 게시판 엔진): §2 매핑표에 **Board Engine** 신규 모듈 블록 추가(게시판 목록/생성·설정/게시글 관리/게시글 승인/게시판 권한 비고/게시글 상세 6개 화면) — 기존 CMS(콘텐츠/공지/페이지/FAQ/팝업/배너/약관/이메일·SMS·Push) 화면은 변경 없음, 전부 신규 병렬 모듈. D-073 — 운영 UX 및 고객 경험 완성: §2 매핑표에 회원상세 Timeline 탭/My Dashboard/CS Timeline 임베드/Abandoned Cart·Saved Cart 보강, §3에 QuickActionMenu 추가. 신규 데이터 모델 없음, 전부 기존 화면·테이블 재사용. D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: §2 매핑표에 장바구니 상세/상품비교·가격인하알림/배송추적/관리자업무Queue/운영자대시보드/알림템플릿 상세 화면 추가. D-069 — 쇼핑몰 운영 고도화/SEO: §2 매핑표에 옵션재고고도화/SEO/Bundle/주문병합분리/배송보강 화면 신규 추가) · 최종 수정일: 2026-06-26 · 단계: 설계(Design)
+> 상태: v0.7 ([DECISIONS.md](DECISIONS.md) D-076 — ERP 운영 생산성 및 관리자 UX 완성: §2 매핑표에 **ERP 운영 생산성** 신규 모듈 블록 추가(Global Search 결과화면/Approval Center/Approval History/Notification Inbox/Tenant Usage Dashboard/Personal Workspace/Operator Notes/관리자 Dashboard 첫화면 8개 화면) — 기존 My Dashboard/Notification Center/Audit Center 행은 변경 없음, 인접 신규 행만 추가. §3에 GlobalSearchBar/FavoriteMenuToggle/SavedFilterDropdown/UniversalClipboardButton 4개 컴포넌트 추가. 신규 Engine 없음, 신규 테이블 5종(`admin_favorite_menus`/`saved_filters`/`notification_inbox_states`/`admin_notes`/`approval_delegations`, DATABASE.md §3.62)뿐 — 대부분 기존 화면·테이블 federated 조회 재사용, **O-199 해소**. D-074 — Dynamic Board Engine(신규, 게시판 엔진): §2 매핑표에 **Board Engine** 신규 모듈 블록 추가(게시판 목록/생성·설정/게시글 관리/게시글 승인/게시판 권한 비고/게시글 상세 6개 화면) — 기존 CMS(콘텐츠/공지/페이지/FAQ/팝업/배너/약관/이메일·SMS·Push) 화면은 변경 없음, 전부 신규 병렬 모듈. D-073 — 운영 UX 및 고객 경험 완성: §2 매핑표에 회원상세 Timeline 탭/My Dashboard/CS Timeline 임베드/Abandoned Cart·Saved Cart 보강, §3에 QuickActionMenu 추가. 신규 데이터 모델 없음, 전부 기존 화면·테이블 재사용. D-072 — 쇼핑몰 UX·알림·운영자 대시보드 완성: §2 매핑표에 장바구니 상세/상품비교·가격인하알림/배송추적/관리자업무Queue/운영자대시보드/알림템플릿 상세 화면 추가. D-069 — 쇼핑몰 운영 고도화/SEO: §2 매핑표에 옵션재고고도화/SEO/Bundle/주문병합분리/배송보강 화면 신규 추가) · 최종 수정일: 2026-06-27 · 단계: 설계(Design)
 > 전제 문서: [PRD.md](PRD.md), [PRD.md](PRD.md) §5.44(ERP UX Standard)
 > 본 문서는 픽셀 단위 시각 디자인이 아니라 레이아웃 구조(영역 배치)를 정의한다. 시각적 스타일은 [UI-GUIDELINE.md](UI-GUIDELINE.md)/[DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) 참조(다른 작업에서 별도 생성 중).
 
@@ -260,6 +260,7 @@
 | | Job 실행 로그 | A1 | 성공/실패 필터 |
 | **Dashboard Builder** (§5.36) | 빌더 편집 화면 | A4 (편집모드) | 위젯 팔레트 사이드패널 + Drag&Drop 캔버스 |
 | | My Dashboard(신규, D-073 — §5.65) | A4 (자유구성형, `owner_admin_id` 기본 진입점) | 로그인 시 본인 소유(`is_shared=false`) Dashboard로 기본 진입 — 신규 화면 아니라 기존 Dashboard Builder의 진입 기본값 변경. 위젯 위치는 기존 `position`(JSON) 그대로 저장 |
+| | My Dashboard 기본 템플릿 보강(D-076, §5.80) | (위 행과 동일 화면, 행 추가 아님) | 기존 "오늘 지표" 위젯 세트에 2종 위젯만 추가: 공제조합 전송실패(`compliance_transmission_items.status=실패`), E-Wallet 출금대기(`wallet_withdrawal_requests.status=REQUESTED`) — 상세는 아래 **ERP 운영 생산성** 모듈 블록의 "관리자 Dashboard 첫화면" 행 참조 |
 | **Report Builder** (§5.37) | 보고서 설계/생성 | A3 | 출력대상/조건검색/필터/정렬 섹션 + 출력형식 Select(Excel/PDF/CSV) + 예약생성 토글(Scheduler 연동) |
 | **Form Builder** (§5.38) | 폼 설계 화면 | A3 (메타 편집) | 필드 팔레트(Text/Select/Checkbox/.../File) + Drag&Drop 캔버스 + Validation 규칙 섹션 |
 | | 생성된 폼(응답자용) | A3 (런타임) | Form Builder가 정의한 필드를 그대로 렌더링 |
@@ -275,6 +276,14 @@
 | **Notification Center** (§5.12/§5.34) | 템플릿 목록/편집 | A1 + A3 | 채널 탭, 예약발송/조건발송 설정 섹션, 발송로그/실패관리 탭, 제목·본문·변수 입력 + 활성/비활성 토글 + [테스트발송]/[미리보기] 버튼(§5.57, 신규 — DB 영향 없음) |
 | **CRM Center** (§5.40) | 상담 목록/상담 상세 | A1 + A2 | 상담상태 배지, Follow-up 플래그, 관심상품/회원활동 탭(기존 테이블 재사용) |
 | **Audit Center** (§5.35) | 감사로그 검색 | A1 | 기간/사용자/모듈/IP/행위 필터, [다운로드]=Report Builder 재사용 |
+| **ERP 운영 생산성**(신규, D-076 — 신규 Engine 없음, 대부분 기존 모듈 federated 조회 재사용) | Global Search 결과 화면 (§5.71) | A1 변형(카테고리 탭) | 좌측 필터 패널 대신 상단에 회원/상품/주문/배송/송장/정산/Workflow/게시글/FAQ/공지사항/보도자료/갤러리/Dynamic Board/프로그램/파일/Report/Audit/Notification/API/Scheduler/오류로그 등 카테고리 탭, 탭별 결과는 A1 테이블의 축소판(컬럼 수 제한), 검색어 Highlight·자동완성은 프론트엔드 전용(DB 영향 없음), 결과 클릭 시 해당 모듈 기존 상세 화면(A2)으로 딥링크. 노출 결과는 [ROLE-MATRIX.md](ROLE-MATRIX.md) 기존 모듈별 조회 권한으로 필터링(신규 권한 체계 없음). 신규 검색 인덱스 테이블 없음 |
+| | Approval Center (§5.72) | A5(Workflow 보드 재사용) | §1 A5 칸반을 그대로 사용하되 칸반 카드가 회원변경/조직이동/환불/반품/교환/E-Wallet출금/Workflow/게시글예약승인/프로그램신청 9종 기존 승인 테이블을 federated 조회해 한 보드에 모음 — 카드 좌상단에 출처 모듈 배지로 구분. 카드 상세 슬라이드패널에 위임자 표시(`approval_delegations` 참조, O-207 위임범위 미확정) + SLA 배지(설정된 기한 대비 경과시간, 초과 시 경고색 — Scheduler+Notification 재사용)가 A5 표준 패널에 추가되는 변형. 신규 승인 엔진/전용 보드 아님 — §1 A5 마지막 항목("기존 5개 전용 승인 구조") 원칙과 동일하게 각 모듈이 정의한 단계 그대로 표시 |
+| | Approval History (§5.77) | A1 | 컬럼: 대상유형/대상ID/승인자/승인시각/결과(승인/반려)/반려사유 — `workflow_step_actions.decision` + 각 승인 테이블 `approved_by`/`approved_at` federated 조회, Audit Center(§5.35)와 분리된 승인 전용 조회 화면. [다운로드]=Report Builder 재사용 |
+| | Notification Inbox (§5.75) | A1 + A2 | 목록(A1): 좌측 필터에 안읽음/중요/보관/삭제·날짜·유형 필터, 상단 [전체읽음] 일괄작업(BulkActionDialog, §5.44.6), 행에 읍음·중요·보관 상태 토글 아이콘(`notification_inbox_states` 오버레이, 기존 `notifications`/`notification_logs` 변경 없음). 상세(A2 축소판): 본문 + 첨부파일(File Manager 재사용) + 태그 표시. `recipient_type=ADMIN`으로 마이오피스 알림함(회원용)과 분리 — 별도 화면 |
+| | Tenant Usage Dashboard (§5.76) | A4 | 위젯: 회원수/주문수/매출(기존 트랜잭션 집계), Storage/API호출(`external_api_call_logs`), Queue 사용량(`scheduled_job_run_logs`), 메일/SMS/Push(`notification_logs`), License/Plan/사용률 카드(§5.55, D-071의 기존 deferred 항목 그대로 인용, 본 화면에서 신규 정의 없음) — Dashboard Builder 위젯 조합, 신규 테이블 없음 |
+| | Personal Workspace (§5.78) | A4 변형(여러 기존 위젯 집약) | My Dashboard(§5.65, 기존) 위젯 영역 + Favorite Menu/Saved Filter(§5.73) 패널 + Recent Activity(§5.74) 타임라인 위젯 + Quick Action(§5.61, 기존) 바를 한 화면에 배치한 집약형 — 신규 데이터 모델 없음, 레이아웃만 신규(각 구성요소는 이미 정의된 화면/컴포넌트의 재배치) |
+| | Operator Notes (§5.79) | A2 내 임베드형 메모 패널(독립 화면 아님) | 회원/주문/상품/게시글/Workflow/정산 등 각 대상의 A2 상세 화면에 "메모" 탭 또는 우측 패널로 임베드되는 컴포넌트 취급 — §1 A2의 "첨부파일 탭" 패턴과 동일하게 탭 콘텐츠 영역에 메모 작성/이력 리스트(작성자/작성일/중요표시) 노출. `admin_notes`(범용, 신규) 사용 — 기존 주문상세의 "관리자메모" 탭(§5.45.2, `order_admin_notes`)은 변경하지 않으며 별개로 유지(통합 여부 O-206 미확정) |
+| | 관리자 Dashboard 첫화면 (§5.80) | A4 (My Dashboard 기본 템플릿 그대로) | 별도 신규 화면 아님 — My Dashboard(§5.65, 기존)의 시스템 기본 템플릿이며, 기존 "오늘 지표"/"긴급 처리 지표"(§5.59) 위젯 세트에 신규 위젯 2종(공제조합 전송실패, E-Wallet 출금대기)을 추가하고 System Health(§5.54, D-071) 위젯도 별도 페이지 대신 본 화면에 함께 노출 — 위 **Dashboard**/**My Dashboard** 행 참조, 신규 테이블 없음 |
 
 ---
 
@@ -292,6 +301,10 @@
 | BulkActionDialog | A1/A6-3 | 체크박스 다중 선택 후 일괄작업 |
 | ImageUploader/FileUploader/ImagePreview/ProgressBar | A3 | 이미지/파일 업로드 섹션 |
 | QuickActionMenu(신규, D-073 — §5.61 구체화) | 전체(관리자 콘솔 상단 전역) | 주문조회/회원조회/상품등록/패키지등록/송장등록/환불승인/공지등록 — 각 기존 화면으로의 바로가기일 뿐, 클릭 시 해당 모듈의 기존 권한·승인 절차(예: 환불승인은 §16 통합 상태머신)를 그대로 거친다. 신규 데이터 모델 없음 |
+| GlobalSearchBar(신규, D-076 — §5.71 구체화) | 전체(관리자 콘솔 상단 전역, GNB 영역) | 입력 시 §5.71 Global Search API를 호출해 카테고리별 결과를 드롭다운 미리보기로 노출, [Enter] 또는 [전체결과보기] 클릭 시 Global Search 결과 화면(A1 변형, §2 ERP 운영 생산성 블록)으로 이동. **Ctrl+K**는 동일 검색 API를 호출하는 CommandPalette(신규, §5.81) 변형 오버레이를 호출하는 별도 진입점일 뿐, 검색 로직은 본 컴포넌트와 동일 — 신규 검색 인덱스/데이터 모델 없음 |
+| FavoriteMenuToggle(신규, D-076 — §5.73 구체화) | 전체(좌측 GNB 메뉴 항목마다) | 메뉴 항목 옆 Pin 아이콘 클릭 → `admin_favorite_menus`(DATABASE.md §3.62, 신규)에 추가/제거, 즐겨찾기된 메뉴는 GNB 상단 또는 Personal Workspace(§5.78)에 별도 노출 |
+| SavedFilterDropdown(신규, D-076 — §5.73 구체화) | A1(목록 화면 검색바 우측) | §1 A1의 "검색바/필터▾" 영역에 [필터 저장▾] 드롭다운 추가 — 현재 적용 중인 검색조건을 `saved_filters`(DATABASE.md §3.62, 신규)에 이름 붙여 저장(예: "승인대기"/"환불대기"/"배송지연"/"재고부족"/"신규가입"/"정산보류"), 드롭다운에서 저장된 조건 선택 시 즉시 적용. `is_default` 체크 시 해당 화면 진입 시 자동 적용, `is_shared` 체크 시 다른 관리자에게도 노출 |
+| UniversalClipboardButton(신규, D-076 — §5.82 구체화) | A2(상세 화면의 ID/코드 표시 영역) | 회원번호/주문번호/송장번호/상품코드/URL 옆에 복사 아이콘 — 클릭 시 클립보드 복사 + SuccessToast, 복사된 값으로 Global Search 또는 해당 모듈 목록 화면으로 빠르게 재진입할 수 있는 [빠른 이동] 보조 링크 동반. 순수 프론트엔드 유틸리티, DB 영향 없음 |
 
 본 매핑은 [PRD.md](PRD.md) §5.44.12의 "동일 UX·동일 Button·동일 Dialog·동일 Toast" 원칙을 레이아웃 차원에서 재확인한 것이며, 화면별 변형이 필요해지면 §5.44 자체를 갱신하고 [DECISIONS.md](DECISIONS.md)에 기록한 뒤 본 문서도 함께 갱신한다.
 
